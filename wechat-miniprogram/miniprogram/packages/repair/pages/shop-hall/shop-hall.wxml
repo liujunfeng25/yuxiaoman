@@ -1,0 +1,74 @@
+<view class="page shop-hall-page">
+  <view class="shop-header">
+    <view class="shop-identity">
+      <text class="role-kicker">维修门店端 · 账号已绑定</text>
+      <text class="shop-name">{{shopName}}</text>
+      <view class="account-line"><text class="account-name">{{accountName}}</text><text wx:if="{{isDemoShop}}" class="demo-badge">演示门店</text></view>
+    </view>
+    <button class="logout-entry" bindtap="logout" loading="{{loggingOut}}" disabled="{{loggingOut}}" aria-label="退出维修门店账号">
+      <image src="/assets/icons/user-circle.png" mode="aspectFit" />
+      <text>退出</text>
+    </button>
+  </view>
+
+  <view class="demo-notice">
+    <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+    <view><text>{{isDemoShop ? '当前账号绑定合成演示门店' : '当前账号已锁定所属门店'}}</text><text>门店范围由服务端会话确定，页面不提供门店切换。</text></view>
+  </view>
+
+  <view class="overview-card">
+    <view class="metric">
+      <image src="/assets/icons/receipt.png" mode="aspectFit" />
+      <view><text>待报价</text><text>{{stats.pending}}</text></view>
+    </view>
+    <view class="metric">
+      <image src="/assets/icons/wrench.png" mode="aspectFit" />
+      <view><text>已报价</text><text>{{stats.quoted}}</text></view>
+    </view>
+    <view class="metric">
+      <image src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <view><text>已成交</text><text>{{stats.won}}</text></view>
+    </view>
+  </view>
+
+  <view class="hall-heading">
+    <view><text>接单大厅</text><text>按需求状态快速处理</text></view>
+    <button bindtap="retry" disabled="{{loading}}"><image src="/assets/icons/recycle.png" mode="aspectFit" /><text>刷新</text></button>
+  </view>
+
+  <scroll-view scroll-x class="filter-scroll" enhanced show-scrollbar="{{false}}">
+    <view class="filter-row">
+      <button wx:for="{{filterOptions}}" wx:key="key" data-filter="{{item.key}}" bindtap="chooseFilter" class="{{filter === item.key ? 'active' : ''}}">{{item.label}}</button>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{loading}}" class="loading hall-loading">正在读取维修需求…</view>
+  <view wx:elif="{{error}}" class="error-card">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>大厅加载失败</text><text>{{error}}</text>
+    <button bindtap="retry">重新加载</button>
+  </view>
+  <view wx:elif="{{visibleRequests.length}}" class="request-list">
+    <view wx:for="{{visibleRequests}}" wx:key="id" class="request-card status-{{item.status}}" role="button" aria-label="查看{{item.plateMasked}}维修需求" data-id="{{item.id}}" bindtap="openRequest">
+      <view class="request-topline">
+        <view class="plate-line"><text>{{item.plateMasked}}</text><text>{{item.statusLabel}}</text></view>
+        <view wx:if="{{item.quoteAmountLabel}}" class="quoted-price"><text>¥</text><text>{{item.quoteAmountLabel}}</text></view>
+      </view>
+      <text class="vehicle-label">{{item.vehicleLabel}}</text>
+      <view class="damage-summary">
+        <image src="/assets/icons/car-profile.png" mode="aspectFit" />
+        <text>{{item.faultSummary}}</text>
+        <text>{{item.statusHint}}</text>
+      </view>
+      <view class="request-footer">
+        <view><image src="/assets/icons/clock.png" mode="aspectFit" /><text>{{item.submittedAt}}</text></view>
+        <button data-id="{{item.id}}" data-status="{{item.status}}" catchtap="quickAction">{{item.actionLabel}}<image src="/assets/icons/caret-right.png" mode="aspectFit" /></button>
+      </view>
+    </view>
+    <view class="privacy-note"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>报价阶段仅提供脱敏车辆和车损资料；车主选店并完成模拟支付后，只有中选门店可见合成联系人。</text></view>
+  </view>
+  <view wx:else class="empty-card">
+    <image src="/assets/icons/receipt.png" mode="aspectFit" />
+    <text>当前筛选暂无需求</text><text>可切换状态筛选，或稍后刷新查看</text>
+  </view>
+</view>

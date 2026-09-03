@@ -1,0 +1,67 @@
+<view class="detail-page {{request && request.status !== 'cancelled' ? 'has-fixed-actions' : ''}}">
+  <view wx:if="{{loading}}" class="loading-state"><image src="/assets/icons/clock.png" mode="aspectFit"/><text>正在读取维修需求…</text></view>
+
+  <view wx:elif="{{error && !request}}" class="error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>维修需求暂时无法打开</text><text>{{error}}</text>
+    <button bindtap="retry">重新加载</button><button class="plain" bindtap="goHome">返回首页</button>
+  </view>
+
+  <block wx:elif="{{request}}">
+    <view class="status-hero status-{{statusTone}}">
+      <view class="status-icon"><image src="{{statusIconPath}}" mode="aspectFit"/></view>
+      <view><text>维修询价 · {{request.requestNo}}</text><text>{{statusTitle}}</text><text>{{statusDescription}}</text></view>
+    </view>
+
+    <view wx:if="{{request.status === 'open' && activeQuoteCount}}" class="quote-overview" bindtap="openQuotes">
+      <view><text>当前有效报价</text><text>{{activeQuoteCount}} 份</text></view>
+      <view><text>最低全款总价</text><text>¥{{lowestPriceText}}</text></view>
+      <view><text>按价格升序查看全部方案</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
+    </view>
+
+    <view wx:elif="{{request.status === 'open'}}" class="waiting-card">
+      <image src="/assets/icons/clock.png" mode="aspectFit"/><view><text>需求已发布到接单大厅</text><text>修理店会根据完整车损记录与特写提交全款总价，页面下拉即可刷新。</text></view>
+    </view>
+
+    <view wx:if="{{request.status === 'paid'}}" class="deal-card" bindtap="openReceipt">
+      <image src="/assets/icons/check-circle.png" mode="aspectFit"/>
+      <view><text>{{paidShopName}}</text><text>成交全款总价 ¥{{paidPriceText}}</text></view>
+      <view><text>查看成交回执</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
+    </view>
+
+    <view class="section-heading"><text>需求摘要</text><text>报告自动生成</text></view>
+    <view class="request-card">
+      <view class="vehicle-row"><view class="row-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view><view><text>{{request.vehicle.plateNumber}}</text><text>{{request.vehicle.displayName}}</text></view><text>{{faultViews.length}} 处车损</text></view>
+      <view class="fact-row"><text>平台需求编号</text><text>{{request.requestNo}}</text></view>
+      <view class="fact-row"><text>检测报告编号</text><text>{{request.report.reportNo}}</text></view>
+      <view class="fact-row"><text>发布时间</text><text>{{createdAtText}}</text></view>
+      <view class="fact-row"><text>最近更新</text><text>{{updatedAtText}}</text></view>
+      <button bindtap="openReport"><text>查看原车辆体检报告</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></button>
+    </view>
+
+    <view class="section-heading"><text>车损与特写</text><text>全部固定共享 · {{photoCount}} 张</text></view>
+    <view class="fault-list">
+      <view wx:for="{{faultViews}}" wx:key="id" class="fault-card">
+        <view class="fault-head"><text>#{{item.number}}</text><view><text>{{item.title}}</text><text>{{item.locationText}}</text></view><text class="severity severity-{{item.severityTone}}">{{item.severityText}}</text></view>
+        <text class="fault-description">{{item.descriptionText}}</text>
+        <view class="photo-grid">
+          <button wx:for="{{item.photos}}" wx:for-item="photo" wx:key="id" data-url="{{photo.url}}" data-media-id="{{photo.id}}" data-source-url="{{photo.sourceUrl}}" bindtap="handlePhotoTap" aria-label="{{photo.url ? '查看' : '重新读取'}}车损特写">
+            <image wx:if="{{photo.url}}" src="{{photo.url}}" mode="aspectFill" data-media-id="{{photo.id}}" data-source-url="{{photo.sourceUrl}}" binderror="handlePrivatePhotoError"/>
+            <view wx:else class="photo-load-failed"><image src="/assets/icons/camera.png" mode="aspectFit"/><text>点击重试</text></view>
+            <text>特写 {{index + 1}}</text>
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view class="service-boundary"><image src="/assets/icons/shield-check.png" mode="aspectFit"/><view><text>服务边界</text><text>{{request.serviceBoundary || '报价基于报告可见车损，不替代拆检诊断；实际维修、增项、质保与交付由车主和所选修理店线下确认。'}}</text></view></view>
+    <view wx:if="{{request.demoNotice}}" class="demo-note"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{request.demoNotice}}</text></view>
+    <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{error}}</text></view>
+
+    <view wx:if="{{request.status === 'open'}}" class="action-bar">
+      <button class="cancel" disabled="{{busy}}" bindtap="cancelRequest">取消询价</button>
+      <button wx:if="{{canChooseQuote}}" class="primary" bindtap="openQuotes">查看并选择 {{activeQuoteCount}} 份报价</button>
+      <button wx:else class="primary" disabled="{{busy}}" bindtap="retry">刷新报价</button>
+    </view>
+    <view wx:elif="{{request.status === 'paid'}}" class="action-bar paid-action"><button class="primary" bindtap="openReceipt">查看成交回执与联系方式</button></view>
+  </block>
+</view>

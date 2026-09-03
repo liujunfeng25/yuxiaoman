@@ -1,0 +1,10 @@
+驭小满 MVP 源码包
+
+要求：Windows/macOS/Linux，Node.js 24.x，npm 11.x。
+运行：
+1. 在此目录打开终端。
+2. 执行 npm ci。
+3. 执行 npm run dev:full。
+4. 打开 http://127.0.0.1:4173/。
+
+无需安装环境时，请使用同目录交付的 Windows x64 便携版 ZIP。

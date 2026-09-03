@@ -1,0 +1,39 @@
+.vehicles-page { padding-bottom: calc(48rpx + env(safe-area-inset-bottom)); }
+.intro { margin: 10rpx 2rpx 28rpx; }
+.intro-eyebrow { display: block; color: #2e78bf; font-size: 17rpx; font-weight: 800; letter-spacing: 2rpx; }
+.intro-row { display: flex; margin-top: 6rpx; align-items: flex-end; justify-content: space-between; gap: 20rpx; }
+.intro-row > view { display: flex; min-width: 0; flex-direction: column; }
+.intro-title { color: #17253a; font-size: 44rpx; font-weight: 800; letter-spacing: -1rpx; }
+.intro-copy { margin-top: 5rpx; color: #7b899b; font-size: 22rpx; }
+.intro-add { display: flex; min-height: 72rpx; padding: 0 20rpx; align-items: center; gap: 8rpx; color: #1768cf; border: 1rpx solid #cfe0f3; border-radius: 18rpx; background: #fff; font-size: 23rpx; font-weight: 700; box-shadow: 0 7rpx 20rpx rgba(31, 75, 120, .05); }
+.intro-add image { width: 28rpx; height: 28rpx; }
+
+.vehicle { margin-bottom: 20rpx; overflow: hidden; border: 1rpx solid #e1e8ef; border-radius: 28rpx; box-shadow: 0 10rpx 26rpx rgba(31, 59, 94, .055); }
+.vehicle-main { display: grid; min-height: 164rpx; padding: 25rpx 26rpx 20rpx; grid-template-columns: 190rpx minmax(0, 1fr); align-items: center; gap: 22rpx; box-sizing: border-box; }
+.vehicle-avatar { position: relative; display: flex; width: 190rpx; height: 118rpx; align-items: center; justify-content: center; overflow: hidden; border-radius: 24rpx; background: linear-gradient(145deg, #edf6ff, #f8fbff); }
+.vehicle-avatar image { width: 176rpx; height: 100rpx; }
+.vehicle-avatar text { position: absolute; right: 9rpx; bottom: 7rpx; padding: 3rpx 8rpx; color: #6c7f96; border-radius: 8rpx; background: rgba(255,255,255,.88); font-size: 15rpx; }
+.vehicle-info { display: flex; min-width: 0; flex-direction: column; }
+.vehicle-kicker { color: #1768cf; font-size: 20rpx; font-weight: 700; }
+.vehicle-plate { margin-top: 4rpx; color: #15263d; font-size: 38rpx; font-weight: 800; letter-spacing: 2rpx; }
+.vehicle-model { margin-top: 3rpx; color: #284b76; font-size: 23rpx; font-weight: 750; }
+.vehicle-meta { margin-top: 4rpx; overflow: hidden; color: #7b899b; font-size: 21rpx; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.wash-category-badge { width: fit-content; margin-top: 8rpx; padding: 5rpx 9rpx; color: #1768cf; border-radius: 9rpx; background: #edf5ff; font-size: 17rpx; font-weight: 700; }
+.validity-row { display: flex; margin: 0 25rpx 20rpx; padding: 15rpx 17rpx; align-items: flex-start; gap: 10rpx; color: #68798d; border-radius: 16rpx; background: #f1f5f9; font-size: 20rpx; line-height: 1.45; }
+.validity-row image { width: 27rpx; height: 27rpx; margin-top: 1rpx; flex: none; }
+.validity-row text { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.actions { display: flex; border-top: 1rpx solid #edf1f5; }
+.actions button { display: flex; width: 33.333%; min-width: 0; min-height: 82rpx; flex: none; align-items: center; justify-content: center; gap: 8rpx; color: #5f6f82; font-size: 22rpx; font-weight: 650; }
+.actions button + button { border-left: 1rpx solid #edf1f5; }
+.actions .delete-action { color: #b54755; }
+.actions .default-action { color: #1768cf; }
+.actions .current-action { color: #8b98a8; background: #f8fafc; }
+.delete-action image { width: 28rpx; height: 28rpx; }
+
+.vehicle-empty { display: flex; min-height: 410rpx; padding: 54rpx 30rpx; align-items: center; justify-content: center; flex-direction: column; }
+.vehicle-empty > image { width: 74rpx; height: 74rpx; padding: 22rpx; border-radius: 28rpx; background: #edf5ff; }
+.vehicle-empty > text:nth-of-type(1) { margin-top: 20rpx; color: #26384e; font-size: 30rpx; font-weight: 750; }
+.vehicle-empty > text:nth-of-type(2) { margin-top: 8rpx; color: #7b899b; font-size: 22rpx; }
+.vehicle-empty button { display: flex; min-height: 78rpx; margin-top: 28rpx; padding: 0 28rpx; align-items: center; gap: 9rpx; color: #fff; border-radius: 20rpx; background: #1768cf; font-size: 24rpx; font-weight: 700; }
+.vehicle-empty button image { width: 27rpx; height: 27rpx; padding: 3rpx; border-radius: 50%; background: #fff; }
+.demo-disclosure { display: block; margin: 30rpx 0 0; color: #98a3b0; font-size: 19rpx; text-align: center; }

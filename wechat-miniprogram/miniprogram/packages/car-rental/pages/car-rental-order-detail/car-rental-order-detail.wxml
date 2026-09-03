@@ -1,0 +1,23 @@
+<view class="order-page">
+  <view wx:if="{{loading}}" class="loading-card"><view></view><view></view><text>正在读取租车订单…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text class="state-title">订单暂时不可用</text><text class="state-copy">{{error}}</text><view class="state-actions"><button bindtap="backToRent">返回租车首页</button><button bindtap="retry">重新加载</button></view></view>
+  <block wx:else>
+    <view class="status-card status-{{order.statusTone}}"><view class="status-icon"><image src="/assets/icons/{{order.status === 'pending_payment' ? 'clock' : order.status === 'cancelled' || order.status === 'expired' ? 'warning-circle' : 'check-circle'}}.png"/></view><view><text>{{order.statusLabel}}</text><text>{{order.statusDescription}}</text></view><text>{{order.orderNumber}}</text></view>
+
+    <view wx:if="{{order.status !== 'pending_payment' && order.status !== 'cancelled' && order.status !== 'expired'}}" class="progress-card"><view wx:for="{{['已确认','待取车','租用中','还车中','已完成']}}" wx:key="*this" class="{{index <= order.progressIndex ? 'done' : ''}}"><text>{{index + 1}}</text><text>{{item}}</text></view></view>
+
+    <view class="model-card"><image src="{{order.model.imageUrl}}" mode="aspectFill" webp="{{true}}" binderror="modelImageError"/><view><text>{{order.model.brandName}} {{order.model.name}}</text><text>{{order.energyLabel}} · {{order.model.seats}}座 · {{order.model.transmission}}</text><text>指定车型保障</text></view></view>
+
+    <view class="section-card"><view class="section-head"><text>取还信息</text><text>{{order.rentalDays}} 天</text></view><view class="place"><image src="/assets/icons/{{order.fulfillmentMode === 'home_delivery' ? 'map-pin' : 'storefront'}}.png"/><view><text>{{order.fulfillmentMode === 'home_delivery' ? '同址送取' : '同店取还'}}</text><text>{{order.locationTitle}}</text><text>{{order.locationAddress}}</text></view></view><view class="time"><view><text>取</text><text>{{order.pickupLabel}}</text></view><view><text>还</text><text>{{order.returnLabel}}</text></view></view></view>
+
+    <view class="section-card driver"><view class="section-head"><text>驾驶员</text><text>未采集证件图片</text></view><view><text>姓名</text><text>{{order.contactName}}</text></view><view><text>联系电话</text><text>{{order.contactPhoneMasked}}</text></view><view wx:if="{{order.assignedVehicle}}"><text>门店分配车辆</text><text>{{order.assignedVehicle.color}} {{order.assignedVehicle.plateMasked || order.assignedVehicle.displayCode}}</text></view></view>
+
+    <view class="section-card fees"><view class="section-head"><text>费用明细</text><text>{{order.paymentStatus === 'paid' ? '已模拟支付' : '待模拟支付'}}</text></view><view><text>车辆租金</text><text>¥{{order.rentalFeeLabel}}</text></view><view><text>基础保障</text><text>¥{{order.basicProtectionLabel}}</text></view><view><text>整备服务费</text><text>¥{{order.prepLabel}}</text></view><view wx:if="{{order.quote.breakdown.optionalProtectionFen > 0}}"><text>安心保障</text><text>¥{{order.optionalLabel}}</text></view><view wx:if="{{order.quote.breakdown.deliveryFeeFen > 0}}"><text>同址送取费</text><text>¥{{order.deliveryLabel}}</text></view><view class="total"><text>预付合计</text><text>¥{{order.totalLabel}}</text></view></view>
+
+    <view class="deposit-card"><text>模拟预授权押金</text><view><text>车辆押金</text><text>¥{{order.vehicleDepositLabel}}</text></view><view><text>违章押金</text><text>¥{{order.violationDepositLabel}}</text></view><text>押金不计入预付金额；本演示不会真实冻结资金。</text></view>
+    <view class="demo-note">合成演示订单 · 模拟支付 · 无真实资金流转</view>
+    <view class="footer-spacer"></view>
+    <view wx:if="{{order.canPay || order.canCancel}}" class="fixed-footer"><button wx:if="{{order.canCancel}}" disabled="{{acting}}" bindtap="cancel">取消订单</button><button wx:if="{{order.canPay}}" loading="{{acting}}" disabled="{{acting}}" bindtap="pay">模拟支付 ¥{{order.totalLabel}}</button></view>
+    <view wx:else class="again"><button bindtap="goRent">再次租车</button></view>
+  </block>
+</view>

@@ -1,0 +1,57 @@
+function money(fen) {
+  var value = (fen || 0) / 100;
+  return value.toFixed(2).replace('.00', '');
+}
+
+function statusLabel(status) {
+  var labels = {
+    pending_payment: '待支付',
+    paid_pending_confirmation: '历史待确认',
+    pending_precheck: '待检测站预审',
+    precheck_rejected: '预审未通过',
+    confirmed: '预约已确认',
+    driver_arranged: '司机已安排',
+    picked_up: '司机已取车，前往检测站',
+    awaiting_arrival: '等待到站',
+    checked_in: '车辆已到检测站',
+    inspecting: '检测中',
+    result_received: '检测结果已回传',
+    returning: '车辆送回中',
+    completed: '服务已完成',
+    on_hold: '异常挂起',
+    cancelled: '已取消',
+    no_show: '已爽约'
+  };
+  return labels[status] || status || '状态待确认';
+}
+
+function driveDuration(minutes) {
+  var rounded = Math.max(1, Math.round(minutes));
+  if (rounded < 60) return rounded + ' 分钟';
+  var hours = Math.floor(rounded / 60);
+  var remainder = rounded % 60;
+  return remainder === 0 ? hours + ' 小时' : hours + ' 小时 ' + remainder + ' 分钟';
+}
+
+function distanceLabel(distanceKm, driveMinutes, basis) {
+  if (distanceKm === null || distanceKm === undefined) return '确定取车地址后计算';
+  var prefix = basis === 'estimated_distance' ? '预计 ' : '';
+  var duration = driveMinutes === null || driveMinutes === undefined ? '' : ' · 约 ' + driveDuration(driveMinutes);
+  return prefix + distanceKm + ' km' + duration;
+}
+
+function stationDistance(station) {
+  if (!station || station.distanceKm === null || station.distanceKm === undefined || station.driveMinutes === null || station.driveMinutes === undefined) {
+    return '确定起点后计算';
+  }
+  var prefix = station.distanceBasis === 'estimated_distance' ? '预计 ' : '';
+  return prefix + station.distanceKm + ' km · 约 ' + driveDuration(station.driveMinutes);
+}
+
+module.exports = {
+  money: money,
+  statusLabel: statusLabel,
+  driveDuration: driveDuration,
+  distanceLabel: distanceLabel,
+  stationDistance: stationDistance
+};

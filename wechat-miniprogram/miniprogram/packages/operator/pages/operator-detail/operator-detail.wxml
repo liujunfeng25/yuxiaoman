@@ -1,0 +1,109 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+
+<view class="page operator-detail-page">
+  <view wx:if="{{loading}}" class="loading detail-loading">正在读取任务详情…</view>
+  <block wx:elif="{{booking}}">
+    <view class="synthetic-label"><text>合成数据</text><image src="/assets/icons/shield-check.png"/></view>
+
+    <view class="booking-hero">
+      <view class="booking-title"><text>{{booking.plateNumber}}</text><text class="status status-{{booking.status}}">{{fmt.statusLabel(booking.status)}}</text></view>
+      <view class="booking-number"><text>预约单号</text><text>{{booking.bookingNumber}}</text></view>
+      <view class="booking-meta">
+        <view><image src="/assets/icons/clock.png"/><view><text>{{booking.startTime}}–{{booking.endTime}}</text><text>{{booking.appointmentDateLabel}}</text></view></view>
+        <view><image src="/assets/icons/user-circle.png"/><view><text>{{booking.contactName}}</text><text>{{booking.contactPhoneMasked}}</text></view></view>
+        <view><image src="/assets/icons/car.png"/><view><text>{{booking.vehicleTypeLabel}}</text><text>{{booking.vehicleUsageLabel}}</text></view></view>
+      </view>
+    </view>
+
+    <view class="service-card">
+      <view class="service-heading"><view class="service-icon"><image src="/assets/icons/map-pin.png"/></view><view><text>预约方式</text><text>{{booking.serviceModeLabel}}</text></view><text>¥{{fmt.money(booking.serviceFeeFen)}}</text></view>
+      <view class="mock-payment-note"><image src="/assets/icons/shield-check.png"/><text>本地 mock 支付金额；不拉起真实 SDK，金额参与后台应收、已收与统计。</text></view>
+      <view wx:if="{{booking.pickupAddress}}" class="service-location"><text>{{booking.pickupAddress.title}}{{booking.pickupAddress.detail ? ' · ' + booking.pickupAddress.detail : ''}}</text><text>{{booking.pickupAddress.address}}</text><text wx:if="{{booking.pickupAddress.note}}">备注：{{booking.pickupAddress.note}}</text></view>
+      <view wx:else class="service-location"><text>{{booking.station ? booking.station.name : '预约检测站'}}</text><text>{{booking.station ? booking.station.address : '车主按预约时段自驾到站'}}</text></view>
+      <button class="navigate-button" bindtap="navigate"><image src="/assets/icons/map-pin.png"/><text>{{booking.navigationLabel}}</text><image src="/assets/icons/caret-right.png"/></button>
+    </view>
+
+    <view wx:if="{{booking.status === 'on_hold'}}" class="hold-alert"><image src="/assets/icons/warning-circle.png"/><view><text>异常处理中：任务已挂起</text><text>车辆信息不一致，请完成现场复核后恢复任务。</text></view></view>
+
+    <view class="process-card">
+      <view class="card-heading"><text>服务流程</text><text>当前：{{fmt.statusLabel(booking.status)}}</text></view>
+      <view class="process-steps">
+        <view wx:for="{{processSteps}}" wx:key="key" class="process-step {{item.state}}">
+          <text class="step-number">{{index + 1}}</text>
+          <view class="step-icon"><image src="{{item.iconPath}}"/></view>
+          <text class="step-label">{{item.label}}</text>
+          <text class="step-state">{{item.stateLabel}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{arrivalEvidence && (booking.status === 'picked_up' || booking.status === 'checked_in' || booking.status === 'inspecting' || booking.status === 'result_received' || booking.status === 'returning' || booking.status === 'completed')}}" class="arrival-evidence-card">
+      <view class="arrival-evidence-head"><view><text>检测站接车留证</text><text>车辆到站后现场拍摄，5 张齐全即完成到站核验</text></view><text class="{{arrivalEvidence.completed ? 'complete' : ''}}">{{arrivalEvidence.uploadedCount}}/5</text></view>
+      <view class="arrival-evidence-grid">
+        <block wx:for="{{arrivalEvidence.slots}}" wx:key="kind">
+          <button wx:if="{{arrivalEvidence.completed}}" data-url="{{item.photo ? item.photo.url : ''}}" bindtap="previewArrivalEvidence" class="{{item.photo ? 'has-photo' : ''}}">
+            <image wx:if="{{item.photo}}" src="{{item.photo.url}}" mode="aspectFill"/>
+            <view wx:else class="arrival-slot-empty"><image src="/assets/icons/camera.png"/><text>历史照片缺失</text></view>
+            <view class="arrival-slot-copy"><text>{{item.label}}</text><text>{{item.photo ? '点击查看' : item.hint}}</text></view>
+          </button>
+          <view wx:elif="{{item.photo}}" class="arrival-slot-card has-photo">
+            <button class="arrival-slot-preview" data-url="{{item.photo.url}}" bindtap="previewArrivalEvidence" aria-label="查看{{item.label}}留证照片"><image src="{{item.photo.url}}" mode="aspectFill"/><view class="arrival-slot-copy"><text>{{item.label}}</text><text>已上传 · 点击查看</text></view></button>
+            <button class="arrival-slot-retake" data-kind="{{item.kind}}" bindtap="chooseArrivalEvidence" disabled="{{arrivalUploadingKind || arrivalCompleting}}" aria-label="重新拍摄{{item.label}}">{{arrivalUploadingKind === item.kind ? '上传中…' : '重新拍摄'}}</button>
+          </view>
+          <button wx:else data-kind="{{item.kind}}" bindtap="chooseArrivalEvidence" disabled="{{arrivalUploadingKind || arrivalCompleting}}"><view class="arrival-slot-empty"><image src="/assets/icons/camera.png"/><text>{{arrivalUploadingKind === item.kind ? '上传中…' : '现场拍摄'}}</text></view><view class="arrival-slot-copy"><text>{{item.label}}</text><text>{{item.hint}}</text></view></button>
+        </block>
+      </view>
+      <view wx:if="{{arrivalEvidence.completed}}" class="arrival-evidence-complete"><image src="/assets/icons/check-circle.png"/><view><text>到站留证已完成</text><text>{{arrivalEvidence.capturedByLabel || '检测站人员'}} · {{arrivalEvidence.capturedAt || '服务端时间已记录'}}</text></view></view>
+      <button wx:else class="arrival-evidence-submit" bindtap="completeArrivalEvidence" loading="{{arrivalCompleting}}" disabled="{{arrivalCompleting || arrivalUploadingKind || arrivalEvidence.uploadedCount !== 5}}">{{arrivalEvidence.uploadedCount === 5 ? '提交留证并完成到站核验' : '还需拍摄 ' + (5 - arrivalEvidence.uploadedCount) + ' 张'}}</button>
+      <view class="arrival-evidence-note"><image src="/assets/icons/shield-check.png"/><text>照片完整提交后系统自动推进到“已到站”，不需要车主确认。</text></view>
+    </view>
+
+    <view class="verification-card">
+      <view class="card-heading"><text>到站核验清单</text><text>核验时间 {{booking.verificationTimeLabel}}</text></view>
+      <view wx:for="{{verificationRows}}" wx:key="key" class="verification-row">
+        <view class="verification-icon {{item.passed ? 'passed' : ''}}"><image src="{{item.passed ? '/assets/icons/check-circle.png' : item.iconPath}}"/></view>
+        <view class="verification-copy"><text>{{item.label}}</text><text>{{item.copy}}</text></view>
+        <text class="verification-state {{item.passed ? 'passed' : ''}}">{{item.passed ? '已通过' : '待核验'}}</text>
+      </view>
+      <scroll-view wx:if="{{booking.media.length}}" scroll-x class="media-scroll" enhanced show-scrollbar="{{false}}">
+        <view class="media-grid">
+          <button wx:for="{{booking.media}}" wx:key="id" data-url="{{item.url}}" bindtap="preview"><image src="{{item.url}}" mode="aspectFill"/><text>{{item.label}}</text></button>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{booking.events.length}}" class="timeline-card">
+      <view class="card-heading"><text>履约时间线</text><text>可审计记录</text></view>
+      <view wx:for="{{booking.events}}" wx:key="id" class="timeline-row"><image src="/assets/icons/check-circle.png"/><view><text>{{item.title}}</text><text>{{item.description}}</text></view></view>
+    </view>
+
+    <view wx:if="{{booking.inspectionResult}}" class="result-card"><image src="/assets/icons/shield-check.png"/><view><text>检测结果已回传</text><text>{{booking.inspectionResultLabel}}</text><text>{{booking.vehicleCheckupReport ? '车辆体检报告已同步给车主' : '该历史结果没有车辆体检报告'}}</text></view></view>
+    <button wx:if="{{booking.vehicleCheckupReport}}" class="report-entry" bindtap="openCheckupReport"><image src="/assets/icons/file-arrow-up.png"/><view><text>查看车辆体检报告</text><text>{{booking.vehicleCheckupReport.faults.length}} 条车况记录 · 图片可放大</text></view><image src="/assets/icons/caret-right.png"/></button>
+
+    <view class="detail-actions">
+      <view wx:if="{{booking.status === 'inspecting'}}" class="result-action-note"><image src="/assets/icons/shield-check.png"/><view><text>先完成车辆体检报告</text><text>补齐 5 张现场照片，标记车身问题并填写年检结论后，统一回传给车主。</text></view></view>
+      <button class="primary-action" data-action="resolve-hold" bindtap="action" wx:if="{{booking.status === 'on_hold'}}" loading="{{actingAction === 'resolve-hold'}}" disabled="{{acting}}">异常已处理，恢复核验</button>
+      <button class="primary-action" data-action="accept" bindtap="action" wx:if="{{booking.status === 'confirmed' && booking.serviceMode !== 'valet'}}" loading="{{actingAction === 'accept'}}" disabled="{{acting}}">接单并等待到站</button>
+      <view wx:if="{{booking.status === 'confirmed' && booking.serviceMode === 'valet'}}" class="complete-copy"><image src="/assets/icons/clock.png"/><text>支付已确认，等待后台安排司机并发送任务入口。</text></view>
+      <button class="primary-action" data-action="check-in" bindtap="action" wx:if="{{booking.status === 'awaiting_arrival' || (booking.status === 'picked_up' && booking.evidencePolicyVersion !== 'valet-handoff-v1')}}" loading="{{actingAction === 'check-in'}}" disabled="{{acting}}">确认到车并完成核验</button>
+      <button class="primary-action" data-action="handoff" bindtap="action" wx:if="{{booking.status === 'checked_in'}}" loading="{{actingAction === 'handoff'}}" disabled="{{acting}}">确认交接检测</button>
+      <button class="primary-action" bindtap="openCheckupEditor" wx:if="{{booking.status === 'inspecting'}}" disabled="{{acting}}">填写体检报告并回传</button>
+      <button class="primary-action" data-action="complete" bindtap="action" wx:if="{{booking.status === 'result_received' && booking.fulfillmentStatus === 'legacy'}}" loading="{{actingAction === 'complete'}}" disabled="{{acting}}">完成历史遗留服务</button>
+      <view wx:if="{{booking.status === 'returning' && booking.serviceMode === 'valet'}}" class="complete-copy"><image src="/assets/icons/clock.png"/><text>车辆送回中，最终送达与留证由本单司机完成。</text></view>
+      <button class="hold-button" data-action="hold" bindtap="action" wx:if="{{booking.status === 'awaiting_arrival' || booking.status === 'picked_up' || booking.status === 'checked_in' || booking.status === 'inspecting'}}" loading="{{actingAction === 'hold'}}" disabled="{{acting}}">车辆信息不一致，挂起复核</button>
+      <view wx:if="{{booking.status === 'completed'}}" class="complete-copy"><image src="/assets/icons/check-circle.png"/><text>{{booking.serviceMode === 'self_drive' ? '报告发布后服务已自动完成，结果已同步给车主。' : '该任务已完成，结果已同步给车主。'}}</text></view>
+    </view>
+
+    <view class="boundary-card"><image src="/assets/icons/shield-check.png"/><view><text>系统边界说明</text><text>检测设备软件属于外部系统</text><text>结果回传方式：接口 / 人工上传</text></view></view>
+  </block>
+
+  <view wx:else class="detail-error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit"/>
+    <text>{{id ? '暂时无法显示任务详情' : '缺少检测任务信息'}}</text>
+    <text>{{loadError || (id ? '请检查网络后重试。' : '请从检测任务列表重新进入。')}}</text>
+    <view class="detail-error-actions">
+      <button wx:if="{{id}}" bindtap="retry" disabled="{{loading}}">重新加载</button>
+      <button bindtap="goTasks">返回任务列表</button>
+    </view>
+  </view>
+</view>

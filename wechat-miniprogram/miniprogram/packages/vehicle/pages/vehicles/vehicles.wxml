@@ -1,0 +1,36 @@
+<view class="page vehicles-page">
+  <view class="intro">
+    <text class="intro-eyebrow">MY GARAGE</text>
+    <view class="intro-row">
+      <view><text class="intro-title">我的车辆</text><text class="intro-copy">共 {{vehicles.length}} 辆车辆档案</text></view>
+      <button class="intro-add" bindtap="addVehicle"><image src="/assets/icons/plus.png"/><text>新增车辆</text></button>
+    </view>
+  </view>
+  <view wx:if="{{loading}}" class="loading">正在读取车辆…</view>
+  <block wx:else>
+    <view wx:for="{{vehicles}}" wx:key="id" class="vehicle surface">
+      <view class="vehicle-main">
+        <view class="vehicle-avatar">
+          <image src="{{item.vehicleImage}}" mode="aspectFit" webp="{{true}}" data-index="{{index}}" binderror="vehicleImageError"/>
+          <text>车型示意图</text>
+        </view>
+        <view class="vehicle-info">
+          <text class="vehicle-kicker">{{item.isDefault ? '默认车辆' : '车辆档案'}}</text>
+          <text class="vehicle-plate">{{item.plateNumber}}</text>
+          <text class="vehicle-model">{{item.brandModelLabel}}</text>
+          <text class="vehicle-meta">{{item.vehicleType}} · {{item.seats}} 座 · {{item.powertrainLabel}}</text>
+          <text class="wash-category-badge">洗车价类 · {{item.washCategoryLabel}}{{item.washVehicleCategoryLegacy ? '（历史档按 SUV 兼容）' : ''}}</text>
+        </view>
+      </view>
+      <view class="validity-row"><image src="/assets/icons/clock.png"/><text>{{item.validityLabel}}</text></view>
+      <view class="actions">
+        <button wx:if="{{!item.isDefault}}" class="default-action" data-id="{{item.id}}" bindtap="setDefault">设为当前车辆</button>
+        <button wx:else class="current-action" disabled>当前车辆</button>
+        <button data-id="{{item.id}}" bindtap="edit">编辑车辆</button>
+        <button class="delete-action" data-id="{{item.id}}" bindtap="deleteVehicle"><image src="/assets/icons/trash.png"/><text>移除</text></button>
+      </view>
+    </view>
+    <view wx:if="{{!vehicles.length}}" class="surface empty vehicle-empty"><image src="/assets/icons/car.png"/><text>还没有车辆</text><text>添加车辆后即可查看年检状态</text><button bindtap="addVehicle"><image src="/assets/icons/plus.png"/>添加车辆</button></view>
+    <text wx:if="{{vehicles.length}}" class="demo-disclosure">车牌及车辆信息均为合成演示数据</text>
+  </block>
+</view>

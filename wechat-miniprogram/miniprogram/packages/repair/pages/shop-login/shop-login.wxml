@@ -1,0 +1,31 @@
+<view class="repair-login-page">
+  <view class="login-brand">
+    <view class="login-brand-icon"><image src="/assets/icons/wrench.png" mode="aspectFit" /></view>
+    <text>REPAIR OPERATIONS</text>
+    <text>维修门店端</text>
+    <text>使用平台创建的维修门店账号登录，仅可处理当前绑定门店的需求和报价。</text>
+  </view>
+
+  <view wx:if="{{checking}}" class="login-card login-loading">正在核验维修门店会话…</view>
+  <view wx:elif="{{signedInName}}" class="login-card">
+    <text class="card-title">账号已登录</text>
+    <view class="signed-account">
+      <image src="/assets/icons/user-circle.png" mode="aspectFit" />
+      <view><text>{{signedInName}}</text><view><text class="subject-name">{{shopName}}</text><text wx:if="{{isDemoShop}}" class="demo-badge">演示门店</text></view></view>
+    </view>
+    <button class="primary" bindtap="enterSignedIn">进入维修接单大厅</button>
+    <button class="secondary" bindtap="changeAccount">切换账号</button>
+  </view>
+  <view wx:else class="login-card">
+    <text class="card-title">账号登录</text>
+    <text class="field-label">登录名</text>
+    <input value="{{loginName}}" bindinput="inputLoginName" placeholder="请输入维修门店登录名" maxlength="80" />
+    <text class="field-label">密码</text>
+    <input value="{{password}}" bindinput="inputPassword" placeholder="请输入密码" password maxlength="128" confirm-type="done" bindconfirm="submit" />
+    <view wx:if="{{error}}" class="login-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{error}}</text></view>
+    <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">登录并进入</button>
+  </view>
+
+  <button class="back-owner" bindtap="backOwner">返回车主端</button>
+  <view class="security-note"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>账号与维修门店一对一绑定；页面中的门店编号或需求编号不能改变授权范围。</text></view>
+</view>

@@ -1,0 +1,68 @@
+<view class="confirm-page">
+  <view wx:if="{{loading}}" class="loading-state"><image src="/assets/icons/clock.png" mode="aspectFit"/><text>正在整理检测报告中的车损资料…</text></view>
+
+  <view wx:elif="{{error && !report}}" class="error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit"/>
+    <text>暂时无法发起询价</text>
+    <text>{{error}}</text>
+    <button bindtap="retry">重新读取报告</button>
+    <button class="plain" bindtap="goBack">返回检测报告</button>
+  </view>
+
+  <block wx:elif="{{report && booking}}">
+    <view class="report-hero">
+      <view class="hero-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view>
+      <view class="hero-copy">
+        <text>报告车损已自动带入</text>
+        <text>{{plateText}} · {{faultViews.length}} 处车损</text>
+        <text>{{vehicleText}} · {{reportNoText}}</text>
+      </view>
+      <view class="hero-metrics"><text>{{photoCount}}</text><text>张特写</text></view>
+    </view>
+
+    <view class="scope-note">
+      <image src="/assets/icons/shield-check.png" mode="aspectFit"/>
+      <view><text>本次询价只共享维修所需资料</text><text>车辆摘要、下列全部车损和对应特写将作为同一份需求发布；不会共享联系电话、证件材料、年检固定方位照或年检标。</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>维修需求</text><text>{{faultViews.length}}</text></view><text>全部已选 · 不可逐项编辑</text></view>
+    <view class="locked-note"><image src="/assets/icons/check-circle.png" mode="aspectFit"/><text>为让所有修理店基于同一份检测报告报价，车损记录与对应特写成组共享，不支持逐项增删。</text></view>
+
+    <view class="fault-list">
+      <view wx:for="{{faultViews}}" wx:key="id" class="fault-card">
+        <view class="fault-head">
+          <image src="/assets/icons/check-circle.png" mode="aspectFit"/>
+          <view><text>#{{item.number}} {{item.title}}</text><text>{{item.locationText}}</text></view>
+          <text class="severity severity-{{item.severityTone}}">{{item.severityText}}</text>
+        </view>
+        <view class="fault-description"><text>现场描述</text><text>{{item.descriptionText}}</text></view>
+        <view class="photo-head"><text>车损特写</text><text>{{item.photos.length}} 张 · 全部共享</text></view>
+        <view class="photo-grid">
+          <button wx:for="{{item.photos}}" wx:for-item="photo" wx:key="id" data-url="{{photo.url}}" data-media-id="{{photo.id}}" data-source-url="{{photo.sourceUrl}}" bindtap="handlePhotoTap" aria-label="{{photo.url ? '查看' : '重新读取'}}第{{index + 1}}张车损特写">
+            <image wx:if="{{photo.url}}" src="{{photo.url}}" mode="aspectFill" data-media-id="{{photo.id}}" data-source-url="{{photo.sourceUrl}}" binderror="handlePrivatePhotoError"/>
+            <view wx:else class="photo-load-failed"><image src="/assets/icons/camera.png" mode="aspectFit"/><text>点击重试</text></view>
+            <text>特写 {{index + 1}}</text>
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view class="consent-card {{consentError ? 'has-error' : ''}}">
+      <checkbox-group bindchange="onConsentChange">
+        <label>
+          <checkbox value="share-report-damage" checked="{{consented}}" color="#1768CF"/>
+          <view><text>同意共享上述维修询价资料</text><text>仅用于修理店查看需求并提交报价；发布前必须主动勾选，取消询价后停止接收新报价。</text></view>
+        </label>
+      </checkbox-group>
+      <view wx:if="{{consentError}}" class="consent-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>未勾选资料共享授权，不能发布维修询价。</text></view>
+    </view>
+
+    <view class="service-boundary"><image src="/assets/icons/shield-check.png" mode="aspectFit"/><text>门店报价是基于报告可见车损的维修方案，不替代拆检诊断。实际维修、增项、质保与交付由您和所选门店线下确认。</text></view>
+    <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{error}}</text></view>
+
+    <view class="publish-bar">
+      <view><text>{{faultViews.length}} 处车损</text><text>{{photoCount}} 张特写将一次发布</text></view>
+      <button class="{{!consented ? 'needs-consent' : ''}}" loading="{{publishing}}" disabled="{{publishing}}" bindtap="publishRequest">{{publishing ? '正在发布' : consented ? '发布维修询价' : '勾选授权后发布'}}</button>
+    </view>
+  </block>
+</view>

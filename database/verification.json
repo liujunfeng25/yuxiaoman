@@ -1,0 +1,31 @@
+{
+  "verifiedAtUtc": "2026-08-30T05:51:48.8705494Z",
+  "databases": [
+    {
+      "label": "runtime",
+      "source": {
+        "database": "yuxiaoman_dev",
+        "tableCount": 1002,
+        "schemaCount": 14
+      },
+      "restored": {
+        "database": "yxm_mac_verify_a0d72e45745f",
+        "tableCount": 1002,
+        "schemaCount": 14
+      }
+    },
+    {
+      "label": "test",
+      "source": {
+        "database": "yuxiaoman_test",
+        "tableCount": 355,
+        "schemaCount": 4
+      },
+      "restored": {
+        "database": "yxm_mac_verify_d4bdde1fda27",
+        "tableCount": 355,
+        "schemaCount": 4
+      }
+    }
+  ]
+}

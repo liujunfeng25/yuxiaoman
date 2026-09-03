@@ -1,0 +1,4 @@
+{
+  "desc": "驭小满本地演示小程序 sitemap",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

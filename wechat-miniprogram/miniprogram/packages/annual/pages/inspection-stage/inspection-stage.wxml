@@ -1,0 +1,30 @@
+<view class="stage-page">
+  <view wx:if="{{loading}}" class="loading">正在读取当前年检进度…</view>
+  <block wx:else>
+    <view class="stage-hero tone-{{stage.tone}}">
+      <view class="stage-index"><text>{{stage.stepNumber}}</text><image src="{{stage.iconPath}}"/></view>
+      <view class="state-pill">{{stage.stateLabel}}</view>
+      <text class="stage-eyebrow">{{stage.eyebrow}}</text>
+      <text class="stage-title">{{stage.title}}</text>
+      <text class="stage-description">{{stage.description}}</text>
+    </view>
+
+    <view class="fact-card">
+      <view wx:for="{{stage.facts}}" wx:key="label" class="fact-row"><text>{{item.label}}</text><text>{{item.value}}</text></view>
+      <button wx:if="{{showArrivalContact}}" class="phone-row" bindtap="callStation"><image src="/assets/icons/phone.png"/><text>拨打检测站电话 {{stationPhone}}</text><image class="row-caret" src="/assets/icons/caret-right.png"/></button>
+    </view>
+
+    <view class="tips-section">
+      <text class="section-title">这一步需要知道</text>
+      <view wx:for="{{stage.tips}}" wx:key="title" class="tip-item"><text>{{item.title}}</text><text>{{item.copy}}</text></view>
+    </view>
+
+    <view wx:if="{{resultPassed}}" class="official-guide">
+      <view class="guide-icon"><image src="/assets/icons/shield-check.png"/></view>
+      <view><text>合格后再看官方申领入口</text><text>检测结果由订单回传；检验有效期和电子标志请在交管12123查询。</text></view>
+      <button bindtap="officialGuide">查看申领指引</button>
+    </view>
+
+    <view class="stage-actions"><button class="primary-button" data-action="{{stage.primaryAction}}" bindtap="runAction">{{stage.primaryLabel}}</button></view>
+  </block>
+</view>

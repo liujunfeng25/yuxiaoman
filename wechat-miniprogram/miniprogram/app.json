@@ -1,0 +1,168 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/orders/orders",
+    "pages/profile/profile"
+  ],
+  "subPackages": [
+    {
+      "root": "packages/annual",
+      "name": "annualInspection",
+      "pages": [
+        "pages/eligibility/eligibility",
+        "pages/inspection-stage/inspection-stage",
+        "pages/materials/materials",
+        "pages/service-mode/service-mode",
+        "pages/stations/stations",
+        "pages/slots/slots",
+        "pages/booking/booking",
+        "pages/order-detail/order-detail"
+      ]
+    },
+    {
+      "root": "packages/wash",
+      "name": "carWash",
+      "pages": [
+        "pages/wash-booking/wash-booking",
+        "pages/wash-stores/wash-stores",
+        "pages/wash-payment/wash-payment",
+        "pages/wash-order-detail/wash-order-detail"
+      ]
+    },
+    {
+      "root": "packages/insurance",
+      "name": "carInsurance",
+      "pages": [
+        "pages/insurance-lead/insurance-lead",
+        "pages/insurance-receipt/insurance-receipt"
+      ]
+    },
+    {
+      "root": "packages/car-rental",
+      "name": "carRental",
+      "pages": [
+        "pages/car-rental-home/car-rental-home",
+        "pages/car-rental-offers/car-rental-offers",
+        "pages/car-rental-detail/car-rental-detail",
+        "pages/car-rental-confirm/car-rental-confirm",
+        "pages/car-rental-orders/car-rental-orders",
+        "pages/car-rental-order-detail/car-rental-order-detail"
+      ]
+    },
+    {
+      "root": "packages/vehicle",
+      "name": "vehicleProfile",
+      "pages": [
+        "pages/vehicles/vehicles",
+        "pages/vehicle-form/vehicle-form"
+      ]
+    },
+    {
+      "root": "packages/operator",
+      "name": "operatorWorkbench",
+      "pages": [
+        "pages/staff-entry/staff-entry",
+        "pages/operator-login/operator-login",
+        "pages/operator/operator",
+        "pages/precheck-list/precheck-list",
+        "pages/precheck-detail/precheck-detail",
+        "pages/operator-detail/operator-detail",
+        "pages/operator-station/operator-station"
+      ]
+    },
+    {
+      "root": "packages/driver",
+      "name": "driverExecution",
+      "pages": [
+        "pages/login/login",
+        "pages/task/task"
+      ]
+    },
+    {
+      "root": "packages/inspection",
+      "name": "inspectionReport",
+      "pages": [
+        "pages/checkup-editor/checkup-editor",
+        "pages/checkup-report/checkup-report",
+        "pages/checkup-reports/checkup-reports"
+      ]
+    },
+    {
+      "root": "packages/repair",
+      "name": "repairMarketplace",
+      "pages": [
+        "pages/owner-request-confirm/owner-request-confirm",
+        "pages/owner-quotes/owner-quotes",
+        "pages/owner-request-detail/owner-request-detail",
+        "pages/owner-receipt/owner-receipt",
+        "pages/shop-login/shop-login",
+        "pages/shop-hall/shop-hall",
+        "pages/shop-request-detail/shop-request-detail",
+        "pages/shop-quote/shop-quote",
+        "pages/shop-deal/shop-deal"
+      ]
+    },
+    {
+      "root": "packages/subsidy",
+      "name": "subsidyConsultation",
+      "pages": [
+        "pages/form/form",
+        "pages/receipt/receipt"
+      ]
+    },
+    {
+      "root": "packages/driving-school",
+      "name": "drivingSchool",
+      "pages": [
+        "pages/list/list",
+        "pages/detail/detail",
+        "pages/inquiry/inquiry",
+        "pages/receipt/receipt"
+      ]
+    }
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "驭小满",
+    "backgroundColor": "#F4F8FC",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#667085",
+    "selectedColor": "#1768CF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/tabbar/home.png",
+        "selectedIconPath": "assets/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单",
+        "iconPath": "assets/tabbar/orders.png",
+        "selectedIconPath": "assets/tabbar/orders-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/tabbar/profile.png",
+        "selectedIconPath": "assets/tabbar/profile-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于计算到检测站距离和代驾取车定位"
+    }
+  }
+}

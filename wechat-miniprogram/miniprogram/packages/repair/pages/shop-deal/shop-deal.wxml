@@ -1,0 +1,52 @@
+<view class="page shop-deal-page">
+  <view wx:if="{{loading}}" class="loading deal-loading">正在核验成交权限…</view>
+
+  <view wx:elif="{{locked}}" class="locked-card">
+    <view class="locked-icon"><image src="/assets/icons/shield-check.png" mode="aspectFit" /></view>
+    <text>成交联系信息暂不可见</text>
+    <text>只有被车主选中的维修店，在车主完成本地模拟支付后，才能查看合成联系人。</text>
+    <view wx:if="{{deal}}" class="locked-summary"><text>{{deal.request.plateMasked}}</text><text>{{deal.request.status === 'not_selected' ? '车主已选择其他门店' : '仍在等待选择或支付'}}</text></view>
+    <text wx:if="{{error}}" class="locked-error">{{error}}</text>
+    <view class="locked-actions"><button wx:if="{{error}}" bindtap="retry">重试</button><button class="primary" bindtap="backHall">返回接单大厅</button></view>
+  </view>
+
+  <block wx:elif="{{deal && deal.eligible}}">
+    <view class="demo-line"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{isDemoShop ? '合成演示成交 · 不发生真实扣款' : '维修门店成交信息 · 本次为模拟支付'}}</text></view>
+
+    <view class="deal-hero">
+      <view class="deal-check"><image src="/assets/icons/check-circle.png" mode="aspectFit" /></view>
+      <text>本店已成交</text>
+      <text>{{deal.request.plateMasked}} · {{deal.request.vehicleLabel}}</text>
+      <view class="deal-price"><text>¥</text><text>{{quoteAmountLabel}}</text></view>
+      <text>车主已完成本地模拟支付</text>
+    </view>
+
+    <view class="contact-card">
+      <view class="contact-heading"><view><image src="/assets/icons/user-circle.png" mode="aspectFit" /><text>车主联系信息</text></view><text>合成演示联系人</text></view>
+      <view class="contact-row"><text>联系人</text><text>{{deal.contact.name}}</text></view>
+      <view class="contact-row"><text>手机号</text><text>{{deal.contact.phone}}</text></view>
+      <button bindtap="copyContact"><image src="/assets/icons/phone.png" mode="aspectFit" /><text>复制联系信息</text></button>
+      <view class="contact-note"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>以上姓名与手机号均为合成数据，仅用于演示选店付款后的联系权限。</text></view>
+    </view>
+
+    <view class="quote-summary">
+      <view class="summary-heading"><image src="/assets/icons/receipt.png" mode="aspectFit" /><text>中选报价</text><text>全款总价</text></view>
+      <text>{{deal.quote.note}}</text>
+      <view><text>{{shopName}}</text><text>¥{{quoteAmountLabel}}</text></view>
+    </view>
+
+    <view class="next-heading"><text>接下来线下协商</text><text>平台不跟踪履约</text></view>
+    <view class="boundary-list">
+      <view><image src="/assets/icons/calendar-check.png" mode="aspectFit" /><view><text>确认进店与预计工期</text><text>双方自行约定到店时间、留车时长和取车方式。</text></view></view>
+      <view><image src="/assets/icons/wrench.png" mode="aspectFit" /><view><text>确认施工范围与增项</text><text>维修项目、材料、质保及拆检后新增费用均在线下确认。</text></view></view>
+      <view><image src="/assets/icons/shield-check.png" mode="aspectFit" /><view><text>自行验收与留存凭证</text><text>平台不记录开工、维修进度、完工或验收状态。</text></view></view>
+    </view>
+
+    <view class="platform-boundary">
+      <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+      <view><text>平台服务到此为止</text><text>{{deal.boundary}}</text></view>
+    </view>
+
+    <button class="hall-button" bindtap="backHall"><image src="/assets/icons/storefront.png" mode="aspectFit" /><text>返回接单大厅</text><image src="/assets/icons/caret-right.png" mode="aspectFit" /></button>
+  </block>
+</view>

@@ -1,0 +1,46 @@
+<view class="receipt-page">
+  <view wx:if="{{!receipt}}" class="empty-receipt">
+    <view><image src="/assets/icons/shield-check.png" /></view>
+    <text>暂未找到提交凭证</text>
+    <text>请返回首页重新登记续保需求</text>
+    <button class="primary-button" bindtap="backHome">返回首页</button>
+  </view>
+
+  <block wx:else>
+    <view class="receipt-hero {{withdrawn ? 'withdrawn' : ''}}">
+      <view class="hero-status"><image src="{{withdrawn ? '/assets/icons/x.png' : '/assets/icons/check-circle.png'}}" /></view>
+      <text class="hero-label">{{withdrawn ? '需求已撤回' : receipt.duplicate ? '已返回原提交凭证' : '需求提交成功'}}</text>
+      <text class="hero-title">{{withdrawn ? '本次对接已停止' : '已为您登记续保需求'}}</text>
+      <text class="hero-copy">{{withdrawn ? '平台已停止后续对接；若资料已完成转交，将按授权说明继续处理清理请求。' : (receipt.contactEtaText || '专业服务人员将在1个工作日内联系') + '，请留意来电。'}}</text>
+    </view>
+
+    <view wx:if="{{receipt.duplicate && !withdrawn}}" class="duplicate-note">
+      <image src="/assets/icons/shield-check.png" />
+      <text>相同车辆与手机号的近期需求已存在，本次返回同一凭证，不会重复派单。</text>
+    </view>
+
+    <view class="receipt-card">
+      <view class="receipt-code">
+        <view><text>对接凭证</text><text>{{receipt.leadCode}}</text></view>
+        <button bindtap="copyCode">复制编号</button>
+      </view>
+      <view class="receipt-row"><text>提交时间</text><text>{{submittedAtText}}</text></view>
+      <view class="receipt-row"><text>续保车辆</text><text>{{receipt.vehicle.plateNumber}} · {{receipt.vehicle.modelName}}</text></view>
+      <view class="receipt-row"><text>联系电话</text><text>{{receipt.maskedPhone}}</text></view>
+      <view class="receipt-row"><text>预计联系</text><text>{{receipt.contactEtaText || '1个工作日内'}}</text></view>
+    </view>
+
+    <view class="boundary-notice">
+      <image src="/assets/icons/shield-check.png" />
+      <view><text>平台服务边界</text><text>本凭证仅证明需求已由驭小满登记并安排对接，不代表保险报价、核保结果或承保承诺。</text></view>
+    </view>
+
+    <view wx:if="{{error}}" class="receipt-error"><image src="/assets/icons/warning-circle.png" /><text>{{error}}</text></view>
+
+    <view class="receipt-actions">
+      <button wx:if="{{withdrawn}}" class="home-button" bindtap="backHome">返回首页</button>
+      <button wx:else class="withdraw-button" loading="{{withdrawing}}" disabled="{{withdrawing || !receipt.withdrawToken}}" bindtap="withdraw">{{withdrawing ? '正在撤回' : '撤回本次需求'}}</button>
+      <button wx:if="{{!withdrawn}}" class="home-link" bindtap="backHome">返回首页</button>
+    </view>
+  </block>
+</view>

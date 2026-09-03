@@ -1,0 +1,82 @@
+<view class="reports-page">
+  <view class="reports-hero" aria-label="检测报告中心">
+    <view class="hero-orbit orbit-one"></view><view class="hero-orbit orbit-two"></view>
+    <view class="hero-copy"><text>年检 · 检测站回传</text><text>检测报告中心</text><text>报告、履约进度与材料完整性集中查看</text></view>
+    <view class="hero-metrics">
+      <view><text>{{progressCards.length}}</text><text>履约关注</text></view>
+      <view><text>{{reportCards.length}}</text><text>已加载报告</text></view>
+    </view>
+  </view>
+
+  <view class="scope-note"><image src="/assets/icons/shield-check.png"/><text>这里展示平台留存的车辆体检记录，不替代检测机构出具的官方检验报告或交管查询结果。</text></view>
+
+  <scroll-view class="vehicle-filter" scroll-x enable-flex="true" show-scrollbar="false" aria-label="按车辆筛选报告">
+    <button wx:for="{{vehicleFilters}}" wx:key="id" class="{{item.className}}" data-id="{{item.id}}" bindtap="selectVehicle" disabled="{{loading || loadingMore}}" aria-label="{{item.ariaLabel}}">
+      <text>{{item.plateNumber}}</text><text>{{item.displayName}}</text>
+    </button>
+  </scroll-view>
+
+  <view wx:if="{{loading && !loaded}}" class="skeleton-list" aria-label="正在读取检测报告">
+    <view class="skeleton-card"></view><view class="skeleton-card"></view><text>正在同步报告与履约进度…</text>
+  </view>
+
+  <view wx:elif="{{fatalError}}" class="state-card error-state">
+    <image src="/assets/icons/warning-circle.png"/><text class="state-title">报告读取失败</text><text class="state-copy">{{fatalError}}</text>
+    <button bindtap="retry" loading="{{loading}}" disabled="{{loading}}" aria-label="重新加载检测报告">{{loading ? '正在加载…' : '重新加载'}}</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{inlineError}}" class="inline-error"><image src="/assets/icons/warning-circle.png"/><text>{{inlineError}}</text><button bindtap="retry" loading="{{loading}}" disabled="{{loading}}">{{loading ? '正在刷新…' : '刷新重试'}}</button></view>
+
+    <view wx:if="{{progressCards.length}}" class="report-section progress-section">
+      <view class="section-head"><view><text>履约关注</text><text>{{progressCards.length}}</text></view><text>进度与报告分开呈现</text></view>
+      <view class="progress-list">
+        <view wx:for="{{progressCards}}" wx:key="bookingId" class="progress-card tone-{{item.tone}}" aria-label="{{item.ariaLabel}}">
+          <view class="progress-card-head"><text class="status-pill">{{item.badgeText}}</text><text>{{item.updatedText}}</text></view>
+          <view class="progress-title"><image src="{{item.iconPath}}"/><view><text>{{item.title}}</text><text>{{item.vehicle.plateNumber}} · {{item.statusText}}</text></view></view>
+          <view class="progress-facts">
+            <view><text>预约时间</text><text>{{item.appointmentText}}</text></view>
+            <view><text>检测站</text><text>{{item.stationText}}</text></view>
+            <view><text>服务方式</text><text>{{item.serviceModeText}}</text></view>
+            <view wx:if="{{item.conclusion}}"><text>年检结论</text><text>{{item.conclusionText}}</text></view>
+          </view>
+          <view wx:if="{{item.kind === 'report-missing'}}" class="missing-note"><text>检测结果已到达，但未形成结构化车辆体检报告。请核对检测站原始报告；平台不会自动补造材料。</text></view>
+          <view class="progress-actions">
+            <button wx:if="{{item.reportReady}}" class="primary-action" data-id="{{item.bookingId}}" bindtap="openReport" aria-label="查看{{item.vehicle.plateNumber}}车辆体检报告">查看报告</button>
+            <button class="secondary-action" data-id="{{item.bookingId}}" bindtap="openOrder" aria-label="查看{{item.vehicle.plateNumber}}年检订单进度">{{item.reportReady ? '查看履约' : '查看订单进度'}}</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="report-section history-section">
+      <view class="section-head"><view><text>已生成报告</text><text>{{reportCards.length}}</text></view><text>按回传时间倒序</text></view>
+      <view wx:if="{{reportCards.length}}" class="report-list">
+        <button wx:for="{{reportCards}}" wx:key="reportId" class="report-card" data-id="{{item.bookingId}}" bindtap="openReport" aria-label="{{item.ariaLabel}}">
+          <view class="report-card-top"><view><text>{{item.vehicle.plateNumber}}</text><text>{{item.vehicle.displayName}}</text></view><text class="conclusion conclusion-{{item.conclusionTone}}">{{item.conclusionText}}</text></view>
+          <view class="report-identity"><text>平台报告编号</text><text>{{item.reportNo || '待同步'}}</text></view>
+          <view class="report-context"><view><image src="/assets/icons/calendar-check.png"/><text>{{item.publishedText}}</text></view><view><image src="/assets/icons/storefront.png"/><text>{{item.stationText}}</text></view><view><image src="/assets/icons/car.png"/><text>{{item.serviceModeText}} · {{item.appointmentText}}</text></view></view>
+          <view class="evidence-grid">
+            <view><text>{{item.fixedPhotoText}}</text><text>平台体检留证</text></view>
+            <view><text>{{item.faultText}}</text><text>车身问题</text></view>
+            <view><text>{{item.faultPhotoText}}</text><text>故障特写</text></view>
+          </view>
+          <view class="report-card-material"><text>法定检测材料</text><text>{{item.legalMaterialText}}</text><text>{{item.markText}}</text></view>
+          <view class="report-card-foot"><text>平台车辆体检报告不替代法定检测报告</text><view><text>查看完整报告</text><image src="/assets/icons/caret-right.png"/></view></view>
+          <view wx:if="{{item.isLegacyV1}}" class="legacy-note"><text>历史版报告</text><text>旧版未采集的故障特写或法定检测材料会明确标记，不补造附件。</text></view>
+        </button>
+      </view>
+
+      <view wx:elif="{{progressCards.length}}" class="history-pending">
+        <image src="/assets/icons/clock.png"/><text>当前年检仍在履约中，检测站正式发布后会归档到这里。</text>
+      </view>
+
+      <view wx:elif="{{isEmpty}}" class="state-card empty-state"><image src="/assets/icons/file-search.png"/><text class="state-title">暂无检测报告</text><text class="state-copy">当前筛选下没有进行中的年检，也没有已发布的车辆体检报告。</text><button bindtap="retry" loading="{{loading}}" disabled="{{loading}}" aria-label="刷新检测报告列表">{{loading ? '正在刷新…' : '刷新看看'}}</button></view>
+
+      <view wx:if="{{loadingMore}}" class="load-more"><text>正在加载更多报告…</text></view>
+      <view wx:elif="{{loadMoreError && reportCards.length}}" class="load-more retry-more"><text>更多报告加载失败：{{loadMoreError}}</text><button bindtap="retryLoadMore" loading="{{loadingMore}}" disabled="{{loadingMore}}" aria-label="重新加载更多检测报告">{{loadingMore ? '正在重试…' : '重试'}}</button></view>
+      <button wx:elif="{{hasMore}}" class="load-more-button" bindtap="retryLoadMore" loading="{{loadingMore}}" disabled="{{loadingMore || loading}}" aria-label="加载更多检测报告">{{loadingMore ? '正在加载…' : '加载更多报告'}}</button>
+      <view wx:elif="{{reportCards.length}}" class="list-end"><text>已展示当前筛选下的全部报告</text></view>
+    </view>
+  </block>
+</view>

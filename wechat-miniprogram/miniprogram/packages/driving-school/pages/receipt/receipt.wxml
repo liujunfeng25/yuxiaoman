@@ -1,0 +1,26 @@
+<view class="receipt-page">
+  <view wx:if="{{!receipt}}" class="empty-state"><image src="/assets/icons/receipt.png"/><text>还没有驾校咨询凭证</text><text>从驾校详情提交咨询后，可在这里查看与撤回。</text><button bindtap="browseSchools">浏览驾校</button></view>
+  <block wx:else>
+    <view class="success-hero {{receipt.withdrawn ? 'withdrawn' : ''}}"><view class="success-icon"><image src="/assets/icons/{{receipt.withdrawn ? 'x' : 'check-white'}}.png"/></view><text>{{receipt.withdrawn ? '咨询已撤回' : receipt.duplicate ? '已找到相同咨询' : '咨询提交成功'}}</text><text>{{receipt.withdrawn ? '平台已停止后续联系和内部跟进' : receipt.contactEtaText}}</text></view>
+
+    <view class="receipt-card">
+      <view class="receipt-head"><view><text>咨询凭证</text><text>{{receipt.statusText}}</text></view><button bindtap="copyCode">复制编号</button></view>
+      <text class="code">{{receipt.inquiryCode}}</text>
+      <view class="detail-grid">
+        <view><text>驾校</text><text>{{receipt.school.name}}</text></view>
+        <view><text>准驾车型</text><text>{{receipt.licenseClassCode}}</text></view>
+        <view><text>申领方式</text><text>{{receipt.applicationModeText}}</text></view>
+        <view><text>联系人</text><text>{{receipt.contactNameMasked}}</text></view>
+        <view><text>联系手机</text><text>{{receipt.maskedPhone}}</text></view>
+        <view><text>提交时间</text><text>{{receipt.submittedAtText}}</text></view>
+      </view>
+      <view wx:if="{{receipt.duplicate}}" class="duplicate-note">为避免重复联系，本次返回了先前相同内容的咨询凭证。</view>
+    </view>
+
+    <view class="process-card"><text>接下来</text><view><text>1</text><view><text>驭小满驾校服务团队核对需求</text><text>资料仅供团队内部跟进</text></view></view><view><text>2</text><view><text>在您选择的时段联系</text><text>{{receipt.contactEtaText}}</text></view></view><view><text>3</text><view><text>如需联系驾校</text><text>请由您在详情页主动拨号；咨询资料不会向驾校转交</text></view></view></view>
+    <view wx:if="{{error}}" class="error-card"><image src="/assets/icons/warning-circle.png"/><view><text>{{stateKind === 'offline' ? '当前网络不可用' : '撤回未完成'}}</text><text>{{error}}</text></view></view>
+    <button wx:if="{{receipt.canWithdraw && receipt.withdrawToken}}" class="withdraw-button" loading="{{withdrawing}}" disabled="{{withdrawing}}" bindtap="withdraw">{{withdrawing ? '正在撤回…' : '撤回本次咨询'}}</button>
+    <view class="actions"><button bindtap="browseSchools">继续浏览驾校</button><button bindtap="backHome">返回首页</button></view>
+    <text class="privacy-note">凭证可用于查询与撤回。请勿向无关人员分享撤回令牌或完整凭证信息。</text>
+  </block>
+</view>

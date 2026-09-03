@@ -1,0 +1,26 @@
+page {
+  min-height: 100%;
+  color: #101c30;
+  background: #f6f9fc;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { margin: 0; padding: 0; line-height: inherit; border-radius: 0; background: transparent; box-sizing: border-box; }
+button::after { border: 0; }
+.tap-pressed { opacity: .72; transform: scale(.985); }
+image { display: block; }
+.page { min-height: 100vh; padding: 24rpx 28rpx 48rpx; box-sizing: border-box; }
+.surface { background: #fff; border-radius: 24rpx; box-shadow: 0 10rpx 30rpx rgba(27, 53, 88, .065); }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin: 36rpx 2rpx 18rpx; }
+.section-title text:first-child { color: #101d32; font-size: 34rpx; font-weight: 800; }
+.muted { color: #7b899b; }
+.caption { color: #7b899b; font-size: 24rpx; }
+.primary-button { display: flex; align-items: center; justify-content: center; min-height: 92rpx; color: #fff; background: #0868df; border-radius: 20rpx; font-size: 30rpx; font-weight: 700; box-shadow: 0 12rpx 26rpx rgba(8, 103, 218, .18); }
+.secondary-button { display: flex; align-items: center; justify-content: center; min-height: 84rpx; color: #0868df; background: #fff; border: 1rpx solid #d5dee9; border-radius: 20rpx; font-size: 28rpx; font-weight: 600; }
+.danger-button { color: #d84646; background: #fff1f1; }
+.tag { display: inline-flex; padding: 5rpx 12rpx; color: #1768cf; background: #eaf3ff; border-radius: 999rpx; font-size: 22rpx; }
+.empty { padding: 68rpx 32rpx; color: #7b899b; text-align: center; }
+.loading { padding: 42rpx; color: #7b899b; text-align: center; }

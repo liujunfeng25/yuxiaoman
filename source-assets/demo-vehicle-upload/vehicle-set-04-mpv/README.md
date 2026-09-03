@@ -1,0 +1,36 @@
+# MPV 真实上传测试素材：Honda Odyssey
+
+本目录用于小程序车辆四角照片、缩略图和演示流程测试。素材均为真实拍摄照片，不是 AI 生成图。
+
+## 文件与上传位置
+
+| 文件 | 画面 | 当前 API `MediaKind` | 用途 |
+| --- | --- | --- | --- |
+| `01-vehicle-front-left.jpg` | 车辆左前 | `vehicle_front_left` | 可直接用于现有四角照片上传 |
+| `02-vehicle-front-right.jpg` | 车辆右前 | `vehicle_front_right` | 可直接用于现有四角照片上传 |
+| `03-vehicle-rear-left.jpg` | 车辆左后 | `vehicle_rear_left` | 可直接用于现有四角照片上传 |
+| `04-vehicle-rear-right.jpg` | 车辆右后 | `vehicle_rear_right` | 可直接用于现有四角照片上传 |
+| `05-dashboard-powered-on.jpg` | 通电后仪表盘 | 暂不支持 | 当前接口会以 `MEDIA_KIND_INVALID` 拒绝该类型 |
+
+完整的上门取送年检预约还需要行驶证主页和副页，本目录的五张图不能单独完成全部资料上传。
+
+## 一致性说明
+
+- 四张外观均为白色 2013 Honda Odyssey RL5。
+- `01` 与 `03` 是同一作者、同日同地点的连续拍摄，高置信为同一辆实车；`02` 与 `04` 是另一作者在同日同地点相隔 11 秒拍摄的另一辆实车。
+- 因此四角照片展示的是两辆同款同色 Odyssey，不能对外宣称来自同一物理车辆。
+- `05` 是 2016 Toyota Sienta NSP170R 的真实仪表盘，不是上述 Odyssey。车门警示灯已亮，能够证明点火或附件电源开启；转速表为 0，不能宣称发动机正在运行。
+
+## 处理方式
+
+下载日期：2026-08-22。输出统一为 1920 × 1440、JPEG、质量 84；自动校正方向，以浅灰底完整适配 4:3，不裁掉车辆主体。四张外观的主车牌已模糊，所有图片均移除 EXIF、ICC 和 XMP 元数据。
+
+## 来源与授权
+
+- 左前：[2013 Honda Odyssey EX-L, front left](https://commons.wikimedia.org/wiki/File:2013_Honda_Odyssey_3.5_EX-L_in_Bellanova_White_Pearl,_front_left.jpg)，作者 Ethan Llamas，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+- 右前：[2013 Honda Odyssey EX, Front Right](https://commons.wikimedia.org/wiki/File:2013_Honda_Odyssey_EX,_Front_Right,_10-16-2020.jpg)，作者 SsmIntrigue，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+- 左后：[2013 Honda Odyssey EX-L, rear left](https://commons.wikimedia.org/wiki/File:2013_Honda_Odyssey_3.5_EX-L_in_Bellanova_White_Pearl,_rear_left.jpg)，作者 Ethan Llamas，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+- 右后：[2013 Honda Odyssey EX, Rear Right](https://commons.wikimedia.org/wiki/File:2013_Honda_Odyssey_EX,_Rear_Right,_10-16-2020.jpg)，作者 SsmIntrigue，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+- 通电仪表盘：[2016 Toyota Sienta 1.5 V instrument cluster](https://commons.wikimedia.org/wiki/File%3A2016_Toyota_Sienta_1.5_V_NSP170R_instrument_cluster_%2820160409%29.jpg)，作者 オーバードライブ83，[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+
+本项目副本做过缩放、留边、JPEG 转换、主车牌模糊和元数据移除。详细来源与 SHA-256 见 `manifest.json`。

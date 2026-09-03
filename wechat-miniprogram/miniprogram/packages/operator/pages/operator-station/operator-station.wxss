@@ -1,0 +1,56 @@
+.operator-station-page { padding-top: 19rpx; padding-bottom: calc(54rpx + env(safe-area-inset-bottom)); background: #f7f9fc; }
+.station-hero { display: grid; min-height: 178rpx; padding: 27rpx; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20rpx; color: #fff; border-radius: 29rpx; background: #0f64cc; box-shadow: 0 13rpx 30rpx rgba(15, 100, 204, .19); }
+.station-icon { display: flex; width: 88rpx; height: 88rpx; align-items: center; justify-content: center; border-radius: 27rpx; background: #fff; }
+.station-icon image { width: 57rpx; height: 57rpx; }
+.station-copy { display: flex; min-width: 0; flex-direction: column; }
+.station-copy text:first-child { opacity: .74; font-size: 18rpx; }
+.station-copy text:nth-child(2) { margin-top: 4rpx; overflow: hidden; font-size: 30rpx; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.station-copy text:last-child { margin-top: 6rpx; overflow: hidden; opacity: .8; font-size: 19rpx; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+
+.station-info { margin-top: 18rpx; overflow: hidden; border: 1rpx solid #e1e7ee; border-radius: 27rpx; background: #fff; box-shadow: 0 9rpx 26rpx rgba(31, 57, 88, .045); }
+.station-info > view { display: grid; min-height: 100rpx; padding: 15rpx 24rpx; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 17rpx; }
+.station-info > view + view { border-top: 1rpx solid #e9edf2; }
+.station-info image { width: 39rpx; height: 39rpx; }
+.station-info > view > view { display: flex; min-width: 0; flex-direction: column; }
+.station-info text:first-child { color: #7a8797; font-size: 18rpx; }
+.station-info text:last-child { margin-top: 4rpx; overflow: hidden; color: #26374d; font-size: 22rpx; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+
+.capacity-heading { display: flex; margin: 36rpx 2rpx 15rpx; align-items: flex-end; justify-content: space-between; gap: 18rpx; }
+.capacity-heading > view { display: flex; flex-direction: column; }
+.capacity-heading > view text:first-child { color: #1768cf; font-size: 17rpx; font-weight: 800; letter-spacing: 2rpx; }
+.capacity-heading > view text:last-child { margin-top: 3rpx; color: #101c30; font-size: 34rpx; font-weight: 800; }
+.date-picker { display: flex; min-height: 66rpx; padding: 0 14rpx; align-items: center; gap: 7rpx; color: #3f5066; border: 1rpx solid #dce4ed; border-radius: 15rpx; background: #fff; font-size: 19rpx; }
+.date-picker image:first-child { width: 28rpx; height: 28rpx; }
+.date-picker image:last-child { width: 23rpx; height: 23rpx; }
+.capacity-note { display: flex; min-height: 72rpx; padding: 0 17rpx; align-items: center; gap: 9rpx; color: #617388; border-radius: 17rpx; background: #edf4ff; font-size: 19rpx; line-height: 1.45; }
+.capacity-note image { width: 30rpx; height: 30rpx; flex: none; }
+.station-loading { min-height: 250rpx; }
+
+.slot-card { display: grid; min-height: 145rpx; margin-top: 16rpx; padding: 23rpx 23rpx; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20rpx; border: 1rpx solid #e1e7ee; border-radius: 25rpx; background: #fff; box-shadow: 0 8rpx 24rpx rgba(31, 57, 88, .045); }
+.slot-main { display: flex; min-width: 0; align-items: flex-start; flex-direction: column; }
+.slot-main > text:first-child { color: #25364c; font-size: 28rpx; font-weight: 800; }
+.slot-main > text:nth-child(2) { margin-top: 6rpx; color: #778495; font-size: 20rpx; }
+.occupancy { margin-top: 10rpx; padding: 5rpx 10rpx; color: #14835c; border-radius: 9rpx; background: #e8f8f1; font-size: 17rpx; }
+.occupancy-high { color: #c25b0a; background: #fff2e5; }
+.occupancy-medium { color: #9a6c19; background: #fff7df; }
+.capacity-stepper { display: grid; grid-template-columns: 72rpx 86rpx 72rpx; align-items: center; gap: 8rpx; }
+.step-button { display: flex; min-height: 70rpx; align-items: center; justify-content: center; color: #1768cf; border: 1rpx solid #cfe0f3; border-radius: 15rpx; background: #edf5ff; font-size: 18rpx; font-weight: 700; box-sizing: border-box; }
+.step-button.disabled { color: #9aa7b5; border-color: #e3e8ee; background: #f0f3f6; }
+.capacity-stepper view { display: flex; min-height: 74rpx; align-items: center; justify-content: center; flex-direction: column; }
+.capacity-stepper view text:first-child { color: #1768cf; font-size: 31rpx; font-weight: 800; line-height: 1; }
+.capacity-stepper view text:last-child { margin-top: 5rpx; color: #7e8b9c; font-size: 16rpx; }
+
+.station-empty { display: flex; min-height: 330rpx; margin-top: 16rpx; align-items: center; justify-content: center; flex-direction: column; border: 1rpx solid #e1e7ee; border-radius: 25rpx; background: #fff; }
+.station-empty image { width: 68rpx; height: 68rpx; }
+.station-empty text:nth-of-type(1) { margin-top: 17rpx; color: #27374b; font-size: 25rpx; font-weight: 750; }
+.station-empty text:nth-of-type(2) { margin-top: 7rpx; color: #7b899b; font-size: 19rpx; }
+.station-disclosure { display: flex; margin: 25rpx 3rpx 0; align-items: flex-start; justify-content: center; gap: 7rpx; color: #8b96a4; font-size: 18rpx; line-height: 1.5; }
+.station-disclosure image { width: 27rpx; height: 27rpx; flex: none; }
+
+@media (max-width: 340px) {
+  .operator-station-page { padding-right: 22rpx; padding-left: 22rpx; }
+  .capacity-heading { align-items: flex-start; flex-direction: column; }
+  .date-picker { align-self: stretch; }
+  .slot-card { grid-template-columns: 1fr; }
+  .capacity-stepper { width: 100%; grid-template-columns: 1fr 90rpx 1fr; }
+}

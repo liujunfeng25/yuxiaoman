@@ -1,0 +1,72 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+<view class="payment-page">
+  <view wx:if="{{loading}}" class="loading">正在读取待支付订单…</view>
+  <view wx:elif="{{missingOrder}}" class="payment-error missing-order surface">
+    <image src="/assets/icons/receipt.png" mode="aspectFit" />
+    <text>缺少订单信息，请从订单列表进入</text>
+    <text>该页面需要有效的洗车订单编号。</text>
+    <view class="fallback-actions">
+      <view role="button" tabindex="0" class="fallback-action primary" bindtap="goOrders">返回订单</view>
+      <view role="button" tabindex="0" class="fallback-action" bindtap="goHome">返回首页</view>
+    </view>
+  </view>
+  <view wx:elif="{{error && !order}}" class="payment-error surface">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>订单加载失败</text><text>{{error}}</text><button class="secondary-button" bindtap="retry">重新加载</button>
+  </view>
+
+  <block wx:elif="{{order}}">
+    <view class="payment-hero {{order.status === 'pending_payment' ? '' : 'paid'}}">
+      <view class="hero-icon">
+        <image wx:if="{{order.status === 'pending_payment'}}" src="/assets/icons/receipt.png" mode="aspectFit" />
+        <image wx:else src="/assets/icons/check-circle.png" mode="aspectFit" />
+      </view>
+      <text>{{order.status === 'pending_payment' ? '本次模拟支付' : '模拟支付已完成'}}</text>
+      <text>¥{{fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</text>
+      <text>{{order.status === 'pending_payment' ? (order.serviceMode === 'valet' ? '上门取送 · 往返已含 · 确认后不会真实扣款' : '确认后不会发生真实扣款') : (order.serviceMode === 'valet' ? '取送核销码已生成，车辆交接时向平台司机出示' : '核销码已生成，到店后向工作人员出示即可')}}</text>
+    </view>
+
+    <view class="safety-card surface">
+      <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+      <view><text>仅用于演示预约闭环</text><text>不会唤起微信支付、银行卡或任何真实资金渠道。</text></view>
+    </view>
+
+    <view class="payment-summary surface">
+      <view>
+        <view class="summary-icon"><image src="{{order.serviceMode === 'valet' ? '/assets/icons/map-pin.png' : '/assets/icons/car.png'}}" mode="aspectFit" /></view>
+        <view><text>服务方式</text><text>{{order.serviceMode === 'valet' ? '代驾取送（往返已含）' : '自驾到店'}}</text><text>{{order.serviceMode === 'valet' ? '具体取车时间由平台线下确认' : '请按预约时段自行到店'}}</text></view>
+      </view>
+      <view wx:if="{{order.serviceMode === 'valet' && order.pickupAddress}}">
+        <view class="summary-icon"><image src="/assets/icons/map-pin.png" mode="aspectFit" /></view>
+        <view><text>取送地址</text><text>{{order.pickupAddress.title}}{{order.pickupAddress.detail ? ' · ' + order.pickupAddress.detail : ''}}</text><text>{{order.pickupAddress.address}}</text></view>
+      </view>
+      <view>
+        <view class="summary-icon"><image src="/assets/icons/drop.png" mode="aspectFit" /></view>
+        <view><text>洗车套餐</text><text>{{order.package ? order.package.name : order.offer ? order.offer.name : '洗车服务'}}</text><text>{{order.vehicle ? order.vehicle.plateNumber : '已选车辆'}} · {{order.vehicleCategory === 'mpv' ? 'MPV' : order.vehicleCategory === 'suv' ? 'SUV' : '小轿车'}}价类 · 洗车费 ¥{{fmt.money(order.washFeeFen || order.serviceFeeFen)}}</text></view>
+      </view>
+      <view>
+        <view class="summary-icon"><image src="/assets/icons/storefront.png" mode="aspectFit" /></view>
+        <view><text>服务门店</text><text>{{order.store ? order.store.name : '洗车门店'}}</text><text>{{order.store && order.store.address ? order.store.address : '地址以预约记录为准'}}</text></view>
+      </view>
+      <view>
+        <view class="summary-icon"><image src="/assets/icons/calendar-check.png" mode="aspectFit" /></view>
+        <view><text>洗车服务时段</text><text>{{order.appointmentDate}} {{order.startTime}}{{order.endTime ? '–' + order.endTime : ''}}</text><text>{{order.serviceMode === 'valet' ? '具体取车时间由平台线下确认' : '请按预约时段到店'}}</text></view>
+      </view>
+      <view wx:if="{{order.serviceMode === 'valet'}}" class="route-line"><image src="/assets/icons/map-pin.png" mode="aspectFit" /><view><text>单程到店 {{order.oneWayDistanceKm}} km{{order.driveMinutes === null ? '' : ' · 约 ' + order.driveMinutes + ' 分钟'}}</text><text>往返 {{order.roundTripDistanceKm}} km 已含 · 代驾费 ¥{{fmt.money(order.valetFeeFen)}}</text><text wx:if="{{order.valetRule}}">门店服务半径：{{order.valetRule.maxRadiusKm === null ? '不限' : order.valetRule.maxRadiusKm + ' km'}}</text></view></view>
+      <view class="total"><view><text>洗车费 ¥{{fmt.money(order.washFeeFen || order.serviceFeeFen)}}</text><text wx:if="{{order.serviceMode === 'valet'}}">代驾取送费 ¥{{fmt.money(order.valetFeeFen)}}</text></view><text>¥{{fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</text></view>
+    </view>
+
+    <view class="code-note">
+      <image src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <view><text>{{order.serviceMode === 'valet' ? '支付后立即获得六位取送核销码' : '支付后立即获得六位核销码'}}</text><text>{{order.serviceMode === 'valet' ? '车辆交接时向平台司机出示，运营线下完成门店核销；取消或退款后立即失效。' : '核销码绑定本订单和门店，取消或退款后立即失效。'}}</text></view>
+    </view>
+
+    <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{error}}</text></view>
+
+    <view class="payment-actions">
+      <button wx:if="{{order.status === 'pending_payment'}}" class="primary-button pay-button" loading="{{paying}}" disabled="{{paying}}" bindtap="pay">{{paying ? '正在确认支付' : '确认模拟支付 ¥' + fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</button>
+      <button wx:else class="primary-button pay-button" bindtap="viewOrder">{{order.serviceMode === 'valet' ? '查看取送核销码' : '查看核销码'}}</button>
+      <button class="later" bindtap="viewOrder">{{order.status === 'pending_payment' ? '稍后支付，先查看订单' : '查看订单详情'}}</button>
+    </view>
+  </block>
+</view>

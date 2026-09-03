@@ -1,0 +1,51 @@
+<view class="profile-page">
+  <view class="profile-heading"><text class="heading-eyebrow">MY GARAGE</text><text class="heading-title">我的</text><text class="heading-copy">车辆档案与服务设置</text></view>
+
+  <view wx:if="{{loading}}" class="loading">正在读取车主档案…</view>
+  <block wx:else>
+    <button class="profile-vehicle-card" data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go">
+      <view class="profile-car-icon"><image src="../../assets/icons/car.png"/></view>
+      <view class="profile-vehicle-copy"><text>默认车辆</text><text>{{vehicle ? vehicle.plateNumber : '添加您的爱车'}}</text><text>{{vehicle ? vehicle.vehicleType + ' · ' + vehicle.seats + ' 座' : '用于年检测算、预约和车型匹配'}}</text></view>
+      <image class="row-caret" src="../../assets/icons/caret-right.png"/>
+    </button>
+
+    <view class="summary-card">
+      <view><text>{{vehicleCount}}</text><text>车辆</text></view>
+      <view><text>{{inspectionCount}}</text><text>年检订单</text></view>
+      <view><text>{{washCount}}</text><text>洗车订单</text></view>
+      <view><text>{{repairCount}}</text><text>维修询价</text></view>
+    </view>
+
+    <view class="profile-section">
+      <text class="section-label">车辆与服务</text>
+      <view class="menu-list">
+        <button data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go"><view class="menu-icon"><image src="../../assets/icons/car.png"/></view><view class="menu-copy"><text>我的车辆</text><text>{{vehicle ? vehicle.plateNumber : '去添加车辆'}}</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button>
+        <button data-url="/pages/orders/orders" bindtap="go"><view class="menu-icon"><image src="../../assets/icons/receipt.png"/></view><view class="menu-copy"><text>全部订单</text><text>洗车、年检与维修询价记录</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button>
+        <button data-url="/packages/inspection/pages/checkup-reports/checkup-reports" bindtap="go"><view class="menu-icon"><image src="../../assets/icons/wrench.png"/></view><view class="menu-copy"><text>维修询价</text><text>从检测报告车损发起并比较报价</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button>
+        <button data-url="/packages/annual/pages/eligibility/eligibility" bindtap="go"><view class="menu-icon"><image src="../../assets/icons/calendar-search.png"/></view><view class="menu-copy"><text>年检查询</text><text>公开规则测算与办理建议</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button>
+        <button data-url="/packages/annual/pages/materials/materials" bindtap="go"><view class="menu-icon"><image src="../../assets/icons/file-arrow-up.png"/></view><view class="menu-copy"><text>材料清单</text><text>到站前确认所需材料</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button>
+      </view>
+    </view>
+
+    <view class="profile-section">
+      <text class="section-label">服务支持</text>
+      <view class="menu-list"><button open-type="contact"><view class="menu-icon"><image src="../../assets/icons/headset.png"/></view><view class="menu-copy"><text>联系统一客服</text><text>工作日 08:30–17:30</text></view><image class="row-caret" src="../../assets/icons/caret-right.png"/></button></view>
+    </view>
+
+    <view class="demo-tools">
+      <view class="demo-heading"><view><text>DEVELOPMENT</text><text>演示工具</text></view><text>仅本地演示可见</text></view>
+      <text class="demo-copy">检测站与维修门店请从工作人员入口使用平台创建的账号登录；此处仅保留本地数据重置工具。</text>
+      <view class="demo-actions"><button wx:if="{{role !== 'consumer'}}" bindtap="useConsumerRole">切回车主</button><button bindtap="enterOperator">进入检测端</button><button class="danger" bindtap="resetDemo">重置数据</button></view>
+    </view>
+
+    <view class="profile-version"><image src="../../assets/icons/shield-check.png"/><text>驭小满车主服务 · MVP 演示版</text></view>
+  </block>
+
+  <view class="staff-entry-dock">
+    <button bindtap="enterStaff" aria-label="进入工作人员入口">
+      <view class="staff-entry-icon"><image src="../../assets/icons/shield-check.png"/></view>
+      <view class="staff-entry-copy"><text>工作人员入口</text><text>检测站履约 · 维修报价 · 代驾任务</text></view>
+      <image class="row-caret" src="../../assets/icons/caret-right.png"/>
+    </button>
+  </view>
+</view>

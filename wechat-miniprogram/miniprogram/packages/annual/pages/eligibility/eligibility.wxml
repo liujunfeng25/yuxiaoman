@@ -1,0 +1,118 @@
+<view class="page" wx:if="{{!result}}">
+  <view class="query-progress" aria-label="第2步，共2步">
+    <view class="progress-dot done"><image src="/assets/icons/check-white.png" /></view>
+    <view class="progress-line"></view>
+    <view class="progress-dot active">2</view>
+    <text>第2步，共2步</text>
+  </view>
+
+  <view class="mode-tabs surface compact-tabs">
+    <button data-mode="vehicle" bindtap="switchMode" class="{{mode === 'vehicle' ? 'active' : ''}}"><text>我的车辆</text><text>自动带入档案</text></button>
+    <button data-mode="temporary" bindtap="switchMode" class="{{mode === 'temporary' ? 'active' : ''}}"><text>临时测算</text><text>不保存信息</text></button>
+  </view>
+
+  <block wx:if="{{mode === 'vehicle'}}">
+    <view wx:if="{{loadingVehicles}}" class="surface loading-card">正在读取车辆档案…</view>
+    <block wx:else>
+      <view wx:if="{{selectedVehicle}}" role="button" aria-label="编辑当前车辆 {{selectedVehicleName}}" class="vehicle-hero surface" bindtap="editSelectedVehicle">
+        <image class="vehicle-hero-image" mode="aspectFill" src="/assets/brand/hero-tianjin-background.jpg" />
+        <image class="vehicle-hero-car" mode="aspectFit" src="{{selectedVehicleImage}}" webp="{{true}}" binderror="selectedVehicleImageError" />
+        <text class="vehicle-edit-badge">编辑车型</text>
+        <view class="vehicle-hero-copy">
+          <view><text class="hero-plate">{{selectedVehicle.plateNumber}}</text><text wx:if="{{selectedVehicleIsDemo}}" class="demo-badge">演示车辆</text></view>
+          <text class="vehicle-model-name">{{selectedVehicleName}}</text>
+          <text>{{selectedVehicleDetail}}</text>
+        </view>
+      </view>
+      <scroll-view wx:if="{{vehicles.length > 1}}" scroll-x enhanced show-scrollbar="{{false}}" class="vehicle-rail compact-vehicle-rail">
+        <button wx:for="{{vehicles}}" wx:key="id" data-id="{{item.id}}" bindtap="chooseVehicle" class="{{selectedId === item.id ? 'selected' : ''}}"><text>{{item.plateNumber}}</text><text>{{item.isDefault ? '默认车辆' : item.vehicleType}}</text></button>
+      </scroll-view>
+      <view wx:if="{{!vehicles.length}}" class="surface empty vehicle-empty">
+        <text>还没有车辆档案</text><text>添加后可自动带入登记信息，完成查询到预约的闭环。</text>
+        <button class="secondary-button inline-action" bindtap="addVehicle">添加车辆</button>
+      </view>
+    </block>
+  </block>
+
+  <view wx:else class="surface temporary-card">
+    <view class="temporary-heading"><text>填写本次测算信息</text><text>无需车牌，不保存</text></view>
+    <view class="field-row"><view><text class="field-label">车辆注册年月</text><text class="field-help">行驶证上的注册日期</text></view><picker mode="date" fields="month" value="{{registrationMonth}}" end="{{maxRegistrationMonth}}" bindchange="registrationChange"><view class="picker-value {{registrationMonth ? '' : 'placeholder'}}"><text>{{registrationMonth || '请选择'}}</text><image src="/assets/icons/caret-right.png" /></view></picker></view>
+    <view class="choice-field"><text class="field-label">车辆类型</text><view class="choice-row three"><button data-value="small_micro_passenger" bindtap="chooseVehicleClass" class="{{vehicleClass === 'small_micro_passenger' ? 'selected' : ''}}">小微型载客</button><button data-value="other" bindtap="chooseVehicleClass" class="{{vehicleClass === 'other' ? 'selected' : ''}}">其他车型</button><button data-value="unknown" bindtap="chooseVehicleClass" class="{{vehicleClass === 'unknown' ? 'selected' : ''}}">不清楚</button></view></view>
+    <view class="choice-field"><text class="field-label">使用性质</text><view class="choice-row three"><button data-value="non_operational" bindtap="chooseUsageNature" class="{{usageNature === 'non_operational' ? 'selected' : ''}}">非营运</button><button data-value="operational" bindtap="chooseUsageNature" class="{{usageNature === 'operational' ? 'selected' : ''}}">营运</button><button data-value="unknown" bindtap="chooseUsageNature" class="{{usageNature === 'unknown' ? 'selected' : ''}}">不清楚</button></view></view>
+    <view class="field-row"><view><text class="field-label">核定载人数</text><text class="field-help">请按行驶证填写</text></view><picker mode="selector" range="{{seatOptions}}" value="{{seatIndex}}" bindchange="seatChange"><view class="picker-value"><text>{{seatOptions[seatIndex]}}</text><image src="/assets/icons/caret-right.png" /></view></picker></view>
+    <view class="field-row last"><view><text class="field-label">动力类型</text><text class="field-help">只影响上线项目</text></view><picker mode="selector" range="{{powertrainOptions}}" range-key="label" value="{{powertrainIndex}}" bindchange="powertrainChange"><view class="picker-value"><text>{{powertrainOptions[powertrainIndex].label}}</text><image src="/assets/icons/caret-right.png" /></view></picker></view>
+  </view>
+
+  <view class="special-card surface">
+    <view class="special-heading"><text>这辆车是否存在以下任一特殊情况？</text><text>这会影响是否可以直接按公开规则测算</text></view>
+    <view class="special-summary">
+      <view wx:for="{{questions}}" wx:key="key"><text class="summary-number">{{index + 1}}</text><text class="summary-name">{{item.shortLabel}}</text><text class="summary-help">{{item.help}}</text></view>
+    </view>
+    <view class="special-actions">
+      <button data-mode="all_no" bindtap="chooseSpecialCaseMode" class="{{specialCaseMode === 'all_no' ? 'selected' : ''}}"><image src="/assets/icons/{{specialCaseMode === 'all_no' ? 'check-white.png' : 'check-circle.png'}}" /><view><text>均不符合</text><text>常见情况，直接查看测算结果</text></view></button>
+      <button data-mode="detail" bindtap="chooseSpecialCaseMode" class="{{specialCaseMode === 'detail' ? 'selected' : ''}}"><image src="/assets/icons/shield-check.png" /><view><text>有一项符合或不确定</text><text>逐项确认，我们告诉你在哪里核对</text></view><image src="/assets/icons/caret-right.png" /></button>
+    </view>
+
+    <view wx:if="{{specialCaseMode === 'detail'}}" class="questions detail-questions">
+      <view wx:for="{{questions}}" wx:key="key" class="question">
+        <view class="question-copy"><text class="question-number">{{index + 1}}</text><view><text>{{item.label}}</text><text>{{item.help}}</text></view></view>
+        <view class="answer-row">
+          <view role="button" data-key="{{item.key}}" data-value="yes" bindtap="chooseAnswer" class="answer-option {{item.value === 'yes' ? 'selected risk' : ''}}">是</view>
+          <view role="button" data-key="{{item.key}}" data-value="no" bindtap="chooseAnswer" class="answer-option {{item.value === 'no' ? 'selected safe' : ''}}">否</view>
+          <view role="button" data-key="{{item.key}}" data-value="unknown" bindtap="chooseAnswer" class="answer-option {{item.value === 'unknown' ? 'selected unknown' : ''}}">不清楚</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-card"><text>暂时无法完成测算</text><text>{{errorMessage}}</text></view>
+  <view class="submit-dock">
+    <button wx:if="{{mode === 'temporary' || selectedVehicle}}" class="primary-button calculate" loading="{{calculating}}" disabled="{{calculating}}" bindtap="calculate">{{calculating ? '正在测算…' : '查看测算结果'}}</button>
+    <view><image src="/assets/icons/shield-check.png" /><text>若需上线，可直接选择检测站和时间</text></view>
+  </view>
+</view>
+
+<view class="page result-page" wx:else>
+  <view class="result-hero-card {{resultTone}}">
+    <image src="/assets/icons/{{resultTone === 'success' ? 'check-circle.png' : 'shield-check.png'}}" />
+    <text>{{selectedVehicle ? selectedVehicle.plateNumber : '临时测算'}} · 检测站视角</text>
+    <text>{{result.title}}</text>
+    <text>{{result.summary}}</text>
+    <text>{{resultBadge}}</text>
+  </view>
+
+  <view class="result-facts surface">
+    <view><text>要不要来站</text><text>{{visitLayer}}</text></view>
+    <view><text>判断依据</text><text>{{basisLayer}}</text></view>
+    <view><text>预计上线 / 有效期止</text><text>{{result.estimatedDueDate || '需官方核验'}}</text></view>
+    <view><text>本轮办理方式</text><text>{{result.action === 'claim_mark' ? '申领标志 · 无需上线' : result.action === 'onsite_inspection' ? '上线检验' : '官方 / 人工核验'}}</text></view>
+    <view wx:if="{{result.applicationWindow}}"><text>预计上线窗口</text><text>{{result.applicationWindow.start}} 至 {{result.applicationWindow.end}}</text></view>
+  </view>
+
+  <view class="result-conversion">
+    <text>{{result.action === 'onsite_inspection' && result.canBookInspection ? (result.windowStatus === 'overdue' ? '办理窗口已过，仍可预约上线检验' : '已进入上线窗口，可选择检测站预约') : result.action === 'claim_mark' || result.windowStatus === 'not_open' ? '当前无需来站，可先核对交管12123' : '测算完成，按建议继续办理'}}</text>
+    <text>选择后即可衔接检测站、到站时间与资料准备</text>
+    <view class="result-actions">
+      <button wx:if="{{mode === 'vehicle' && result.action === 'onsite_inspection' && result.canBookInspection}}" class="primary-button" bindtap="book">选择检测站并预约</button>
+      <button wx:if="{{mode === 'temporary' && result.action === 'onsite_inspection' && result.canBookInspection}}" class="primary-button" data-next="{{result.dateEvidence.comparison === 'matched' || result.dateEvidence.comparison === 'note' ? 'booking' : ''}}" bindtap="addVehicle">{{result.dateEvidence.comparison === 'matched' || result.dateEvidence.comparison === 'note' ? '建档后预约' : '先建档并核对有效期'}}</button>
+      <button wx:if="{{result.action === 'claim_mark' || result.windowStatus === 'not_open'}}" class="primary-button" bindtap="officialGuide">查看交管12123指引</button>
+      <button wx:if="{{result.action === 'official_verification' || result.windowStatus === 'manual_review' || (result.windowStatus === 'overdue' && !result.canBookInspection)}}" class="primary-button" bindtap="officialGuide">查看官方核验指引</button>
+      <button wx:if="{{mode === 'temporary' && result.windowStatus === 'not_open' && result.action !== 'claim_mark'}}" class="secondary-button" bindtap="addVehicle">建档并接收办理提醒</button>
+    </view>
+  </view>
+
+  <view wx:if="{{dateEvidenceView}}" class="date-evidence {{dateEvidenceView.tone}}"><text>{{dateEvidenceView.label}}</text><text>{{dateEvidenceView.primary}}</text><text wx:if="{{dateEvidenceView.secondary}}">{{dateEvidenceView.secondary}}</text><text wx:if="{{dateEvidenceView.source}}">{{dateEvidenceView.source}}</text></view>
+
+  <view wx:if="{{evidenceSteps.length || result.manualReviewReasons.length}}" class="reason-block evidence-block surface">
+    <text class="block-title">{{evidenceTitle}}</text><text class="block-subtitle">车辆事实、公式和政策依据逐步可核对</text>
+    <view wx:for="{{evidenceSteps}}" wx:key="id" class="evidence-step"><text class="step-number">{{index + 1}}</text><view class="step-body"><text class="step-title">{{item.title}}</text><text class="step-expression">{{item.expression}}</text><text class="step-result">{{item.result}}</text><text class="step-source">依据：{{item.sourceText}}</text></view></view>
+    <view wx:if="{{!evidenceSteps.length || (result.windowStatus === 'manual_review' && evidenceSteps.length <= 1)}}" class="manual-reasons"><view wx:for="{{result.manualReviewReasons}}" wx:key="*this"><text></text><text>{{item}}</text></view></view>
+  </view>
+
+  <view wx:if="{{result.evidence}}" class="powertrain-block surface"><view class="powertrain-heading"><view><text>动力类型影响什么</text><text>周期由车型与登记历史决定</text></view><text>{{impactPowertrainLabel}}</text></view><text class="powertrain-explanation">{{result.evidence.powertrainImpact.explanation}}</text><view wx:if="{{impactCheckLabels.length}}" class="impact-items"><text wx:for="{{impactCheckLabels}}" wx:key="*this">{{item}}</text></view></view>
+
+  <view wx:if="{{mode === 'temporary'}}" class="date-compare-block"><button class="date-compare-trigger" bindtap="toggleDateCompare">{{result.dateEvidence.comparison === 'not_provided' ? '已在12123看到有效期？对照一下' : '修改对照日期或记录来源'}}</button><view wx:if="{{showDateCompare}}" class="date-compare-form"><text class="compare-intro">填写你实际看到的月份，系统估算不会自动代入。</text><view class="field-row"><text>有效期止月份</text><picker mode="date" fields="month" value="{{validThroughMonth}}" bindchange="validityMonthChange"><view class="inline-picker"><text>{{validThroughMonth || '请选择'}}</text><image src="/assets/icons/caret-right.png" /></view></picker></view><view class="field-row {{validThroughMonth ? '' : 'disabled'}}"><text>信息位置</text><picker disabled="{{!validThroughMonth}}" mode="selector" range="{{validitySources}}" range-key="label" value="{{validitySourceIndex}}" bindchange="validitySourceChange"><view class="inline-picker"><text>{{!validThroughMonth ? '请先选择月份' : validitySourceSelected ? validitySources[validitySourceIndex].label : '请选择来源'}}</text></view></picker></view><button class="secondary-button" disabled="{{!validThroughMonth || !validitySourceSelected}}" bindtap="compareDate">与测算日期对照</button></view></view>
+
+  <view class="policy-block surface"><view><text>测算依据</text><text>规则 {{result.policy.version}} · 复核 {{result.policy.reviewedAt}}</text></view><button wx:for="{{result.policy.sources}}" wx:key="url" data-url="{{item.url}}" bindtap="copyPolicySource"><text>{{item.title}}</text><image src="/assets/icons/caret-right.png" /></button><text class="disclaimer">{{result.disclaimer}}</text></view>
+  <button class="edit-query" bindtap="editCalculation"><image src="/assets/icons/arrow-left.png" />修改信息重新测算</button>
+</view>

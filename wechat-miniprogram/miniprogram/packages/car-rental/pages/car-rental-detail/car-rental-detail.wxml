@@ -1,0 +1,21 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="loading-detail"><view class="gallery-skeleton"></view><view class="copy-skeleton"></view><text>正在读取车型详情…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text class="state-title">车型详情不可用</text><text class="state-copy">{{error}}</text><view><button bindtap="backToOffers">返回选车</button><button bindtap="retry">重新加载</button></view></view>
+  <block wx:else>
+    <view class="gallery"><swiper circular indicator-dots autoplay="{{false}}" current="{{currentImage}}" bindchange="swiperChange"><swiper-item wx:for="{{gallery}}" wx:key="id"><image src="{{item.url}}" mode="aspectFill" webp="{{true}}" data-url="{{item.url}}" data-index="{{index}}" bindtap="previewImage" binderror="imageError"/></swiper-item></swiper><view class="image-index">{{currentImage + 1}} / {{gallery.length}}</view><text class="demo-photo">车型参考图</text></view>
+
+    <view class="title-card"><view class="brand"><image wx:if="{{model.brandLogoUrl}}" src="{{model.brandLogoUrl}}" mode="aspectFit" webp="{{true}}" binderror="brandLogoError"/><text>{{model.brandName}}</text></view><text class="model-title">{{model.name}}</text><view class="model-tags"><text>{{model.bodyType}}</text><text>{{model.energyLabel}}</text><text>{{model.seats}}座</text><text>{{model.transmission}}</text></view><view class="price"><view><text>¥{{dailyPrice}}</text><text>/天均</text></view><view><text>预计总价</text><text>¥{{estimatedTotal}}</text></view></view><text class="price-hint">已含必缴费 · 最终以确认页服务端报价为准</text></view>
+
+    <view class="trip-card"><view class="trip-title"><text>本次行程</text><text>{{rentalDays}} 天 · 余 {{availableCount}} 辆</text></view><view class="trip-line"><text>取</text><view><text>{{pickupLabel}}</text><text>{{locationLabel}}</text></view></view><view class="trip-line"><text>还</text><view><text>{{returnLabel}}</text><text>{{locationLabel}}</text></view></view></view>
+
+    <view class="guarantee"><image src="/assets/icons/shield-check.png"/><view><text>指定车型保障</text><text>交付车型保证一致；具体颜色、车牌及单车编号由门店后续分配。</text></view></view>
+
+    <view class="section-card"><text class="section-title">车辆配置</text><view class="spec-grid"><view><text>座位数</text><text>{{model.seats}} 座</text></view><view><text>行李空间</text><text>{{model.luggage}} 件</text></view><view><text>能源类型</text><text>{{model.energyLabel}}</text></view><view><text>变速箱</text><text>{{model.transmission}}</text></view></view></view>
+    <view class="section-card policies"><text class="section-title">用车规则</text><view><image src="/assets/icons/car.png"/><view><text>里程规则</text><text>{{model.mileagePolicy}}</text></view></view><view><image src="/assets/icons/drop.png"/><view><text>油电规则</text><text>{{model.energyPolicy}}</text></view></view><view><image src="/assets/icons/calendar-check.png"/><view><text>取消规则</text><text>{{model.cancellationPolicy}}</text></view></view><view><image src="/assets/icons/clock.png"/><view><text>还车宽限</text><text>约定还车时间后提供 30 分钟宽限；超时费用由运营端按演示规则录入。</text></view></view></view>
+    <view class="deposit-note"><text>押金说明</text><text>车辆押金 ¥{{model.depositLabel}} + 违章押金 ¥2,000，均为取车时模拟预授权，不计入预付金额，也不会真实冻结资金。</text></view>
+    <button class="service-link" bindtap="contactService"><image src="/assets/icons/headset.png"/><view><text>对车型或规则有疑问？</text><text>联系统一客服查看说明</text></view><image src="/assets/icons/caret-right.png"/></button>
+    <view class="photo-disclosure">车型参考图，交付车型保证一致，颜色以门店实际为准。全部车辆与价格为合成演示数据。</view>
+    <view class="footer-spacer"></view>
+    <view class="fixed-footer"><view><text>预计 ¥{{estimatedTotal}}</text><text>含必缴费 · {{rentalDays}}天</text></view><button bindtap="proceed">确认车型</button></view>
+  </block>
+</view>

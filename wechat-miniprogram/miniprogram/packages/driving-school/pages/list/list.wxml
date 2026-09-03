@@ -1,0 +1,88 @@
+<view class="school-page">
+  <view class="intro-card">
+    <view class="intro-copy"><text>找驾校，先看准驾车型与监管信息</text><text>报价、信息来源与最近核验时间均可查看</text></view>
+    <image src="/assets/icons/shield-check.png" mode="aspectFit"/>
+  </view>
+
+  <view class="search-box">
+    <image src="/assets/icons/search.png"/>
+    <input value="{{queryText}}" placeholder="搜索驾校、校区或地址" confirm-type="search" bindinput="queryInput" bindconfirm="submitSearch"/>
+    <button wx:if="{{queryText}}" bindtap="clearSearch">清除</button>
+    <button class="search-submit" bindtap="submitSearch">搜索</button>
+  </view>
+
+  <view class="mode-card">
+    <text class="filter-title">申领方式</text>
+    <view class="mode-switch">
+      <button class="{{applicationMode === 'initial' ? 'active' : ''}}" data-mode="initial" data-testid="driving-school-mode-initial" aria-label="申领方式：初次申领" bindtap="chooseMode"><text>初次申领</text><text>首次考取驾驶证</text></button>
+      <button class="{{applicationMode === 'upgrade' ? 'active' : ''}}" data-mode="upgrade" data-testid="driving-school-mode-upgrade" aria-label="申领方式：增驾" bindtap="chooseMode"><text>增驾</text><text>已有驾照增加车型</text></button>
+    </view>
+    <view class="quick-head"><text>常用准驾车型</text><button bindtap="openClassPanel">全部车型 <image src="/assets/icons/caret-right.png"/></button></view>
+    <view class="quick-grid">
+      <button class="{{!licenseClassCode ? 'active' : ''}}" data-code="" data-testid="driving-school-class-all" aria-label="不限准驾车型" bindtap="chooseQuickClass"><text class="quick-code">不限</text><text class="quick-name">全部车型</text></button>
+      <button wx:for="{{quickClassItems}}" wx:key="code" class="{{licenseClassCode === item.code ? 'active' : ''}}" data-code="{{item.code}}" data-testid="driving-school-class-{{item.code}}" aria-label="准驾车型：{{item.code}} {{item.name}}" bindtap="chooseQuickClass"><text class="quick-code">{{item.code}}</text><text class="quick-name">{{item.name}}</text></button>
+    </view>
+    <view class="filter-feedback">
+      <view><text>当前筛选</text><text>{{applicationMode === 'initial' ? '初次申领' : '增驾'}} · {{licenseClassCode || '不限车型'}}</text></view>
+      <text wx:if="{{loading}}">筛选中…</text><text wx:else>{{total}} 家匹配</text>
+    </view>
+  </view>
+
+  <view class="filter-bar">
+    <picker range="{{districtOptions}}" range-key="label" value="{{districtIndex}}" bindchange="districtChange"><view class="filter-cell {{district ? 'active' : ''}}">{{districtLabel}}<image src="/assets/icons/caret-down.png"/></view></picker>
+    <picker range="{{regulatoryOptions}}" range-key="label" value="{{regulatoryIndex}}" bindchange="regulatoryChange"><view class="filter-cell {{regulatoryType ? 'active' : ''}}">{{regulatoryLabel}}<image src="/assets/icons/caret-down.png"/></view></picker>
+    <button class="filter-cell {{priceType ? 'active' : ''}}" bindtap="choosePriceType">{{priceTypeLabel}}<image src="/assets/icons/caret-down.png"/></button>
+    <button class="filter-cell" bindtap="chooseSort">{{sortLabel}}<image src="/assets/icons/caret-down.png"/></button>
+  </view>
+
+  <view class="result-head"><view><text>驾校列表</text><text>单列展示，便于比较资质与报价</text></view><text>{{total}} 家</text></view>
+
+  <view wx:if="{{loading}}" class="skeleton-list">
+    <view wx:for="{{[1,2,3]}}" wx:key="*this" class="school-skeleton"><view></view><view><text></text><text></text><text></text></view></view>
+  </view>
+  <view wx:elif="{{error}}" class="state-card">
+    <image src="/assets/icons/{{stateKind === 'offline' ? 'warning-circle' : 'file-search'}}.png"/>
+    <text class="state-title">{{stateKind === 'offline' ? '当前网络不可用' : '暂时无法获取驾校'}}</text>
+    <text class="state-copy">{{error}}</text>
+    <button bindtap="retry">重新加载</button>
+  </view>
+  <view wx:elif="{{!items.length}}" class="state-card">
+    <image src="/assets/icons/file-search.png"/>
+    <text class="state-title">没有符合条件的驾校</text>
+    <text class="state-copy">试试切换申领方式、准驾车型或行政区</text>
+    <button bindtap="clearFilters">清除筛选</button>
+  </view>
+  <view wx:else class="school-list">
+    <button wx:for="{{items}}" wx:key="id" class="school-card" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="cover-shell">
+        <image src="{{item.coverImage}}" mode="aspectFill" webp="{{true}}" data-index="{{index}}" binderror="imageError"/>
+        <text class="data-badge {{item.isDemo ? 'demo' : 'real'}}">{{item.dataLabel}}</text>
+        <text class="reg-badge">{{item.regulatoryLabel}}</text>
+      </view>
+      <view class="school-content">
+        <view class="name-row"><view><text>{{item.name}}</text><text wx:if="{{item.legalName && item.legalName !== item.name}}">{{item.legalName}}</text></view><image src="/assets/icons/caret-right.png"/></view>
+        <view class="class-line"><text>{{item.classText}}</text></view>
+        <view class="address-row"><image src="/assets/icons/map-pin.png"/><text>{{item.district}} · {{item.address || '地址待维护'}}</text></view>
+        <view class="hours-row"><image src="/assets/icons/clock.png"/><text>营业时间：{{item.openHours || '待维护'}}</text></view>
+        <view wx:if="{{item.tags.length}}" class="tag-row"><text wx:for="{{item.tags}}" wx:key="*this">{{item}}</text></view>
+        <view class="card-footer"><view><text class="price">{{item.priceText}}</text><text wx:if="{{item.startingPriceFen !== null}}"> 起</text><text class="price-note">{{item.updatedText}}</text></view><view><text>{{item.verifiedText}}</text></view></view>
+      </view>
+    </button>
+    <view wx:if="{{loadingMore}}" class="loading-more">正在加载更多驾校…</view>
+    <view wx:elif="{{page >= totalPages}}" class="list-end">已展示全部可用驾校</view>
+  </view>
+
+  <view wx:if="{{showClassPanel}}" class="panel-overlay" bindtap="closeClassPanel">
+    <view class="class-panel" catchtap="noop">
+      <view class="panel-head"><view><text>选择准驾车型</text><text>{{applicationMode === 'initial' ? '初次申领' : '增驾'}}可选范围</text></view><button bindtap="closeClassPanel"><image src="/assets/icons/x.png"/></button></view>
+      <scroll-view scroll-y class="class-groups">
+        <button class="all-class {{!licenseClassCode ? 'active' : ''}}" data-code="" bindtap="chooseClass">不限准驾车型</button>
+        <view wx:for="{{classGroups}}" wx:for-item="group" wx:key="id" class="class-group">
+          <text>{{group.label}}</text>
+          <view><button wx:for="{{group.items}}" wx:for-item="licenseItem" wx:key="code" class="{{licenseClassCode === licenseItem.code ? 'active' : ''}}" data-code="{{licenseItem.code}}" bindtap="chooseClass"><text>{{licenseItem.code}} · {{licenseItem.name}}</text><text>{{licenseItem.vehicleScope}}</text><text wx:if="{{!licenseItem.initialAllowed || licenseItem.conditions.length}}">{{!licenseItem.initialAllowed ? '仅增驾' : '有申领条件'}} · 以交管审核为准</text></button></view>
+        </view>
+        <view class="license-note">准驾车型范围与个人申领资格以公安交管部门最终审核为准；学校补充培训条件请在详情页查看。</view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

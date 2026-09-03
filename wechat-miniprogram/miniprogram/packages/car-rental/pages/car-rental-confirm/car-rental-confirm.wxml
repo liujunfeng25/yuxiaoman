@@ -1,0 +1,19 @@
+<view class="confirm-page">
+  <view wx:if="{{loading}}" class="loading-card"><view></view><view></view><text>正在锁定库存并计算价格…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text class="state-title">暂时无法生成报价</text><text class="state-copy">{{error}}</text><view><button bindtap="changeTrip">返回修改</button><button bindtap="retry">重新报价</button></view></view>
+  <block wx:else>
+    <view class="model-card"><image src="{{quote.model.imageUrl}}" mode="aspectFill" webp="{{true}}" binderror="modelImageError"/><view><text>{{quote.model.brandName}} {{quote.model.name}}</text><text>{{quote.energyLabel}} · {{quote.model.seats}}座 · {{quote.model.transmission}}</text><text>指定车型保障 · 颜色以门店实际为准</text></view></view>
+    <view class="trip-card"><view class="trip-title"><text>{{quote.fulfillmentMode === 'home_delivery' ? '同址送取' : '同店取还'}}</text><text>{{quote.rentalDays}} 天</text></view><view class="store"><image src="/assets/icons/{{quote.fulfillmentMode === 'home_delivery' ? 'map-pin' : 'storefront'}}.png"/><view><text>{{quote.locationTitle}}</text><text>{{quote.locationAddress}}</text><text wx:if="{{quote.routeLabel}}">{{quote.routeLabel}}</text></view></view><view class="time-line"><view><text>取</text><text>{{quote.pickupLabel}}</text></view><view><text>还</text><text>{{quote.returnLabel}}</text></view></view></view>
+
+    <view class="section-card"><text class="section-heading">驾驶员信息</text><view class="form-row"><text>姓名</text><input value="{{driverName}}" placeholder="请输入驾驶员姓名" bindinput="inputDriverName"/></view><view class="form-row"><text>手机号</text><input type="number" maxlength="11" value="{{driverPhone}}" placeholder="接收订单联系信息" bindinput="inputDriverPhone"/></view><checkbox-group bindchange="toggleLicense"><label class="license-check"><checkbox value="confirmed" checked="{{licenseConfirmed}}" color="#1768d4"/><text>我确认驾驶员年龄及准驾车型符合要求，并持有效驾驶证</text></label></checkbox-group><text class="privacy-note">演示版不上传证件、不接 OCR，也不会采集身份证照片。</text></view>
+
+    <view class="section-card"><text class="section-heading">保障方案</text><view class="mandatory"><view><text>基础保障</text><text>必选 · 覆盖基础租期风险演示</text></view><text>¥{{quote.basicProtectionLabel}}</text></view><checkbox-group bindchange="toggleProtection"><label class="optional"><checkbox value="optional" checked="{{includeOptionalProtection}}" color="#1768d4"/><view><text>安心保障</text><text>可选 · ¥60/天，降低演示责任额</text></view><text>¥{{quote.optionalProtectionLabel}}</text></label></checkbox-group></view>
+
+    <view class="section-card fees"><view class="section-heading-row"><text>费用明细</text><text>服务端报价</text></view><view><text>车辆租金（{{quote.rentalDays}}天）</text><text>¥{{quote.rentalFeeLabel}}</text></view><view><text>基础保障</text><text>¥{{quote.basicProtectionLabel}}</text></view><view><text>整备服务费</text><text>¥{{quote.preparationLabel}}</text></view><view wx:if="{{includeOptionalProtection}}"><text>安心保障</text><text>¥{{quote.optionalProtectionLabel}}</text></view><view wx:if="{{quote.fulfillmentMode === 'home_delivery'}}"><text>同址送取费</text><text>¥{{quote.deliveryLabel}}</text></view><view class="fee-total"><text>本次预付</text><text>¥{{quote.totalLabel}}</text></view><text class="fee-expiry">报价有效至 {{quote.expiresAt}}，过期需重新报价</text></view>
+
+    <view class="deposit-card"><view><image src="/assets/icons/shield-check.png"/><text>押金单独模拟预授权</text></view><view><text>车辆押金</text><text>¥{{quote.vehicleDepositLabel}}</text></view><view><text>违章押金</text><text>¥{{quote.violationDepositLabel}}</text></view><text>不计入预付金额，不会冻结或划转真实资金。</text></view>
+    <view class="demo-notice">{{quote.disclosure}}</view>
+    <view class="footer-spacer"></view>
+    <view class="fixed-footer"><view><text>应付 ¥{{quote.totalLabel}}</text><text>不含模拟押金</text></view><button loading="{{submitting}}" disabled="{{submitting}}" bindtap="submit">提交订单</button></view>
+  </block>
+</view>

@@ -1,0 +1,28 @@
+<view class="operator-login-page">
+  <view class="login-brand">
+    <view class="login-brand-icon"><image src="/assets/icons/shield-check.png" /></view>
+    <text>INSPECTION OPERATIONS</text>
+    <text>检测站履约端</text>
+    <text>使用受邀的检测站账号登录，仅可处理当前绑定站点的任务。</text>
+  </view>
+
+  <view wx:if="{{checking}}" class="login-card login-loading">正在核验检测站会话…</view>
+  <view wx:elif="{{signedInName}}" class="login-card">
+    <text class="card-title">账号已登录</text>
+    <view class="signed-account"><image src="/assets/icons/user-circle.png"/><view><text>{{signedInName}}</text><text>{{stationName}}</text></view></view>
+    <button class="primary" bindtap="enterSignedIn">进入检测站工作台</button>
+    <button class="secondary" bindtap="changeAccount">切换账号</button>
+  </view>
+  <view wx:else class="login-card">
+    <text class="card-title">账号登录</text>
+    <text class="field-label">登录名</text>
+    <input value="{{loginName}}" aria-label="检测站登录名" bindinput="inputLoginName" placeholder="请输入检测站登录名" maxlength="80" confirm-type="next" />
+    <text class="field-label">密码</text>
+    <input value="{{password}}" aria-label="检测站登录密码" bindinput="inputPassword" placeholder="请输入密码" password maxlength="128" confirm-type="done" bindconfirm="submit" />
+    <view wx:if="{{error}}" class="login-error"><image src="/assets/icons/warning-circle.png"/><text>{{error}}</text></view>
+    <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">登录并进入</button>
+  </view>
+
+  <button class="back-owner" bindtap="backOwner">返回车主端</button>
+  <view class="security-note"><image src="/assets/icons/shield-check.png"/><text>检测站端不接受车主会话或匿名访问；会话失效后需重新登录。</text></view>
+</view>

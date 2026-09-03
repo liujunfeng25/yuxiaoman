@@ -1,0 +1,39 @@
+<view class="offers-page">
+  <view class="trip-summary">
+    <view class="trip-top"><view><image src="/assets/icons/map-pin.png"/><text>{{locationLabel}}</text></view><button bindtap="editSearch">修改行程</button></view>
+    <view class="trip-time"><view><text>取</text><text>{{pickupLabel}}</text></view><view class="trip-days">{{billableDays}}天</view><view><text>还</text><text>{{returnLabel}}</text></view></view>
+  </view>
+
+  <view class="filter-bar">
+    <button class="{{selectedBrandName !== '全部品牌' ? 'active' : ''}}" bindtap="toggleBrandPanel">{{selectedBrandName}}<image src="/assets/icons/caret-down.png"/></button>
+    <button class="{{selectedEnergy ? 'active' : ''}}" data-energy="{{selectedEnergy ? '' : 'pure_electric'}}" bindtap="chooseEnergy">{{selectedEnergy ? (selectedEnergy === 'pure_electric' ? '纯电' : selectedEnergy === 'range_extended' ? '增程' : selectedEnergy === 'plug_in_hybrid' ? '插混' : '其他能源') : '新能源'}} </button>
+    <button bindtap="chooseSort">{{sortLabel}}<image src="/assets/icons/caret-down.png"/></button>
+  </view>
+
+  <view class="result-head"><view><text>可租车型</text><text>指定车型，颜色以门店实际为准</text></view><text>{{total}} 款</text></view>
+
+  <view wx:if="{{loading}}" class="car-grid skeleton-grid"><view wx:for="{{[1,2,3,4]}}" wx:key="*this" class="car-skeleton"><view></view><text></text><text></text></view></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text class="state-title">暂时无法获取可租车型</text><text class="state-copy">{{error}}</text><view><button bindtap="editSearch">修改行程</button><button bindtap="retry">重新加载</button></view></view>
+  <view wx:elif="{{!offers.length}}" class="state-card"><image src="/assets/icons/car.png"/><text class="state-title">当前条件暂无可租车型</text><text class="state-copy">换个品牌、能源类型或租期试试</text><button bindtap="clearFilters">清除筛选</button></view>
+  <view wx:else class="car-grid">
+    <button wx:for="{{offers}}" wx:key="id" class="car-card" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="image-shell"><image src="{{item.model.imageUrl}}" mode="aspectFill" webp="{{true}}" data-index="{{index}}" binderror="imageError"/><text class="exact-badge">指定车型</text><text class="stock-badge">余 {{item.availableCount}} 辆</text></view>
+      <view class="car-copy"><text class="brand-name">{{item.model.brandName}}</text><text class="model-name">{{item.model.name}}</text><text class="car-meta">{{item.energyLabel}} · {{item.meta}}</text><view class="car-tag"><text>{{item.model.bodyType}}</text><text>真实车型图</text></view><view class="price-row"><view><text>¥{{item.dailyPrice}}</text><text>/天均</text></view><text>预计 ¥{{item.totalPrice}}</text></view><text class="price-note">{{item.priceLabel}} · {{item.rentalDays}}天</text></view>
+    </button>
+  </view>
+  <view wx:if="{{offers.length}}" class="data-note">合成演示库存与价格 · 下单前展示完整费用</view>
+
+  <view wx:if="{{showBrandPanel}}" class="brand-overlay">
+    <view class="brand-panel">
+      <view class="panel-head"><text>选择品牌</text><button bindtap="closeBrandPanel"><image src="/assets/icons/x.png"/></button></view>
+      <view class="brand-search"><image src="/assets/icons/search.png"/><input value="{{brandKeyword}}" placeholder="搜索品牌，如理想、宝马" bindinput="brandInput"/><button wx:if="{{brandKeyword}}" bindtap="clearBrandSearch">清除</button></view>
+      <button class="all-brand" data-id="" data-name="全部品牌" bindtap="chooseBrand">全部品牌<text>查看全部可租车型</text></button>
+      <view wx:if="{{hotBrands.length}}" class="hot-brands"><text class="brand-section-title">热门品牌</text><view><button wx:for="{{hotBrands}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="chooseBrand"><image src="{{item.logoUrl}}" mode="aspectFit" webp="{{true}}"/><text>{{item.name}}</text></button></view></view>
+      <scroll-view scroll-y scroll-into-view="{{scrollIntoView}}" class="brand-scroll">
+        <view wx:for="{{groups}}" wx:for-item="group" wx:key="initial" id="rental-brand-{{group.initial}}" class="brand-group"><text class="initial">{{group.initial}}</text><button wx:for="{{group.brands}}" wx:for-item="brand" wx:key="id" data-id="{{brand.id}}" data-name="{{brand.name}}" bindtap="chooseBrand"><image src="{{brand.logoUrl}}" mode="aspectFit" webp="{{true}}"/><text>{{brand.name}}</text><text>{{brand.availableCount}} 辆可租</text><image src="/assets/icons/caret-right.png"/></button></view>
+        <view wx:if="{{!groups.length}}" class="brand-empty">没有找到这个品牌</view>
+      </scroll-view>
+      <view wx:if="{{alphabet.length}}" class="alphabet"><button wx:for="{{alphabet}}" wx:key="*this" data-initial="{{item}}" bindtap="scrollBrand">{{item}}</button></view>
+    </view>
+  </view>
+</view>

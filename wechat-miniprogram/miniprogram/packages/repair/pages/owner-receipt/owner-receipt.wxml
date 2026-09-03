@@ -1,0 +1,53 @@
+<view class="receipt-page">
+  <view wx:if="{{loading}}" class="loading-state"><image src="/assets/icons/clock.png" mode="aspectFit"/><text>正在生成成交回执…</text></view>
+
+  <view wx:elif="{{error && !request}}" class="error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>成交回执暂时无法打开</text><text>{{error}}</text>
+    <button bindtap="retry">重新加载</button><button class="plain" bindtap="goHome">返回首页</button>
+  </view>
+
+  <block wx:elif="{{request && ready}}">
+    <view class="success-hero">
+      <view class="success-icon"><image src="/assets/icons/check-circle.png" mode="aspectFit"/></view>
+      <text>模拟支付成功</text>
+      <text>维修订单已成交</text>
+      <text>{{request.vehicle.plateNumber}} · {{shopName}}</text>
+    </view>
+
+    <view class="mock-notice"><image src="/assets/icons/shield-check.png" mode="aspectFit"/><view><text>演示支付已确认，不会真实扣款</text><text>本回执用于展示完整交易闭环，模拟支付只冻结本次选择结果。</text></view></view>
+
+    <view class="section-heading"><text>已冻结的成交内容</text><text>支付时快照</text></view>
+    <view class="frozen-card">
+      <view class="amount-block"><text>成交全款总价</text><text><text>¥</text>{{amountText}}</text><text>付款状态：模拟支付已确认</text></view>
+      <view class="frozen-row"><text>修理店</text><text>{{shopName}}</text></view>
+      <view class="frozen-row note"><text>报价说明</text><text>{{quoteNote}}</text></view>
+      <view class="frozen-row"><text>支付时间</text><text>{{paidAtText}}</text></view>
+      <view class="frozen-row tappable" bindtap="copyOrderNumber"><text>成交单号</text><view><text>{{request.order.orderNo}}</text><text>复制</text></view></view>
+      <view class="frozen-row"><text>维修询价单</text><text>{{request.requestNo}}</text></view>
+    </view>
+
+    <view class="section-heading"><text>联系修理店</text><text>线下确认维修安排</text></view>
+    <view class="contact-card">
+      <view class="shop-head"><view class="shop-icon"><image src="/assets/icons/storefront.png" mode="aspectFit"/></view><view><text>{{shopName}}</text><text>{{request.order.shop.isDemo ? '演示修理店' : request.order.shop.district}}</text></view></view>
+      <view class="contact-row"><image src="/assets/icons/user-circle.png" mode="aspectFit"/><view><text>联系人</text><text>{{contactName}}</text></view></view>
+      <view class="contact-row"><image src="/assets/icons/phone.png" mode="aspectFit"/><view><text>联系电话</text><text>{{contactPhone || '暂未提供'}}</text></view></view>
+      <view class="contact-row"><image src="/assets/icons/map-pin.png" mode="aspectFit"/><view><text>门店地址</text><text>{{addressText}}</text></view></view>
+      <view class="contact-row"><image src="/assets/icons/clock.png" mode="aspectFit"/><view><text>营业时间</text><text>{{openHoursText}}</text></view></view>
+      <button bindtap="callShop"><image src="/assets/icons/phone.png" mode="aspectFit"/><text>联系门店确认到店与维修安排</text></button>
+    </view>
+
+    <view class="offline-boundary">
+      <view><image src="/assets/icons/shield-check.png" mode="aspectFit"/><text>线下履约边界</text></view>
+      <text>平台已冻结所选门店、全款总价与报价说明，但不参与实际维修履约。到店时间、拆检结果、配件方案、可能增项、质保范围、交车和发票均由您与门店线下确认；任何范围或价格变化都应再次取得您的同意。</text>
+    </view>
+    <view wx:if="{{request.serviceBoundary}}" class="server-boundary">{{request.serviceBoundary}}</view>
+    <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{error}}</text></view>
+
+    <button class="view-request" bindtap="viewRequest"><text>查看完整维修需求</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></button>
+  </block>
+
+  <view wx:elif="{{request}}" class="not-ready">
+    <image src="/assets/icons/receipt.png" mode="aspectFit"/><text>维修订单尚未成交</text><text>请先从有效报价中选择一家修理店并完成模拟支付。</text>
+    <button bindtap="viewRequest">返回维修需求</button>
+  </view>
+</view>

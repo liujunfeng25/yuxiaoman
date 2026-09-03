@@ -1,0 +1,466 @@
+{"kind":"deck","id":"pr/bk73nc","name":"Deck"}
+{"kind":"layout","layoutId":"cf3d26fc-90c1-4db0-97d7-688ae2ac1370","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"56ad96c1-3c5e-4c5f-8a2e-cf6adb7b6e20","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/hq46vc","slide":1,"title":"YUXIAOMAN · BUSINESS CLOSURE","textShapes":11}
+{"kind":"shape","id":"sh/svyp4f6l","slide":1,"bbox":[0,0,22,720]}
+{"kind":"textbox","id":"sh/rupovap0","slide":1,"text":"YUXIAOMAN · BUSINESS CLOSURE","textPreview":"YUXIAOMAN · BUSINESS CLOSURE","textChars":28,"textLines":1,"bbox":[64,52,470,26]}
+{"kind":"textbox","id":"sh/qtg725of","slide":1,"text":"驭小满年检与\n维修报价业务闭环","textPreview":"驭小满年检与 | 维修报价业务闭环","textChars":15,"textLines":2,"bbox":[64,118,540,164]}
+{"kind":"textbox","id":"sh/5s76t07u","slide":1,"text":"原生点击回归 · 操作手册 · 项目价值说明","textPreview":"原生点击回归 · 操作手册 · 项目价值说明","textChars":22,"textLines":1,"bbox":[66,306,520,42]}
+{"kind":"shape","id":"sh/4ryp0v69","slide":1,"bbox":[66,380,112,30]}
+{"kind":"textbox","id":"sh/3qporapo","slide":1,"text":"自驾验车","textPreview":"自驾验车","textChars":4,"textLines":1,"bbox":[76,386,92,18]}
+{"kind":"shape","id":"sh/ipw7y5oj","slide":1,"bbox":[190,380,112,30]}
+{"kind":"textbox","id":"sh/9orq547y","slide":1,"text":"代驾留证","textPreview":"代驾留证","textChars":4,"textLines":1,"bbox":[200,386,92,18]}
+{"kind":"shape","id":"sh/onipcz6t","slide":1,"bbox":[314,380,112,30]}
+{"kind":"textbox","id":"sh/m90jy1sn","slide":1,"text":"车辆报告","textPreview":"车辆报告","textChars":4,"textLines":1,"bbox":[324,386,92,18]}
+{"kind":"shape","id":"sh/na9kr6t8","slide":1,"bbox":[438,380,112,30]}
+{"kind":"textbox","id":"sh/obi10bat","slide":1,"text":"多维修店报价","textPreview":"多维修店报价","textChars":6,"textLines":1,"bbox":[448,386,92,18]}
+{"kind":"textbox","id":"sh/9wr2tgbe","slide":1,"text":"年检点击回归：已通过   ·   维修报价点击回归：已通过","textPreview":"年检点击回归：已通过   ·   维修报价点击回归：已通过","textChars":29,"textLines":1,"bbox":[66,458,520,56]}
+{"kind":"shape","id":"sh/e5gju1cr","slide":1,"bbox":[662,50,258,610]}
+{"kind":"shape","id":"sh/07i1wrah","slide":1,"bbox":[674,93.33,234,24]}
+{"kind":"textbox","id":"sh/18r2pwb2","slide":1,"text":"车主端","textPreview":"车主端","textChars":3,"textLines":1,"bbox":[684,96.33,214,18]}
+{"kind":"shape","id":"sh/y1kj6lsv","slide":1,"bbox":[944,50,272,610]}
+{"kind":"shape","id":"sh/fmlgri9s","slide":1,"bbox":[956,78.2,248,24]}
+{"kind":"textbox","id":"sh/ulczyds7","slide":1,"text":"检测站端","textPreview":"检测站端","textChars":4,"textLines":1,"bbox":[966,81.2,228,18]}
+{"kind":"textbox","id":"sh/h8nytsry","slide":1,"text":"本地演示环境 · 2026.08","textPreview":"本地演示环境 · 2026.08","textChars":16,"textLines":1,"bbox":[66,648,300,24]}
+{"kind":"image","id":"im/83y5krep","slide":1,"name":"","geometry":"roundRect","alt":"驭小满小程序首页年检入口","bbox":[670,58,242,594]}
+{"kind":"image","id":"im/o7e58nel","slide":1,"name":"","geometry":"roundRect","alt":"检测站车辆体检报告和故障近照","bbox":[952,58,256,594]}
+{"kind":"notes","id":"nt/hq46vc","slide":1,"text":"开场先讲闭环范围，再讲功能。维修闭环止于报价选择与模拟支付。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-01-home-entry.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-13a-fault-recorded-with-photo.png\n[/Sources]"}
+{"kind":"slide","id":"sl/f8cozg","slide":2,"title":"01 / PROOF","textShapes":31}
+{"kind":"shape","id":"sh/7ahon2l4","slide":2,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/sbqpw7m9","slide":2,"text":"01 / PROOF","textPreview":"01 / PROOF","textChars":10,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/tcj6pc3u","slide":2,"text":"闭环不是“有页面”，而是每个角色都能把订单推到终态","textPreview":"闭环不是“有页面”，而是每个角色都能把订单推到终态","textChars":25,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/y587qx47","slide":2,"text":"年检到报告与服务完成；维修报价到车主选店与模拟支付。","textPreview":"年检到报告与服务完成；维修报价到车主选店与模拟支付。","textChars":26,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/j6hoj2ls","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/k7qps7md","slide":2,"bbox":[54,198,270,145]}
+{"kind":"shape","id":"sh/58z6lc3y","slide":2,"bbox":[72,216,42,42]}
+{"kind":"textbox","id":"sh/21s7214r","slide":2,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[72,224,42,20]}
+{"kind":"textbox","id":"sh/3218v6lw","slide":2,"text":"2 条","textPreview":"2 条","textChars":3,"textLines":1,"bbox":[74,264,230,42]}
+{"kind":"textbox","id":"sh/ridcbqlk","slide":2,"text":"自驾 + 代驾原生点击路径","textPreview":"自驾 + 代驾原生点击路径","textChars":13,"textLines":1,"bbox":[74,310,230,24]}
+{"kind":"shape","id":"sh/6h4bilkz","slide":2,"bbox":[342,198,270,145]}
+{"kind":"shape","id":"sh/tkvudg3q","slide":2,"bbox":[360,216,42,42]}
+{"kind":"textbox","id":"sh/sjmtkv25","slide":2,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[360,224,42,20]}
+{"kind":"textbox","id":"sh/fmdcfqlw","slide":2,"text":"4 × 5","textPreview":"4 × 5","textChars":5,"textLines":1,"bbox":[362,264,230,42]}
+{"kind":"textbox","id":"sh/el4bmlkb","slide":2,"text":"代驾四阶段留证包","textPreview":"代驾四阶段留证包","textChars":8,"textLines":1,"bbox":[362,310,230,24]}
+{"kind":"shape","id":"sh/18fuh03m","slide":2,"bbox":[630,198,270,145]}
+{"kind":"shape","id":"sh/g76tov2h","slide":2,"bbox":[648,216,42,42]}
+{"kind":"textbox","id":"sh/3axcjals","slide":2,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[648,224,42,20]}
+{"kind":"textbox","id":"sh/29obq5k7","slide":2,"text":"3 家","textPreview":"3 家","textChars":3,"textLines":1,"bbox":[650,264,230,42]}
+{"kind":"textbox","id":"sh/y58fi94f","slide":2,"text":"维修门店独立报价","textPreview":"维修门店独立报价","textChars":8,"textLines":1,"bbox":[650,310,230,24]}
+{"kind":"shape","id":"sh/z61wbe50","slide":2,"bbox":[918,198,270,145]}
+{"kind":"shape","id":"sh/k7axkjml","slide":2,"bbox":[936,216,42,42]}
+{"kind":"textbox","id":"sh/l8jed4n6","slide":2,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[936,224,42,20]}
+{"kind":"textbox","id":"sh/a18vep4j","slide":2,"text":"0 元 ≠","textPreview":"0 元 ≠","textChars":5,"textLines":1,"bbox":[938,264,230,42]}
+{"kind":"textbox","id":"sh/b2hwnu54","slide":2,"text":"报价统计使用真实非零测试金额","textPreview":"报价统计使用真实非零测试金额","textChars":14,"textLines":1,"bbox":[938,310,230,24]}
+{"kind":"shape","id":"sh/c3qxgzmp","slide":2,"bbox":[54,392,151.71,106]}
+{"kind":"textbox","id":"sh/x4ze94nu","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[68,406,40,22]}
+{"kind":"textbox","id":"sh/uxsfqt4n","slide":2,"text":"车主预约","textPreview":"车主预约","textChars":4,"textLines":1,"bbox":[68,434,123.71,38]}
+{"kind":"shape","id":"sh/vylwjy58","slide":2,"bbox":[217.71,392,151.71,106]}
+{"kind":"textbox","id":"sh/5snips7a","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[231.71,406,40,22]}
+{"kind":"textbox","id":"sh/4rehgn6p","slide":2,"text":"支付确认","textPreview":"支付确认","textChars":4,"textLines":1,"bbox":[231.71,434,123.71,38]}
+{"kind":"shape","id":"sh/jq50nipk","slide":2,"bbox":[381.43,392,151.71,106]}
+{"kind":"textbox","id":"sh/i5czedoz","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[395.43,406,40,22]}
+{"kind":"textbox","id":"sh/h43yl87e","slide":2,"text":"检测履约","textPreview":"检测履约","textChars":4,"textLines":1,"bbox":[395.43,434,123.71,38]}
+{"kind":"shape","id":"sh/w3uhc36t","slide":2,"bbox":[545.14,392,151.71,106]}
+{"kind":"textbox","id":"sh/v2lgjip8","slide":2,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[559.14,406,40,22]}
+{"kind":"textbox","id":"sh/u1czadon","slide":2,"text":"结果发布","textPreview":"结果发布","textChars":4,"textLines":1,"bbox":[559.14,434,123.71,38]}
+{"kind":"shape","id":"sh/107ixc7i","slide":2,"bbox":[708.86,392,151.71,106]}
+{"kind":"textbox","id":"sh/gzyho76x","slide":2,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[722.86,406,40,22]}
+{"kind":"textbox","id":"sh/83mpo76t","slide":2,"text":"报告可查","textPreview":"报告可查","textChars":4,"textLines":1,"bbox":[722.86,434,123.71,38]}
+{"kind":"shape","id":"sh/94vqhc7e","slide":2,"bbox":[872.57,392,151.71,106]}
+{"kind":"textbox","id":"sh/m147mxon","slide":2,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[886.57,406,40,22]}
+{"kind":"textbox","id":"sh/n2d8f2p8","slide":2,"text":"维修询价","textPreview":"维修询价","textChars":4,"textLines":1,"bbox":[886.57,434,123.71,38]}
+{"kind":"shape","id":"sh/w7mpsr6p","slide":2,"bbox":[1036.29,392,151.71,106]}
+{"kind":"textbox","id":"sh/x8vqlc7a","slide":2,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1050.29,406,40,22]}
+{"kind":"textbox","id":"sh/a547qhoz","slide":2,"text":"选店支付","textPreview":"选店支付","textChars":4,"textLines":1,"bbox":[1050.29,434,123.71,38]}
+{"kind":"shape","id":"sh/v6d8jmp4","slide":2,"bbox":[54,532,1134,92]}
+{"kind":"textbox","id":"sh/kv69wr61","slide":2,"text":"最终证据：两条年检路径与维修报价路径均由界面点击完成，摘要状态 passed。","textPreview":"最终证据：两条年检路径与维修报价路径均由界面点击完成，摘要状态 passed。","textChars":39,"textLines":1,"bbox":[82,557,1078,46]}
+{"kind":"notes","id":"nt/f8cozg","slide":2,"text":"这一页用于回答老板最关心的问题：流程到底闭在哪里、哪些已被点击证据证明。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\run-summary.json\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\run-summary.json\n[/Sources]"}
+{"kind":"slide","id":"sl/deddm0","slide":3,"title":"02 / DATA","textShapes":12}
+{"kind":"shape","id":"sh/sbmpofyt","slide":3,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/7atofax8","slide":3,"text":"02 / DATA","textPreview":"02 / DATA","textChars":9,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/69k7m5gn","slide":3,"text":"测试素材边界：真实车辆照片进入流程，测试文件不伪装成正式凭证","textPreview":"测试素材边界：真实车辆照片进入流程，测试文件不伪装成正式凭证","textChars":30,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/hgv6lkfa","slide":3,"text":"两套真实车辆用于验证上传保留、留证、报告和故障照片；缺失法定材料明确标注 TEST ONLY。","textPreview":"两套真实车辆用于验证上传保留、留证、报告和故障照片；缺失法定材料明确标注 TEST ONLY。","textChars":47,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/gfmpsfyp","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/fedojax4","slide":3,"bbox":[54,190,330,250]}
+{"kind":"shape","id":"sh/p4fqp4f6","slide":3,"bbox":[66,198,306,24]}
+{"kind":"textbox","id":"sh/4j6pwzy1","slide":3,"text":"自驾车辆 · 真实素材","textPreview":"自驾车辆 · 真实素材","textChars":11,"textLines":1,"bbox":[76,201,286,18]}
+{"kind":"shape","id":"sh/a5g7u54n","slide":3,"bbox":[400,190,330,250]}
+{"kind":"shape","id":"sh/wripwvmt","slide":3,"bbox":[412,198,306,24]}
+{"kind":"textbox","id":"sh/xsr6p0ne","slide":3,"text":"代驾车辆 · 真实素材","textPreview":"代驾车辆 · 真实素材","textChars":11,"textLines":1,"bbox":[422,201,286,18]}
+{"kind":"shape","id":"sh/yt07y54z","slide":3,"bbox":[754,190,434,250]}
+{"kind":"shape","id":"sh/ju98ra54","slide":3,"bbox":[782,218,110,30]}
+{"kind":"textbox","id":"sh/kvip0fmp","slide":3,"text":"真实素材","textPreview":"真实素材","textChars":4,"textLines":1,"bbox":[792,224,90,18]}
+{"kind":"textbox","id":"sh/lwrqtkna","slide":3,"text":"两辆车的四角、启动后仪表盘，以及可用行驶证页面来自用户提供图片。","textPreview":"两辆车的四角、启动后仪表盘，以及可用行驶证页面来自用户提供图片。","textChars":32,"textLines":1,"bbox":[782,260,370,72]}
+{"kind":"shape","id":"sh/exw7mlof","slide":3,"bbox":[782,345,110,30]}
+{"kind":"textbox","id":"sh/zypof650","slide":3,"text":"TEST ONLY","textPreview":"TEST ONLY","textChars":9,"textLines":1,"bbox":[792,351,90,18]}
+{"kind":"textbox","id":"sh/32l4nmls","slide":3,"text":"缺失的证件副页与安全技术检验报告仅用于本地流程验证，画面带醒目标识。","textPreview":"缺失的证件副页与安全技术检验报告仅用于本地流程验证，画面带醒目标识。","textChars":34,"textLines":1,"bbox":[782,386,370,44]}
+{"kind":"shape","id":"sh/2hc3uh47","slide":3,"bbox":[54,470,1134,142]}
+{"kind":"textbox","id":"sh/p43mpc3y","slide":3,"text":"对外演示原则","textPreview":"对外演示原则","textChars":6,"textLines":1,"bbox":[80,496,180,28]}
+{"kind":"textbox","id":"sh/43ulw72d","slide":3,"text":"内测演示可展示任务验证码与测试账号；实车素材含用户授权车牌；模拟支付不拉起真实 SDK。","textPreview":"内测演示可展示任务验证码与测试账号；实车素材含用户授权车牌；模拟支付不拉起真实 SDK。","textChars":44,"textLines":1,"bbox":[80,536,1060,58]}
+{"kind":"image","id":"im/ja1gba10","slide":3,"name":"","geometry":"roundRect","alt":"自驾测试车辆左前照片","bbox":[62,198,314,234]}
+{"kind":"image","id":"im/8zat83e5","slide":3,"name":"","geometry":"roundRect","alt":"代驾测试车辆左前照片","bbox":[408,198,314,234]}
+{"kind":"notes","id":"nt/deddm0","slide":3,"text":"强调素材真实性与合规边界。result.local.json 仅作配置依据，不在页面中展示其内容。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\runs\\2026-08-29T17-52-45-661Z-6064\\prepared\\self-drive\\frontLeft.jpg\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\runs\\2026-08-29T17-52-45-661Z-6064\\prepared\\valet\\frontLeft.jpg\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\result.local.json\n[/Sources]"}
+{"kind":"slide","id":"sl/85hkh1","slide":4,"title":"03 / ROLES","textShapes":20}
+{"kind":"shape","id":"sh/d0b290v2","slide":4,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/qx03e5cr","slide":4,"text":"03 / ROLES","textPreview":"03 / ROLES","textChars":10,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/by9k7qdw","slide":4,"text":"五类角色共同推进一笔订单，后台看全局但不替一线履约","textPreview":"五类角色共同推进一笔订单，后台看全局但不替一线履约","textChars":25,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/0n2lkfut","slide":4,"text":"正常业务节点由车主、司机、检测站和维修门店分别完成；后台负责任务安排与全程查看。","textPreview":"正常业务节点由车主、司机、检测站和维修门店分别完成；后台负责任务安排与全程查看。","textChars":40,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/lob2dkve","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/y1k3i5cn","slide":4,"bbox":[54,210,206,280]}
+{"kind":"shape","id":"sh/zmtkbad8","slide":4,"bbox":[120,238,74,74]}
+{"kind":"textbox","id":"sh/8rmlofup","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[120,255,74,32]}
+{"kind":"textbox","id":"sh/9sv2hkva","slide":4,"text":"车主端","textPreview":"车主端","textChars":3,"textLines":1,"bbox":[72,338,170,34]}
+{"kind":"textbox","id":"sh/pwjyl8b2","slide":4,"text":"预约、上传、模拟支付、看进度和报告","textPreview":"预约、上传、模拟支付、看进度和报告","textChars":17,"textLines":1,"bbox":[74,390,166,72]}
+{"kind":"shape","id":"sh/ovahs3uh","slide":4,"bbox":[280,210,206,280]}
+{"kind":"shape","id":"sh/3u1gjitw","slide":4,"bbox":[346,238,74,74]}
+{"kind":"textbox","id":"sh/298zqdcb","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[346,255,74,32]}
+{"kind":"textbox","id":"sh/d0jipsby","slide":4,"text":"代驾端","textPreview":"代驾端","textChars":3,"textLines":1,"bbox":[298,338,170,34]}
+{"kind":"textbox","id":"sh/czahwnud","slide":4,"text":"验证码领单、取车和送回留证","textPreview":"验证码领单、取车和送回留证","textChars":13,"textLines":1,"bbox":[300,390,166,72]}
+{"kind":"shape","id":"sh/by1gnits","slide":4,"bbox":[506,210,206,280]}
+{"kind":"shape","id":"sh/qxszudcn","slide":4,"bbox":[572,238,74,74]}
+{"kind":"textbox","id":"sh/t4zydobu","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[572,255,74,32]}
+{"kind":"textbox","id":"sh/s3qhkju9","slide":4,"text":"检测站端","textPreview":"检测站端","textChars":4,"textLines":1,"bbox":[524,338,170,34]}
+{"kind":"textbox","id":"sh/knah0325","slide":4,"text":"接车、检测、故障记录、发布结论","textPreview":"接车、检测、故障记录、发布结论","textChars":15,"textLines":1,"bbox":[526,390,166,72]}
+{"kind":"shape","id":"sh/lo3yt8jq","slide":4,"bbox":[732,210,206,280]}
+{"kind":"shape","id":"sh/ylszytkz","slide":4,"bbox":[798,238,74,74]}
+{"kind":"textbox","id":"sh/jm1gry1k","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[798,255,74,32]}
+{"kind":"textbox","id":"sh/8buh4321","slide":4,"text":"运营后台","textPreview":"运营后台","textChars":4,"textLines":1,"bbox":[750,338,170,34]}
+{"kind":"textbox","id":"sh/tc3ix8jm","slide":4,"text":"安排司机、看状态机、证据与交易","textPreview":"安排司机、看状态机、证据与交易","textChars":15,"textLines":1,"bbox":[752,390,166,72]}
+{"kind":"shape","id":"sh/69cz2tkb","slide":4,"bbox":[958,210,206,280]}
+{"kind":"shape","id":"sh/7al0vy1g","slide":4,"bbox":[1024,238,74,74]}
+{"kind":"textbox","id":"sh/gfeh8n2d","slide":4,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1024,255,74,32]}
+{"kind":"textbox","id":"sh/hgni1sjy","slide":4,"text":"维修门店","textPreview":"维修门店","textChars":4,"textLines":1,"bbox":[976,338,170,34]}
+{"kind":"textbox","id":"sh/rapkrml0","slide":4,"text":"看授权故障、提交报价、按中标开放权限","textPreview":"看授权故障、提交报价、按中标开放权限","textChars":18,"textLines":1,"bbox":[978,390,166,72]}
+{"kind":"shape","id":"sh/q9gjyh4f","slide":4,"bbox":[54,525,1134,86]}
+{"kind":"textbox","id":"sh/dc72tc36","slide":4,"text":"设计原则：留证完整即可推进，不增加客户确认和异议环节阻塞业务；所有已完成节点对客户和后台只读可见。","textPreview":"设计原则：留证完整即可推进，不增加客户确认和异议环节阻塞业务；所有已完成节点对客户和后台只读可见。","textChars":49,"textLines":1,"bbox":[82,550,1078,44]}
+{"kind":"notes","id":"nt/85hkh1","slide":4,"text":"用角色而不是技术模块讲解系统，便于非技术听众理解职责分工。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\server\\app.ts\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\wechat-miniprogram\\miniprogram\\app.json\n[/Sources]"}
+{"kind":"slide","id":"sl/52mjbl","slide":5,"title":"04 / OWNER","textShapes":15}
+{"kind":"shape","id":"sh/4jelcn6h","slide":5,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/3i5kji5w","slide":5,"text":"04 / OWNER","textPreview":"04 / OWNER","textChars":10,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/ihw3adob","slide":5,"text":"首页三入口：自驾验车、代驾验车、检测报告","textPreview":"首页三入口：自驾验车、代驾验车、检测报告","textChars":20,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/hgn2h87q","slide":5,"text":"预约入口直达对应检测站选择；报告入口始终进入报告中心。","textPreview":"预约入口直达对应检测站选择；报告入口始终进入报告中心。","textChars":27,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/gvel836l","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/vu5kfyp0","slide":5,"bbox":[54,180,318,472]}
+{"kind":"shape","id":"sh/1crmtcna","slide":5,"bbox":[66,188,294,24]}
+{"kind":"textbox","id":"sh/0rilk76p","slide":5,"text":"操作 1 · 选择验车方式","textPreview":"操作 1 · 选择验车方式","textChars":13,"textLines":1,"bbox":[76,191,274,18]}
+{"kind":"shape","id":"sh/mtk3u58z","slide":5,"bbox":[404,180,784,472]}
+{"kind":"shape","id":"sh/7udk3q9k","slide":5,"bbox":[438,212,716,96]}
+{"kind":"textbox","id":"sh/8vmlwvq5","slide":5,"text":"自驾验车","textPreview":"自驾验车","textChars":4,"textLines":1,"bbox":[462,230,160,28]}
+{"kind":"textbox","id":"sh/9wv250rq","slide":5,"text":"自己开车到检测站 · 选择网点和时段","textPreview":"自己开车到检测站 · 选择网点和时段","textChars":18,"textLines":1,"bbox":[462,264,380,24]}
+{"kind":"shape","id":"sh/ypk3ql83","slide":5,"bbox":[860,243,268,30]}
+{"kind":"textbox","id":"sh/zqtkzq9o","slide":5,"text":"直接建立自驾预约草稿","textPreview":"直接建立自驾预约草稿","textChars":10,"textLines":1,"bbox":[870,249,248,18]}
+{"kind":"shape","id":"sh/kr2lsvq9","slide":5,"bbox":[438,330,716,96]}
+{"kind":"textbox","id":"sh/lsb210ru","slide":5,"text":"代驾验车","textPreview":"代驾验车","textChars":4,"textLines":1,"bbox":[462,348,160,28]}
+{"kind":"textbox","id":"sh/il432p87","slide":5,"text":"上门取车，检后送回 · 按真实路线计价","textPreview":"上门取车，检后送回 · 按真实路线计价","textChars":19,"textLines":1,"bbox":[462,382,380,24]}
+{"kind":"shape","id":"sh/jmx4ba9s","slide":5,"bbox":[860,361,268,30]}
+{"kind":"textbox","id":"sh/f6p0nmp4","slide":5,"text":"直接建立代驾预约草稿","textPreview":"直接建立代驾预约草稿","textChars":10,"textLines":1,"bbox":[870,367,248,18]}
+{"kind":"shape","id":"sh/e5gzuhoz","slide":5,"bbox":[438,448,716,96]}
+{"kind":"textbox","id":"sh/187ipc7a","slide":5,"text":"检测报告","textPreview":"检测报告","textChars":4,"textLines":1,"bbox":[462,466,160,28]}
+{"kind":"textbox","id":"sh/g7yhw76p","slide":5,"text":"年检结论 · 车辆体检记录","textPreview":"年检结论 · 车辆体检记录","textChars":13,"textLines":1,"bbox":[462,500,380,24]}
+{"kind":"shape","id":"sh/3up0rmpg","slide":5,"bbox":[860,479,268,30]}
+{"kind":"textbox","id":"sh/2tgzyhov","slide":5,"text":"进入全部车辆报告中心","textPreview":"进入全部车辆报告中心","textChars":10,"textLines":1,"bbox":[870,485,248,18]}
+{"kind":"textbox","id":"sh/pwritw7m","slide":5,"text":"智能分流：无车辆先添加；已有进行中订单直接打开；资格异常先核验，完成后续接原验车方式。","textPreview":"智能分流：无车辆先添加；已有进行中订单直接打开；资格异常先核验，完成后续接原验车方式。","textChars":43,"textLines":1,"bbox":[438,588,716,34]}
+{"kind":"image","id":"im/byh03uhw","slide":5,"name":"","geometry":"roundRect","alt":"小程序首页年检服务三入口","bbox":[62,188,302,456]}
+{"kind":"notes","id":"nt/52mjbl","slide":5,"text":"演示时先从首页进入自驾，再返回首页进入代驾；报告入口留到结果发布后展示。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-01-home-entry.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\wechat-miniprogram\\miniprogram\\pages\\home\\home.ts\n[/Sources]"}
+{"kind":"slide","id":"sl/7znws0","slide":6,"title":"05 / SELF-DRIVE","textShapes":17}
+{"kind":"shape","id":"sh/10va5g76","slide":6,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/exkralof","slide":6,"text":"05 / SELF-DRIVE","textPreview":"05 / SELF-DRIVE","textChars":15,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/zyts3qp0","slide":6,"text":"自驾预约：7 张资料不会互相覆盖，支付后自动确认","textPreview":"自驾预约：7 张资料不会互相覆盖，支付后自动确认","textChars":24,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/cv298b6p","slide":6,"text":"四角 + 启动后仪表盘 + 行驶证主页/副页；服务端报价快照锁定 ¥260.00。","textPreview":"四角 + 启动后仪表盘 + 行驶证主页/副页；服务端报价快照锁定 ¥260.00。","textChars":41,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/dwbq1g7a","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/q9kr61oj","slide":6,"bbox":[54,180,250,456]}
+{"kind":"shape","id":"sh/47i94r6d","slide":6,"bbox":[66,188,226,24]}
+{"kind":"textbox","id":"sh/p8rqxw7y","slide":6,"text":"① 选站与时段","textPreview":"① 选站与时段","textChars":7,"textLines":1,"bbox":[76,191,206,18]}
+{"kind":"shape","id":"sh/pkvyl4fu","slide":6,"bbox":[322,180,250,456]}
+{"kind":"shape","id":"sh/nydwjuxo","slide":6,"bbox":[334,188,226,24]}
+{"kind":"textbox","id":"sh/2x4fqpw3","slide":6,"text":"② 7/7 上传保留","textPreview":"② 7/7 上传保留","textChars":10,"textLines":1,"bbox":[344,191,206,18]}
+{"kind":"shape","id":"sh/1wvehkfy","slide":6,"bbox":[590,180,250,456]}
+{"kind":"shape","id":"sh/futwfaxs","slide":6,"bbox":[602,188,226,24]}
+{"kind":"textbox","id":"sh/etkfmpw7","slide":6,"text":"③ ¥260 待支付","textPreview":"③ ¥260 待支付","textChars":10,"textLines":1,"bbox":[612,191,206,18]}
+{"kind":"shape","id":"sh/dsbedkfm","slide":6,"bbox":[862,180,326,456]}
+{"kind":"shape","id":"sh/sr2xkfe1","slide":6,"bbox":[888,223,24,24]}
+{"kind":"textbox","id":"sh/4b6x0fmx","slide":6,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[888,225,24,18]}
+{"kind":"textbox","id":"sh/5cfy9kni","slide":6,"text":"选择检测站与预约时段","textPreview":"选择检测站与预约时段","textChars":10,"textLines":1,"bbox":[926,218,236,50]}
+{"kind":"shape","id":"sh/i9ofy54r","slide":6,"bbox":[888,293,24,24]}
+{"kind":"textbox","id":"sh/jaxg7a5c","slide":6,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[888,295,24,18]}
+{"kind":"textbox","id":"sh/w7mxwfm1","slide":6,"text":"依次上传 7 张，每次检查此前照片仍在","textPreview":"依次上传 7 张，每次检查此前照片仍在","textChars":19,"textLines":1,"bbox":[926,288,236,50]}
+{"kind":"shape","id":"sh/h8fe50nm","slide":6,"bbox":[888,363,24,24]}
+{"kind":"textbox","id":"sh/a54fu54v","slide":6,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[888,365,24,18]}
+{"kind":"textbox","id":"sh/v6dw3a5g","slide":6,"text":"使用服务端 quoteSnapshotId 创建订单","textPreview":"使用服务端 quoteSnapshotId 创建订单","textChars":26,"textLines":1,"bbox":[926,358,236,50]}
+{"kind":"shape","id":"sh/g3qx8zm5","slide":6,"bbox":[888,433,24,24]}
+{"kind":"textbox","id":"sh/14zyh4nq","slide":6,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[888,435,24,18]}
+{"kind":"textbox","id":"sh/by107yps","slide":6,"text":"本地模拟支付，不拉起真实 SDK","textPreview":"本地模拟支付，不拉起真实 SDK","textChars":16,"textLines":1,"bbox":[926,428,236,50]}
+{"kind":"shape","id":"sh/qxsjyto7","slide":6,"bbox":[888,503,24,24]}
+{"kind":"textbox","id":"sh/d03i987y","slide":6,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[888,505,24,18]}
+{"kind":"textbox","id":"sh/czu1036d","slide":6,"text":"支付成功后自动进入已确认","textPreview":"支付成功后自动进入已确认","textChars":12,"textLines":1,"bbox":[926,498,236,50]}
+{"kind":"image","id":"im/a1sradgn","slide":6,"name":"","geometry":"roundRect","alt":"自驾检测站选择页面","bbox":[62,188,234,440]}
+{"kind":"image","id":"im/z25kfedo","slide":6,"name":"","geometry":"roundRect","alt":"自驾七张预约资料全部保留","bbox":[330,188,234,440]}
+{"kind":"image","id":"im/7qp4jydk","slide":6,"name":"","geometry":"roundRect","alt":"自驾订单非零金额模拟支付页面","bbox":[598,188,234,440]}
+{"kind":"notes","id":"nt/7znws0","slide":6,"text":"演示操作：先选择检测站与时段，再逐张上传 7 份资料并核对缩略图均保留；提交预约后展示 ¥260 待支付和支付后自动确认。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-02-station-picker.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-05-all-uploads-retained.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-06-order-pending-payment.png\n[/Sources]"}
+{"kind":"slide","id":"sl/lyg7fk","slide":7,"title":"06 / INSPECTION","textShapes":12}
+{"kind":"shape","id":"sh/0va9kzm9","slide":7,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/zu1sru5o","slide":7,"text":"06 / INSPECTION","textPreview":"06 / INSPECTION","textChars":15,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/ytsrip43","slide":7,"text":"自驾检测：车身无明显故障，年检仍可依据检测结果判定未通过","textPreview":"自驾检测：车身无明显故障，年检仍可依据检测结果判定未通过","textChars":28,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/903ax4nq","slide":7,"text":"结论只有“通过 / 未通过”；未通过必须填写原因与复检建议。","textPreview":"结论只有“通过 / 未通过”；未通过必须填写原因与复检建议。","textChars":30,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/8za9ozm5","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/ny1svu5k","slide":7,"bbox":[54,182,292,450]}
+{"kind":"shape","id":"sh/p4zqlknm","slide":7,"bbox":[66,190,268,24]}
+{"kind":"textbox","id":"sh/o3q9cf61","slide":7,"text":"检测站 · 检测中","textPreview":"检测站 · 检测中","textChars":9,"textLines":1,"bbox":[76,193,248,18]}
+{"kind":"shape","id":"sh/69wjelkr","slide":7,"bbox":[364,182,292,450]}
+{"kind":"shape","id":"sh/sby1gv2h","slide":7,"bbox":[376,190,268,24]}
+{"kind":"textbox","id":"sh/tc7ip0j2","slide":7,"text":"5/5 现场照片 + 未通过","textPreview":"5/5 现场照片 + 未通过","textChars":14,"textLines":1,"bbox":[386,193,248,18]}
+{"kind":"shape","id":"sh/udgji5kn","slide":7,"bbox":[674,182,292,450]}
+{"kind":"shape","id":"sh/gfy1kf2t","slide":7,"bbox":[686,190,268,24]}
+{"kind":"textbox","id":"sh/hg72t0je","slide":7,"text":"客户收到未通过报告","textPreview":"客户收到未通过报告","textChars":9,"textLines":1,"bbox":[696,193,248,18]}
+{"kind":"shape","id":"sh/2hgjm5kj","slide":7,"bbox":[986,182,202,450]}
+{"kind":"textbox","id":"sh/3i9kva14","slide":7,"text":"未通过示例","textPreview":"未通过示例","textChars":5,"textLines":1,"bbox":[1008,212,160,30]}
+{"kind":"textbox","id":"sh/z690jahc","slide":7,"text":"制动力检测未达到检测线阈值","textPreview":"制动力检测未达到检测线阈值","textChars":13,"textLines":1,"bbox":[1008,260,160,72]}
+{"kind":"textbox","id":"sh/el0za5gr","slide":7,"text":"复检建议","textPreview":"复检建议","textChars":4,"textLines":1,"bbox":[1008,370,160,24]}
+{"kind":"textbox","id":"sh/l8rilkzi","slide":7,"text":"检修制动系统，携检测报告完成复检。","textPreview":"检修制动系统，携检测报告完成复检。","textChars":17,"textLines":1,"bbox":[1008,408,160,80]}
+{"kind":"textbox","id":"sh/07ihcfyx","slide":7,"text":"未通过时\n不发布合格标志。","textPreview":"未通过时 | 不发布合格标志。","textChars":13,"textLines":2,"bbox":[1008,542,160,58]}
+{"kind":"image","id":"im/rmx43yt4","slide":7,"name":"","geometry":"roundRect","alt":"检测站推进自驾订单至检测中","bbox":[62,190,276,434]}
+{"kind":"image","id":"im/0fi1ora9","slide":7,"name":"","geometry":"roundRect","alt":"检测报告待发布并选择未通过","bbox":[372,190,276,434]}
+{"kind":"image","id":"im/cri1k7ad","slide":7,"name":"","geometry":"roundRect","alt":"车主端查看自驾未通过报告弹窗","bbox":[682,190,276,434]}
+{"kind":"notes","id":"nt/lyg7fk","slide":7,"text":"重点解释：车身状态确认与年检结论不是同一个判断维度。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-08-station-inspecting.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-13-checkup-ready-to-publish.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\self-drive-17-owner-report-modal.png\n[/Sources]"}
+{"kind":"slide","id":"sl/cvuaqg","slide":8,"title":"07 / VALET","textShapes":16}
+{"kind":"shape","id":"sh/vepwj6lc","slide":8,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/wfyxsbmx","slide":8,"text":"07 / VALET","textPreview":"07 / VALET","textChars":10,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/xg7elg3i","slide":8,"text":"代驾预约：预约只收 2 张证件，现场车况由司机取车时采集","textPreview":"代驾预约：预约只收 2 张证件，现场车况由司机取车时采集","textChars":28,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/m9wfmh4v","slide":8,"text":"真实地址 + 路线凭证 + 服务端计价；¥260 检测费 + ¥109 取送费 = ¥369。","textPreview":"真实地址 + 路线凭证 + 服务端计价；¥260 检测费 + ¥109 取送费 = ¥369。","textChars":47,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/napwfml0","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/8byxorml","slide":8,"bbox":[54,182,272,450]}
+{"kind":"shape","id":"sh/elwfih4j","slide":8,"bbox":[66,190,248,24]}
+{"kind":"textbox","id":"sh/zm5wbml4","slide":8,"text":"① 地址与路线","textPreview":"① 地址与路线","textChars":7,"textLines":1,"bbox":[76,193,228,18]}
+{"kind":"shape","id":"sh/vmdojadc","slide":8,"bbox":[344,182,272,450]}
+{"kind":"shape","id":"sh/hof6lkvi","slide":8,"bbox":[356,190,248,24]}
+{"kind":"textbox","id":"sh/gnmpsfex","slide":8,"text":"② 2/2 行驶证","textPreview":"② 2/2 行驶证","textChars":9,"textLines":1,"bbox":[366,193,228,18]}
+{"kind":"shape","id":"sh/3qxonad8","slide":8,"bbox":[634,182,272,450]}
+{"kind":"shape","id":"sh/pcfqpkve","slide":8,"bbox":[646,190,248,24]}
+{"kind":"textbox","id":"sh/4b6pwfet","slide":8,"text":"③ ¥369 模拟支付","textPreview":"③ ¥369 模拟支付","textChars":11,"textLines":1,"bbox":[656,193,228,18]}
+{"kind":"shape","id":"sh/jutobqd4","slide":8,"bbox":[928,182,260,450]}
+{"kind":"textbox","id":"sh/ytknilwj","slide":8,"text":"报价快照","textPreview":"报价快照","textChars":4,"textLines":1,"bbox":[954,216,208,28]}
+{"kind":"textbox","id":"sh/m9srqtg7","slide":8,"text":"年检服务费","textPreview":"年检服务费","textChars":5,"textLines":1,"bbox":[954,278,120,24]}
+{"kind":"textbox","id":"sh/na1szyxs","slide":8,"text":"¥260","textPreview":"¥260","textChars":4,"textLines":1,"bbox":[1078,273,84,30]}
+{"kind":"textbox","id":"sh/oba9s3yd","slide":8,"text":"路线取送费","textPreview":"路线取送费","textChars":5,"textLines":1,"bbox":[954,334,120,24]}
+{"kind":"textbox","id":"sh/9cja18fy","slide":8,"text":"¥109","textPreview":"¥109","textChars":4,"textLines":1,"bbox":[1078,329,84,30]}
+{"kind":"shape","id":"sh/e58rm9gb","slide":8,"bbox":[954,388,208,1]}
+{"kind":"textbox","id":"sh/z6hsvexg","slide":8,"text":"合计","textPreview":"合计","textChars":2,"textLines":1,"bbox":[954,410,90,28]}
+{"kind":"textbox","id":"sh/07a9ojy1","slide":8,"text":"¥369","textPreview":"¥369","textChars":4,"textLines":1,"bbox":[1050,404,112,38]}
+{"kind":"textbox","id":"sh/18jaxofm","slide":8,"text":"预约只传 2 张行驶证；现场车况由司机取车时拍摄。","textPreview":"预约只传 2 张行驶证；现场车况由司机取车时拍摄。","textChars":25,"textLines":1,"bbox":[954,500,208,88]}
+{"kind":"textbox","id":"sh/qh8ri9gz","slide":8,"text":"车主点击：代驾验车 → 取车地址 / 检测站 / 时段 → 上传 2 张行驶证 →「提交预约」→「本地模拟支付」。","textPreview":"车主点击：代驾验车 → 取车地址 / 检测站 / 时段 → 上传 2 张行驶证 →「提交预约」→「本地模拟支付」。","textChars":57,"textLines":1,"bbox":[54,646,1134,30]}
+{"kind":"image","id":"im/g7ipkfyt","slide":8,"name":"","geometry":"roundRect","alt":"代驾地址与检测站选择","bbox":[62,190,256,434]}
+{"kind":"image","id":"im/twfmp8fu","slide":8,"name":"","geometry":"roundRect","alt":"代驾预约两张证件全部保留","bbox":[352,190,256,434]}
+{"kind":"image","id":"im/lsvmlofi","slide":8,"name":"","geometry":"roundRect","alt":"代驾非零报价和模拟支付","bbox":[642,190,256,434]}
+{"kind":"notes","id":"nt/cvuaqg","slide":8,"text":"演示操作：从首页点击“代驾验车”，完成取车地址、检测站与时段选择；上传行驶证主页和副页后点击“提交预约”，最后在订单页点击“本地模拟支付”。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-02-station-picker.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-05-all-uploads-retained.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-06-order-pending-payment.png\n[/Sources]"}
+{"kind":"slide","id":"sl/7iksci","slide":9,"title":"08 / DRIVER","textShapes":8}
+{"kind":"shape","id":"sh/0j6do7a5","slide":9,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/fixcf2tk","slide":9,"text":"08 / DRIVER","textPreview":"08 / DRIVER","textChars":11,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/ehovmxsz","slide":9,"text":"从工作人员入口切换代驾端，验证码登录后进入单笔任务","textPreview":"从工作人员入口切换代驾端，验证码登录后进入单笔任务","textChars":25,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/pozulcrm","slide":9,"text":"四张实机截图依次展示入口、登录、取车留证和状态推进。","textPreview":"四张实机截图依次展示入口、登录、取车留证和状态推进。","textChars":26,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/onqds7ah","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/nmxcj29w","slide":9,"bbox":[54,184,230,448]}
+{"kind":"shape","id":"sh/xczepwry","slide":9,"bbox":[66,192,206,24]}
+{"kind":"textbox","id":"sh/cbqdwrad","slide":9,"text":"① 切换 · 代驾端","textPreview":"① 切换 · 代驾端","textChars":10,"textLines":1,"bbox":[76,195,186,18]}
+{"kind":"shape","id":"sh/y5cfe94n","slide":9,"bbox":[304,184,230,448]}
+{"kind":"shape","id":"sh/k7exgjmt","slide":9,"bbox":[316,192,206,24]}
+{"kind":"textbox","id":"sh/l8ne9o3y","slide":9,"text":"② 登录 · 任务码","textPreview":"② 登录 · 任务码","textChars":10,"textLines":1,"bbox":[326,195,186,18]}
+{"kind":"shape","id":"sh/69wfit4j","slide":9,"bbox":[570,184,294,448]}
+{"kind":"shape","id":"sh/8bexk3mp","slide":9,"bbox":[582,192,270,24]}
+{"kind":"textbox","id":"sh/twned83a","slide":9,"text":"③ 登录后 · 取车 5/5","textPreview":"③ 登录后 · 取车 5/5","textChars":14,"textLines":1,"bbox":[592,195,250,18]}
+{"kind":"shape","id":"sh/mdsv6p4f","slide":9,"bbox":[894,184,294,448]}
+{"kind":"shape","id":"sh/rihc7q1s","slide":9,"bbox":[906,192,270,24]}
+{"kind":"textbox","id":"sh/qh8by5k7","slide":9,"text":"④ 提交后 · 已取车","textPreview":"④ 提交后 · 已取车","textChars":11,"textLines":1,"bbox":[916,195,250,18]}
+{"kind":"image","id":"im/velwnmd4","slide":9,"name":"","geometry":"roundRect","alt":"工作人员入口切换到代驾端","bbox":[62,192,214,432]}
+{"kind":"image","id":"im/c7yhszut","slide":9,"name":"","geometry":"roundRect","alt":"代驾端六位任务验证码登录页面","bbox":[312,192,214,432]}
+{"kind":"image","id":"im/0bihwzu5","slide":9,"name":"","geometry":"roundRect","alt":"代驾司机登录后进入取车任务并拍满五张照片","bbox":[578,192,278,432]}
+{"kind":"image","id":"im/8zih0ju1","slide":9,"name":"","geometry":"roundRect","alt":"代驾司机提交取车留证后状态推进","bbox":[902,192,278,432]}
+{"kind":"notes","id":"nt/7iksci","slide":9,"text":"演示操作：进入“工作人员入口”，点击“代驾端”；在代驾端输入后台生成的 6 位任务验证码并点击“验证并进入任务”；登录后核对只显示当前订单，再拍满 5 张并点击“提交取车留证并推进”。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\deliverables\\deck-work\\driver-entry-evidence-20260830\\driver-entry-01-switch-to-driver.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\deliverables\\deck-work\\driver-entry-evidence-20260830\\driver-entry-02-code-login.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-09-driver-pickup-five-photos-ready.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-09-driver-pickup-submitted.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\wechat-miniprogram\\miniprogram\\packages\\operator\\pages\\staff-entry\\staff-entry.ts\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\wechat-miniprogram\\miniprogram\\packages\\driver\\pages\\login\\login.ts\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\wechat-miniprogram\\miniprogram\\packages\\driver\\pages\\task\\task.ts\n[/Sources]"}
+{"kind":"slide","id":"sl/vxe6xl","slide":10,"title":"09 / EVIDENCE","textShapes":14}
+{"kind":"shape","id":"sh/5ov2xcfu","slide":10,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/il4j2hg3","slide":10,"text":"09 / EVIDENCE","textPreview":"09 / EVIDENCE","textChars":13,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/jmdkvmxo","slide":10,"text":"代驾四阶段留证：照片完整就是推进条件，不增加确认阻塞","textPreview":"代驾四阶段留证：照片完整就是推进条件，不增加确认阻塞","textChars":26,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/wzm107yx","slide":10,"text":"取车、到站、检测完成、送回；每阶段固定四角 + 启动后仪表盘 5 张。","textPreview":"取车、到站、检测完成、送回；每阶段固定四角 + 启动后仪表盘 5 张。","textChars":35,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/xkv2tcfi","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/axkjyxg7","slide":10,"bbox":[54,190,266,388]}
+{"kind":"shape","id":"sh/gf6lcbyh","slide":10,"bbox":[66,198,242,24]}
+{"kind":"textbox","id":"sh/hgf25wf2","slide":10,"text":"01 司机取车","textPreview":"01 司机取车","textChars":7,"textLines":1,"bbox":[76,201,222,18]}
+{"kind":"shape","id":"sh/l43il4jq","slide":10,"bbox":[124,596,126,30]}
+{"kind":"textbox","id":"sh/k3uhsz25","slide":10,"text":"5 / 5","textPreview":"5 / 5","textChars":5,"textLines":1,"bbox":[134,602,106,18]}
+{"kind":"shape","id":"sh/z21gju1k","slide":10,"bbox":[338,190,266,388]}
+{"kind":"shape","id":"sh/x0jyhkje","slide":10,"bbox":[350,198,242,24]}
+{"kind":"textbox","id":"sh/cfahof2t","slide":10,"text":"02 检测站接车","textPreview":"02 检测站接车","textChars":8,"textLines":1,"bbox":[360,201,222,18]}
+{"kind":"shape","id":"sh/be1gfu18","slide":10,"bbox":[408,596,126,30]}
+{"kind":"textbox","id":"sh/adszmpk3","slide":10,"text":"5 / 5","textPreview":"5 / 5","textChars":5,"textLines":1,"bbox":[418,602,106,18]}
+{"kind":"shape","id":"sh/hwnitoji","slide":10,"bbox":[622,190,266,388]}
+{"kind":"shape","id":"sh/grmtcrel","slide":10,"bbox":[634,198,242,24]}
+{"kind":"textbox","id":"sh/1sfalwv6","slide":10,"text":"03 检测完成","textPreview":"03 检测完成","textChars":7,"textLines":1,"bbox":[644,201,222,18]}
+{"kind":"shape","id":"sh/ep4bahwf","slide":10,"bbox":[692,596,126,30]}
+{"kind":"textbox","id":"sh/fqdsjmd0","slide":10,"text":"5 / 5","textPreview":"5 / 5","textChars":5,"textLines":1,"bbox":[702,602,106,18]}
+{"kind":"shape","id":"sh/snmt87ep","slide":10,"bbox":[906,190,266,388]}
+{"kind":"shape","id":"sh/6l4r6xwj","slide":10,"bbox":[918,198,242,24]}
+{"kind":"textbox","id":"sh/rmdsf2d4","slide":10,"text":"04 司机送回","textPreview":"04 司机送回","textChars":7,"textLines":1,"bbox":[928,201,222,18]}
+{"kind":"shape","id":"sh/4j2947ed","slide":10,"bbox":[976,596,126,30]}
+{"kind":"textbox","id":"sh/5kvadcvy","slide":10,"text":"5 / 5","textPreview":"5 / 5","textChars":5,"textLines":1,"bbox":[986,602,106,18]}
+{"kind":"textbox","id":"sh/7utcn2xk","slide":10,"text":"司机取车：点“提交取车留证并推进” ｜ 检测站接车：点“提交留证并完成到站核验” ｜ 检测完成：点“填写体检报告并回传”","textPreview":"司机取车：点“提交取车留证并推进” ｜ 检测站接车：点“提交留证并完成到站核验” ｜ 检测完成：点“填写体检报告并回传”","textChars":60,"textLines":1,"bbox":[54,630,1134,24]}
+{"kind":"textbox","id":"sh/mtkbexgf","slide":10,"text":"司机返程：点“开始送回车辆” → 拍满 5 张 → 点“提交送回留证并完成服务”","textPreview":"司机返程：点“开始送回车辆” → 拍满 5 张 → 点“提交送回留证并完成服务”","textChars":40,"textLines":1,"bbox":[54,658,1134,24]}
+{"kind":"image","id":"im/mlcrihon","slide":10,"name":"","geometry":"roundRect","alt":"01 司机取车","bbox":[62,198,250,372]}
+{"kind":"image","id":"im/9g761kf2","slide":10,"name":"","geometry":"roundRect","alt":"02 检测站接车","bbox":[346,198,250,372]}
+{"kind":"image","id":"im/j69o7ud4","slide":10,"name":"","geometry":"roundRect","alt":"03 检测完成","bbox":[630,198,250,372]}
+{"kind":"image","id":"im/2dc3a1c7","slide":10,"name":"","geometry":"roundRect","alt":"04 司机送回","bbox":[914,198,250,372]}
+{"kind":"notes","id":"nt/vxe6xl","slide":10,"text":"演示操作：四个责任节点都先拍满 5 张再推进；检测完成阶段复用体检报告中的 5 张现场照片。每次提交会同步记录照片包、操作角色、服务端时间和订单状态。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-09-driver-pickup-submitted.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-12-station-arrival-and-inspecting.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-14-report-published.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-15-driver-return-submitted.png\n[/Sources]"}
+{"kind":"slide","id":"sl/6eiyfr","slide":11,"title":"10 / REPORT","textShapes":13}
+{"kind":"shape","id":"sh/nyp4zqx8","slide":11,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/ozy5svyt","slide":11,"text":"10 / REPORT","textPreview":"10 / REPORT","textChars":11,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/90rm10fe","slide":11,"text":"车况故障与年检结论相互独立：有轻微剐蹭仍可年检通过","textPreview":"车况故障与年检结论相互独立：有轻微剐蹭仍可年检通过","textChars":25,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/etgnmlgr","slide":11,"text":"检测站在车辆示意图定位右后翼子板，填写类型/程度/说明，并上传故障近照。","textPreview":"检测站在车辆示意图定位右后翼子板，填写类型/程度/说明，并上传故障近照。","textChars":36,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/zup4vqxw","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/0vy5ovyh","slide":11,"bbox":[54,182,480,450]}
+{"kind":"shape","id":"sh/yp0nypgv","slide":11,"bbox":[66,190,456,24]}
+{"kind":"textbox","id":"sh/jq9o7axg","slide":11,"text":"检测站 · 故障定位 + 近照","textPreview":"检测站 · 故障定位 + 近照","textChars":15,"textLines":1,"bbox":[76,193,436,18]}
+{"kind":"shape","id":"sh/jux87e1w","slide":11,"bbox":[560,182,300,450]}
+{"kind":"shape","id":"sh/5wzq9oj2","slide":11,"bbox":[572,190,276,24]}
+{"kind":"textbox","id":"sh/4v69gj2h","slide":11,"text":"车主 · 报告弹窗","textPreview":"车主 · 报告弹窗","textChars":9,"textLines":1,"bbox":[582,193,256,18]}
+{"kind":"shape","id":"sh/ryh8by18","slide":11,"bbox":[886,182,302,450]}
+{"kind":"shape","id":"sh/6x8ritkn","slide":11,"bbox":[912,218,114,30]}
+{"kind":"textbox","id":"sh/t0zad8je","slide":11,"text":"年检结论","textPreview":"年检结论","textChars":4,"textLines":1,"bbox":[922,224,94,18]}
+{"kind":"textbox","id":"sh/szq9k32t","slide":11,"text":"通过","textPreview":"通过","textChars":2,"textLines":1,"bbox":[1040,216,120,34]}
+{"kind":"shape","id":"sh/f2hsfy14","slide":11,"bbox":[912,286,114,30]}
+{"kind":"textbox","id":"sh/e18rmtkj","slide":11,"text":"车况故障","textPreview":"车况故障","textChars":4,"textLines":1,"bbox":[922,292,94,18]}
+{"kind":"textbox","id":"sh/qxcbex47","slide":11,"text":"1 项","textPreview":"1 项","textChars":3,"textLines":1,"bbox":[1040,284,120,34]}
+{"kind":"textbox","id":"sh/bylc72lc","slide":11,"text":"右后翼子板 · 轻微剐蹭","textPreview":"右后翼子板 · 轻微剐蹭","textChars":12,"textLines":1,"bbox":[912,354,248,52]}
+{"kind":"textbox","id":"sh/cjutg7mx","slide":11,"text":"约 8 cm；附现场特写照片。","textPreview":"约 8 cm；附现场特写照片。","textChars":15,"textLines":1,"bbox":[912,420,248,44]}
+{"kind":"shape","id":"sh/dk3u9c3i","slide":11,"bbox":[912,500,248,94]}
+{"kind":"textbox","id":"sh/2tsbax4v","slide":11,"text":"普通车身问题不自动决定年检是否合格。","textPreview":"普通车身问题不自动决定年检是否合格。","textChars":18,"textLines":1,"bbox":[934,524,204,52]}
+{"kind":"image","id":"im/onitsryl","slide":11,"name":"","geometry":"roundRect","alt":"检测站记录右后翼子板剐蹭和故障照片","bbox":[62,190,464,434]}
+{"kind":"image","id":"im/9cvepwri","slide":11,"name":"","geometry":"roundRect","alt":"车主查看通过报告和车辆故障","bbox":[568,190,284,434]}
+{"kind":"notes","id":"nt/6eiyfr","slide":11,"text":"演示操作：检测站点击车辆示意图中的右后翼子板，选择“剐蹭”和“轻微”，填写说明并上传近照；报告发布后，车主在报告弹窗核对年检结论与故障记录。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-13a-fault-recorded-with-photo.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-17-owner-report-modal.png\n[/Sources]"}
+{"kind":"slide","id":"sl/8b5yoa","slide":12,"title":"11 / VISIBILITY","textShapes":8}
+{"kind":"shape","id":"sh/m1grmts3","slide":12,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/94rah8bu","slide":12,"text":"11 / VISIBILITY","textPreview":"11 / VISIBILITY","textChars":15,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/83i9o3a9","slide":12,"text":"结果发布后报告立即可查；代驾送回中仍保留车辆进度","textPreview":"结果发布后报告立即可查；代驾送回中仍保留车辆进度","textChars":24,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/zypsbets","slide":12,"text":"客户和后台看到同一状态机、同一组留证和同一份报告，但只有只读权限。","textPreview":"客户和后台看到同一状态机、同一组留证和同一份报告，但只有只读权限。","textChars":33,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/yxgri9s7","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/l07adobi","slide":12,"bbox":[54,182,300,450]}
+{"kind":"shape","id":"sh/baps7etg","slide":12,"bbox":[66,190,276,24]}
+{"kind":"textbox","id":"sh/q9wre9sv","slide":12,"text":"客户 · 履约留证弹窗","textPreview":"客户 · 履约留证弹窗","textChars":11,"textLines":1,"bbox":[76,193,256,18]}
+{"kind":"shape","id":"sh/03e5cret","slide":12,"bbox":[380,182,300,450]}
+{"kind":"shape","id":"sh/e1wna1wn","slide":12,"bbox":[392,190,276,24]}
+{"kind":"textbox","id":"sh/f25436x8","slide":12,"text":"客户 · 检测报告弹窗","textPreview":"客户 · 检测报告弹窗","textChars":11,"textLines":1,"bbox":[402,193,256,18]}
+{"kind":"shape","id":"sh/sfel8reh","slide":12,"bbox":[706,182,482,450]}
+{"kind":"shape","id":"sh/qdc36hwr","slide":12,"bbox":[718,190,458,24]}
+{"kind":"textbox","id":"sh/rel4zmxc","slide":12,"text":"后台 · 全局订单详情","textPreview":"后台 · 全局订单详情","textChars":11,"textLines":1,"bbox":[728,193,438,18]}
+{"kind":"textbox","id":"sh/cby5kve1","slide":12,"text":"图片用页面内弹窗查看，不挤占整张业务详情；历史订单缺少留证时明确显示“该节点未采集”，不补造数据。","textPreview":"图片用页面内弹窗查看，不挤占整张业务详情；历史订单缺少留证时明确显示“该节点未采集”，不补造数据。","textChars":49,"textLines":1,"bbox":[54,646,1134,32]}
+{"kind":"image","id":"im/d8repovi","slide":12,"name":"","geometry":"roundRect","alt":"客户查看代驾四阶段履约留证","bbox":[62,190,284,434]}
+{"kind":"image","id":"im/qdk7idw3","slide":12,"name":"","geometry":"roundRect","alt":"客户查看代驾检测报告","bbox":[388,190,284,434]}
+{"kind":"image","id":"im/29k7edwr","slide":12,"name":"","geometry":"roundRect","alt":"后台查看代驾订单完整状态和报告","bbox":[714,190,466,434]}
+{"kind":"notes","id":"nt/8b5yoa","slide":12,"text":"演示操作：客户在订单详情滚动到“履约留证”，点击任一照片查看弹窗；再点击“查看检测报告与留证”打开报告。后台打开同一订单详情，依次核对状态时间轴、4/4 留证阶段和每阶段 5/5 照片。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-16-owner-evidence-modal.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-17-owner-report-modal.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\valet-18-admin-final-detail.png\n[/Sources]"}
+{"kind":"slide","id":"sl/bumlpx","slide":13,"title":"12 / REPAIR","textShapes":9}
+{"kind":"shape","id":"sh/61c7u54z","slide":13,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/t4365kna","slide":13,"text":"12 / REPAIR","textPreview":"12 / REPAIR","textChars":11,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/83upwfmp","slide":13,"text":"从已发布体检报告一键生成维修询价，不重复手工录入故障","textPreview":"从已发布体检报告一键生成维修询价，不重复手工录入故障","textChars":26,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/v6lo7a5g","slide":13,"text":"车主明确授权后，故障位置、描述和近照以报告快照形式提供给维修门店。","textPreview":"车主明确授权后，故障位置、描述和近照以报告快照形式提供给维修门店。","textChars":33,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/u5c7yp4v","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/h8nq9knm","slide":13,"bbox":[54,182,260,448]}
+{"kind":"shape","id":"sh/ba1ovq5c","slide":13,"bbox":[66,190,236,24]}
+{"kind":"textbox","id":"sh/a9s7mlor","slide":13,"text":"① 点“一键咨询维修报价”","textPreview":"① 点“一键咨询维修报价”","textChars":13,"textLines":1,"bbox":[76,193,216,18]}
+{"kind":"shape","id":"sh/c3uxcf65","slide":13,"bbox":[334,182,260,448]}
+{"kind":"shape","id":"sh/a1cfa58f","slide":13,"bbox":[346,190,236,24]}
+{"kind":"textbox","id":"sh/b2lgjap0","slide":13,"text":"② 核对导入的故障与近照","textPreview":"② 核对导入的故障与近照","textChars":12,"textLines":1,"bbox":[356,193,216,18]}
+{"kind":"shape","id":"sh/k7ehgz6h","slide":13,"bbox":[614,182,260,448]}
+{"kind":"shape","id":"sh/y5wfepob","slide":13,"bbox":[626,190,236,24]}
+{"kind":"textbox","id":"sh/z65gnupw","slide":13,"text":"③ 勾选资料共享授权","textPreview":"③ 勾选资料共享授权","textChars":10,"textLines":1,"bbox":[636,193,216,18]}
+{"kind":"shape","id":"sh/0baxkvqd","slide":13,"bbox":[894,182,294,448]}
+{"kind":"shape","id":"sh/hwbm1sva","slide":13,"bbox":[906,190,270,24]}
+{"kind":"textbox","id":"sh/wvi5snep","slide":13,"text":"④ 点“发布维修询价”","textPreview":"④ 点“发布维修询价”","textChars":11,"textLines":1,"bbox":[916,193,250,18]}
+{"kind":"textbox","id":"sh/vu94z2d4","slide":13,"text":"操作顺序：报告点“一键咨询维修报价” → 核对故障与近照 → 勾选“同意共享上述维修询价资料” → 点“发布维修询价”。","textPreview":"操作顺序：报告点“一键咨询维修报价” → 核对故障与近照 → 勾选“同意共享上述维修询价资料” → 点“发布维修询价”。","textChars":60,"textLines":1,"bbox":[54,638,1134,44]}
+{"kind":"image","id":"im/l4velsj2","slide":13,"name":"","geometry":"roundRect","alt":"车主从检测报告进入维修报价","bbox":[62,190,244,432]}
+{"kind":"image","id":"im/elgrqt4v","slide":13,"name":"","geometry":"roundRect","alt":"车主确认从报告导入的故障和照片","bbox":[342,190,244,432]}
+{"kind":"image","id":"im/qhwrmt4z","slide":13,"name":"","geometry":"roundRect","alt":"车主勾选维修询价授权","bbox":[622,190,244,432]}
+{"kind":"image","id":"im/idw7i94n","slide":13,"name":"","geometry":"roundRect","alt":"维修请求发布后等待门店报价","bbox":[902,190,278,432]}
+{"kind":"notes","id":"nt/bumlpx","slide":13,"text":"演示操作：从已发布报告点击“一键咨询维修报价”，核对自动导入的故障位置、说明和近照；勾选“同意共享上述维修询价资料”，再点击“发布维修询价”。报价前门店只能看到授权的脱敏资料。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\01-owner-report-repair-entry.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\02-owner-confirm-imported-faults.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\03-owner-consent-ready.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\04-owner-request-waiting-quotes.png\n[/Sources]"}
+{"kind":"slide","id":"sl/c4a8ha","slide":14,"title":"13 / QUOTES","textShapes":12}
+{"kind":"shape","id":"sh/t4jqxkju","slide":14,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/61s7mp03","slide":14,"text":"13 / QUOTES","textPreview":"13 / QUOTES","textChars":11,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/r218va1o","slide":14,"text":"三家门店独立看故障、看近照、提交全款报价","textPreview":"三家门店独立看故障、看近照、提交全款报价","textChars":20,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/4zqpkfix","slide":14,"text":"报价互相隔离；车主收到三份可比较方案，但系统不替车主自动选最低价。","textPreview":"报价互相隔离；车主收到三份可比较方案，但系统不替车主自动选最低价。","textChars":33,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/50zqtkji","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/ix87i507","slide":14,"bbox":[54,188,270,356]}
+{"kind":"shape","id":"sh/ovupwzih","slide":14,"bbox":[66,196,246,24]}
+{"kind":"textbox","id":"sh/pw3q54j2","slide":14,"text":"门店 A · 独立报价","textPreview":"门店 A · 独立报价","textChars":11,"textLines":1,"bbox":[76,199,226,18]}
+{"kind":"textbox","id":"sh/5gnqtsru","slide":14,"text":"¥1,680","textPreview":"¥1,680","textChars":6,"textLines":1,"bbox":[54,560,270,42]}
+{"kind":"shape","id":"sh/4fe9knq9","slide":14,"bbox":[346,188,270,356]}
+{"kind":"shape","id":"sh/itwrix8j","slide":14,"bbox":[358,196,246,24]}
+{"kind":"textbox","id":"sh/hsnqpsry","slide":14,"text":"门店 B · 独立报价","textPreview":"门店 B · 独立报价","textChars":11,"textLines":1,"bbox":[368,199,226,18]}
+{"kind":"textbox","id":"sh/gre9gnqd","slide":14,"text":"¥1,980","textPreview":"¥1,980","textChars":6,"textLines":1,"bbox":[346,560,270,42]}
+{"kind":"shape","id":"sh/vq58ni9s","slide":14,"bbox":[638,188,270,356]}
+{"kind":"shape","id":"sh/1ora1cr2","slide":14,"bbox":[650,196,246,24]}
+{"kind":"textbox","id":"sh/0ny9s7qh","slide":14,"text":"门店 C · 独立报价","textPreview":"门店 C · 独立报价","textChars":11,"textLines":1,"bbox":[660,199,226,18]}
+{"kind":"textbox","id":"sh/k3q1kf25","slide":14,"text":"¥2,350","textPreview":"¥2,350","textChars":6,"textLines":1,"bbox":[638,560,270,42]}
+{"kind":"shape","id":"sh/l4z2dk3q","slide":14,"bbox":[930,188,258,414]}
+{"kind":"shape","id":"sh/j2hkbalk","slide":14,"bbox":[942,196,234,24]}
+{"kind":"textbox","id":"sh/czq1gf2t","slide":14,"text":"车主 · 3 份报价，未默认选择","textPreview":"车主 · 3 份报价，未默认选择","textChars":16,"textLines":1,"bbox":[952,199,214,18]}
+{"kind":"textbox","id":"sh/x0z29k3e","slide":14,"text":"每家门店：打开需求 → 点“立即报价” → 填写项目、金额和说明 → 点“提交报价 ¥金额”；车主点击“刷新报价”查看 3 份方案。","textPreview":"每家门店：打开需求 → 点“立即报价” → 填写项目、金额和说明 → 点“提交报价 ¥金额”；车主点击“刷新报价”查看 3 份方案。","textChars":66,"textLines":1,"bbox":[54,636,1134,42]}
+{"kind":"image","id":"im/a58vuhwz","slide":14,"name":"","geometry":"roundRect","alt":"门店 A报价表单","bbox":[62,196,254,340]}
+{"kind":"image","id":"im/oby947it","slide":14,"name":"","geometry":"roundRect","alt":"门店 B报价表单","bbox":[354,196,254,340]}
+{"kind":"image","id":"im/x07q1cza","slide":14,"name":"","geometry":"roundRect","alt":"门店 C报价表单","bbox":[646,196,254,340]}
+{"kind":"image","id":"im/hoj6xofy","slide":14,"name":"","geometry":"roundRect","alt":"车主收到三家报价且系统未默认选中最低价","bbox":[938,196,242,398]}
+{"kind":"notes","id":"nt/c4a8ha","slide":14,"text":"演示操作：三家门店分别打开同一条授权需求，点击“立即报价”，填写项目、金额和说明后点击“提交报价 ¥金额”；回到车主端点击“刷新报价”，确认出现三份互相隔离的报价。进入比较页时三份报价均未勾选，系统不替车主自动选择最低价。现场内测演示可展示测试门店账号，以便切换角色完成报价流程。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\09-shop-1-quote-submitted.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\13-shop-2-quote-submitted.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\17-shop-3-quote-submitted.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\17-owner-request-three-quotes.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\18-owner-quotes-price-sorted.png\n[/Sources]"}
+{"kind":"slide","id":"sl/oa38v6","slide":15,"title":"14 / TRANSACTION","textShapes":9}
+{"kind":"shape","id":"sh/7m18ze18","slide":15,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/8nu98jit","slide":15,"text":"14 / TRANSACTION","textPreview":"14 / TRANSACTION","textChars":16,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/9o3q1oje","slide":15,"text":"车主明确选择第二份报价并模拟支付，权限随成交结果收口","textPreview":"车主明确选择第二份报价并模拟支付，权限随成交结果收口","textChars":26,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/upcrat0z","slide":15,"text":"排序第一不等于自动中选；成交回执冻结门店、金额和方案。","textPreview":"排序第一不等于自动中选；成交回执冻结门店、金额和方案。","textChars":27,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/vql83y14","slide":15,"text":"15","textPreview":"15","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/wru9c3ip","slide":15,"bbox":[54,182,264,440]}
+{"kind":"shape","id":"sh/qt87y90f","slide":15,"bbox":[66,190,240,24]}
+{"kind":"textbox","id":"sh/buh8ru10","slide":15,"text":"① 选择门店 B · ¥1,980","textPreview":"① 选择门店 B · ¥1,980","textChars":17,"textLines":1,"bbox":[76,193,220,18]}
+{"kind":"shape","id":"sh/zulsrm18","slide":15,"bbox":[338,182,264,440]}
+{"kind":"shape","id":"sh/1w3atwje","slide":15,"bbox":[350,190,240,24]}
+{"kind":"textbox","id":"sh/0vut0r2t","slide":15,"text":"② 点“确认模拟支付”","textPreview":"② 点“确认模拟支付”","textChars":11,"textLines":1,"bbox":[360,193,220,18]}
+{"kind":"shape","id":"sh/rq1snm1c","slide":15,"bbox":[622,182,264,440]}
+{"kind":"shape","id":"sh/ds3apwji","slide":15,"bbox":[634,190,240,24]}
+{"kind":"textbox","id":"sh/crutwr2x","slide":15,"text":"③ 点“查看成交回执”","textPreview":"③ 点“查看成交回执”","textChars":11,"textLines":1,"bbox":[644,193,220,18]}
+{"kind":"shape","id":"sh/321sj210","slide":15,"bbox":[906,182,282,440]}
+{"kind":"shape","id":"sh/6x8b2x4n","slide":15,"bbox":[918,190,258,24]}
+{"kind":"textbox","id":"sh/7yhcv258","slide":15,"text":"④ 两家落选店 · 联系人锁定","textPreview":"④ 两家落选店 · 联系人锁定","textChars":15,"textLines":1,"bbox":[928,193,238,18]}
+{"kind":"textbox","id":"sh/szqt47mt","slide":15,"text":"车主：选择门店 B → 点“确认模拟支付 ¥1,980” → 点“查看成交回执”；仅中选门店解锁联系人，模拟支付不真实扣款。","textPreview":"车主：选择门店 B → 点“确认模拟支付 ¥1,980” → 点“查看成交回执”；仅中选门店解锁联系人，模拟支付不真实扣款。","textChars":62,"textLines":1,"bbox":[54,636,1134,42]}
+{"kind":"image","id":"im/of69ozmx","slide":15,"name":"","geometry":"roundRect","alt":"车主明确选择第二份维修报价","bbox":[62,190,248,424]}
+{"kind":"image","id":"im/lgn2tsje","slide":15,"name":"","geometry":"roundRect","alt":"维修报价模拟支付成交回执","bbox":[346,190,248,424]}
+{"kind":"image","id":"im/xcn2psj2","slide":15,"name":"","geometry":"roundRect","alt":"中选维修门店查看成交和联系人","bbox":[630,190,248,424]}
+{"kind":"image","id":"im/9832l8j6","slide":15,"name":"","geometry":"roundRect","alt":"两家未中选维修门店联系人权限均锁定","bbox":[914,190,266,424]}
+{"kind":"notes","id":"nt/oa38v6","slide":15,"text":"演示操作：车主在三份报价中主动选择门店 B，点击“确认模拟支付 ¥1,980”，随后点击“查看成交回执”；切换到三家门店端核对只有中选门店可见联系人，两家未中选门店都保持锁定。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\19-owner-explicit-quote-selection.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\20-owner-paid-receipt.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\24-winning-shop-deal.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\26-losing-shop-1-contact-locked.png\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\28-losing-shop-2-contact-locked.png\n[/Sources]"}
+{"kind":"slide","id":"sl/wmkno2","slide":16,"title":"15 / HANDOFF","textShapes":22}
+{"kind":"shape","id":"sh/a54byl4r","slide":16,"bbox":[0,0,1280,14]}
+{"kind":"textbox","id":"sh/x8vu903i","slide":16,"text":"15 / HANDOFF","textPreview":"15 / HANDOFF","textChars":12,"textLines":1,"bbox":[54,28,280,24]}
+{"kind":"textbox","id":"sh/c7mt0vmx","slide":16,"text":"可演示、可复测、边界透明：这才是可信的业务闭环","textPreview":"可演示、可复测、边界透明：这才是可信的业务闭环","textChars":23,"textLines":1,"bbox":[54,55,1040,62]}
+{"kind":"textbox","id":"sh/n2ts3q5g","slide":16,"text":"操作手册既告诉演示者点什么，也明确哪些能力仍属于正式上线前工作。","textPreview":"操作手册既告诉演示者点什么，也明确哪些能力仍属于正式上线前工作。","textChars":32,"textLines":1,"bbox":[54,120,1080,40]}
+{"kind":"textbox","id":"sh/2hkbul4v","slide":16,"text":"16","textPreview":"16","textChars":2,"textLines":1,"bbox":[1180,32,50,28]}
+{"kind":"shape","id":"sh/p4ba5gn6","slide":16,"bbox":[54,188,544,414]}
+{"kind":"shape","id":"sh/o32twvm1","slide":16,"bbox":[82,216,150,30]}
+{"kind":"textbox","id":"sh/7yxcfalk","slide":16,"text":"已纳入本地闭环","textPreview":"已纳入本地闭环","textChars":7,"textLines":1,"bbox":[92,222,130,18]}
+{"kind":"shape","id":"sh/mdob654z","slide":16,"bbox":[82,277,24,24]}
+{"kind":"textbox","id":"sh/8bi98z61","slide":16,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[82,279,24,18]}
+{"kind":"textbox","id":"sh/9crq14n6","slide":16,"text":"自驾与代驾两条年检状态机","textPreview":"自驾与代驾两条年检状态机","textChars":12,"textLines":1,"bbox":[120,272,448,40]}
+{"kind":"shape","id":"sh/mp0r6pov","slide":16,"bbox":[82,335,24,24]}
+{"kind":"textbox","id":"sh/na98zu5g","slide":16,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[82,337,24,18]}
+{"kind":"textbox","id":"sh/0ny94f6p","slide":16,"text":"非零服务端报价快照与模拟支付","textPreview":"非零服务端报价快照与模拟支付","textChars":14,"textLines":1,"bbox":[120,330,448,40]}
+{"kind":"shape","id":"sh/1o7qxkna","slide":16,"bbox":[82,393,24,24]}
+{"kind":"textbox","id":"sh/elg725oj","slide":16,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[82,395,24,18]}
+{"kind":"textbox","id":"sh/zmp8va54","slide":16,"text":"司机/检测站四阶段留证","textPreview":"司机/检测站四阶段留证","textChars":11,"textLines":1,"bbox":[120,388,448,40]}
+{"kind":"shape","id":"sh/cjyp0f6t","slide":16,"bbox":[82,451,24,24]}
+{"kind":"textbox","id":"sh/dk7qtkne","slide":16,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[82,453,24,18]}
+{"kind":"textbox","id":"sh/tgz6xwz2","slide":16,"text":"通过/未通过报告、故障与照片","textPreview":"通过/未通过报告、故障与照片","textChars":14,"textLines":1,"bbox":[120,446,448,40]}
+{"kind":"shape","id":"sh/sfq5oryh","slide":16,"bbox":[82,509,24,24]}
+{"kind":"textbox","id":"sh/rehov6hw","slide":16,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[82,511,24,18]}
+{"kind":"textbox","id":"sh/6donm1gb","slide":16,"text":"多维修店报价、车主选择、成交权限","textPreview":"多维修店报价、车主选择、成交权限","textChars":16,"textLines":1,"bbox":[120,504,448,40]}
+{"kind":"shape","id":"sh/5cf6twzq","slide":16,"bbox":[626,188,562,414]}
+{"kind":"shape","id":"sh/4b65kryl","slide":16,"bbox":[654,216,150,30]}
+{"kind":"textbox","id":"sh/jaxormh0","slide":16,"text":"正式上线前边界","textPreview":"正式上线前边界","textChars":7,"textLines":1,"bbox":[664,222,130,18]}
+{"kind":"textbox","id":"sh/i9onihgf","slide":16,"text":"• 微信小程序审核与公网部署","textPreview":"• 微信小程序审核与公网部署","textChars":14,"textLines":1,"bbox":[660,274,496,38]}
+{"kind":"textbox","id":"sh/p8j65gfa","slide":16,"text":"• 真实支付 SDK 与资金清结算","textPreview":"• 真实支付 SDK 与资金清结算","textChars":17,"textLines":1,"bbox":[660,332,496,38]}
+{"kind":"textbox","id":"sh/o7apwvyp","slide":16,"text":"• 检测站正式系统与法定材料","textPreview":"• 检测站正式系统与法定材料","textChars":14,"textLines":1,"bbox":[660,390,496,38]}
+{"kind":"textbox","id":"sh/mhkvatsv","slide":16,"text":"• 司机实名认证、风控与运营调度","textPreview":"• 司机实名认证、风控与运营调度","textChars":16,"textLines":1,"bbox":[660,448,496,38]}
+{"kind":"textbox","id":"sh/n2tc3ytg","slide":16,"text":"• 线下维修拆检、施工、质保、交车验收","textPreview":"• 线下维修拆检、施工、质保、交车验收","textChars":19,"textLines":1,"bbox":[660,506,496,38]}
+{"kind":"shape","id":"sh/832dc3a1","slide":16,"bbox":[54,626,1134,48]}
+{"kind":"textbox","id":"sh/94bu5obm","slide":16,"text":"验收结论：当前版本已使用真实车辆图片完成全链路界面点击回归，业务与权限闭环通过。","textPreview":"验收结论：当前版本已使用真实车辆图片完成全链路界面点击回归，业务与权限闭环通过。","textChars":40,"textLines":1,"bbox":[74,638,1094,24]}
+{"kind":"notes","id":"nt/wmkno2","slide":16,"text":"结束时主动说明真实生产边界，避免把本地演示能力包装成已正式上线能力。\n[Sources]\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-annual-final-verified9-20260830\\run-summary.json\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\.runtime\\annual-demo-media\\artifacts\\native-repair-final-verified9-20260830\\run-summary.json\n- E:\\yuxiaoman\\Yuxiaoman-MVP-macOS\\README.md\n[/Sources]"}

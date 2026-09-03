@@ -1,0 +1,357 @@
+.slots-page {
+  min-height: 100vh;
+  padding: 26rpx 24rpx calc(52rpx + env(safe-area-inset-bottom));
+  color: #15243a;
+  background: #f6f9fc;
+  box-sizing: border-box;
+}
+
+.flow-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.flow-back {
+  display: flex;
+  min-width: 190rpx;
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  color: #1768cf;
+  border: 1rpx solid #cfe0f2;
+  border-radius: 15rpx;
+  background: #fff;
+  font-size: 21rpx;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.flow-back::after { border: 0; }
+
+.flow-back image {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.flow-stage {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  flex-direction: column;
+}
+
+.flow-stage text:first-child {
+  color: #2b4663;
+  font-size: 21rpx;
+  font-weight: 800;
+}
+
+.flow-stage text:last-child {
+  margin-top: 5rpx;
+  color: #75879a;
+  font-size: 18rpx;
+}
+
+.heading {
+  display: flex;
+  margin: 14rpx 3rpx 24rpx;
+  flex-direction: column;
+}
+
+.heading text:first-child {
+  color: #13243b;
+  font-size: 40rpx;
+  font-weight: 850;
+}
+
+.heading text:last-child {
+  margin-top: 8rpx;
+  color: #7b899c;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.station-summary {
+  display: grid;
+  min-height: 168rpx;
+  overflow: hidden;
+  grid-template-columns: 190rpx minmax(0, 1fr);
+  border: 1rpx solid #e0e7ef;
+  border-radius: 20rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 22rpx rgba(28, 60, 98, .055);
+}
+
+.station-photo {
+  width: 190rpx;
+  height: 100%;
+  min-height: 168rpx;
+}
+
+.station-copy {
+  display: flex;
+  min-width: 0;
+  padding: 18rpx 20rpx;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.station-copy > text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #1c3048;
+  font-size: 27rpx;
+  font-weight: 800;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.station-copy > view {
+  display: flex;
+  min-width: 0;
+  margin-top: 7rpx;
+  align-items: center;
+  gap: 7rpx;
+  color: #7c8b9d;
+  font-size: 19rpx;
+}
+
+.station-copy > view image {
+  width: 21rpx;
+  height: 21rpx;
+  flex: 0 0 auto;
+}
+
+.station-copy > view text {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.price-note {
+  display: grid;
+  margin-top: 14rpx;
+  padding: 20rpx 22rpx;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1rpx solid #cde1f6;
+  border-radius: 17rpx;
+  background: #edf5ff;
+}
+
+.price-note > view {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  color: #28445f;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.price-note > view image {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.price-note > text:nth-child(2) {
+  color: #e66b2e;
+  font-size: 32rpx;
+  font-weight: 850;
+}
+
+.price-note > text:last-child {
+  margin-top: 5rpx;
+  grid-column: 1 / -1;
+  color: #71869b;
+  font-size: 18rpx;
+}
+
+.slots-heading {
+  display: flex;
+  margin: 30rpx 3rpx 15rpx;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.slots-heading > view {
+  display: flex;
+  flex-direction: column;
+}
+
+.slots-heading > view text:first-child {
+  color: #1a2b41;
+  font-size: 31rpx;
+  font-weight: 800;
+}
+
+.slots-heading > view text:last-child,
+.slots-heading > text {
+  color: #8694a5;
+  font-size: 19rpx;
+}
+
+.slots-heading > view text:last-child {
+  margin-top: 4rpx;
+}
+
+.slot-loading {
+  display: flex;
+  min-height: 220rpx;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14rpx;
+  color: #7e8fa3;
+  font-size: 22rpx;
+}
+
+.slot-loading image {
+  width: 56rpx;
+  height: 56rpx;
+  opacity: .7;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13rpx;
+}
+
+.slot-card {
+  display: flex;
+  min-width: 0;
+  min-height: 174rpx;
+  padding: 18rpx;
+  align-items: stretch;
+  flex-direction: column;
+  border: 1rpx solid #dfe6ee;
+  border-radius: 17rpx;
+  background: #fff;
+  text-align: left;
+}
+
+.slot-date {
+  display: flex;
+  align-items: center;
+  gap: 7rpx;
+  color: #718296;
+  font-size: 19rpx;
+}
+
+.slot-date image {
+  width: 23rpx;
+  height: 23rpx;
+}
+
+.slot-time {
+  margin-top: 11rpx;
+  color: #1e3b5b;
+  font-size: 29rpx;
+  font-weight: 800;
+  letter-spacing: -.5rpx;
+}
+
+.slot-bottom {
+  display: flex;
+  margin-top: auto;
+  padding-top: 12rpx;
+  align-items: center;
+  justify-content: space-between;
+  color: #1768cf;
+  border-top: 1rpx solid #edf1f5;
+  font-size: 19rpx;
+  font-weight: 700;
+}
+
+.slot-bottom image {
+  width: 18rpx;
+  height: 18rpx;
+}
+
+.slot-card.full {
+  border-color: #e6e9ed;
+  background: #f0f3f6;
+  opacity: .65;
+}
+
+.slot-card.navigating {
+  border-color: #8db9e8;
+  background: #eef6ff;
+}
+
+.slot-card.full .slot-bottom {
+  color: #8996a5;
+}
+
+.empty-state {
+  display: flex;
+  min-height: 250rpx;
+  padding: 36rpx;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 1rpx solid #e1e7ee;
+  border-radius: 20rpx;
+  background: #fff;
+}
+
+.empty-state image {
+  width: 62rpx;
+  height: 62rpx;
+}
+
+.empty-state text:nth-child(2) {
+  margin-top: 16rpx;
+  color: #26384e;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.empty-state text:last-child {
+  margin-top: 6rpx;
+  color: #8593a4;
+  font-size: 20rpx;
+  text-align: center;
+}
+
+.empty-state button {
+  min-width: 230rpx;
+  min-height: 88rpx;
+  margin-top: 20rpx;
+  padding: 0 24rpx;
+  color: #1768cf;
+  border: 1rpx solid #bad4ed;
+  border-radius: 14rpx;
+  background: #f7fbff;
+  font-size: 22rpx;
+  font-weight: 750;
+}
+
+.empty-state.error-state { border-color: #efd0cd; background: #fffafa; }
+
+.booking-tip {
+  display: flex;
+  margin-top: 18rpx;
+  padding: 16rpx 18rpx;
+  align-items: flex-start;
+  gap: 9rpx;
+  color: #66809c;
+  border-radius: 14rpx;
+  background: #edf5ff;
+  font-size: 19rpx;
+  line-height: 1.5;
+}
+
+.booking-tip image {
+  width: 27rpx;
+  height: 27rpx;
+  flex: 0 0 auto;
+}

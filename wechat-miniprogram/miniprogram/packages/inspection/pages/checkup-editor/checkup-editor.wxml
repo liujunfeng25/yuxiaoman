@@ -1,0 +1,231 @@
+<view class="checkup-page">
+  <view wx:if="{{loading}}" class="loading-state">
+    <image src="/assets/icons/clock.png" mode="aspectFit" />
+    <text>正在读取车辆体检报告…</text>
+  </view>
+
+  <block wx:elif="{{booking}}">
+    <view wx:if="{{loadError}}" class="editor-inline-error"><image src="/assets/icons/warning-circle.png"/><text>{{loadError}}，当前保留的是上次成功读取的草稿。</text><button bindtap="retryLoad" disabled="{{loading || saving || submitting}}">刷新重试</button></view>
+    <view class="report-intro">
+      <view class="intro-top"><text>车辆体检与结果回传</text><text>检测站端</text></view>
+      <text>{{booking.vehicle ? booking.vehicle.plateNumber : '预约车辆'}} · {{booking.bookingNumber}}</text>
+      <view class="intro-progress">
+        <view><text>{{photoCompleteCount}}/5</text><text>现场照片</text></view>
+        <view><text>{{faults.length}}项 · {{faultPhotoCount}}图</text><text>故障与特写</text></view>
+        <view><text>{{conclusionLabel}}</text><text>年检结论</text></view>
+      </view>
+      <view class="demo-boundary"><image src="/assets/icons/shield-check.png"/><text>车辆体检为平台履约记录，不替代机动车安全技术检验报告或交管官方记录。</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>01</text><text>现场状态照片</text></view><text>提交结果前必填</text></view>
+    <view class="photo-card">
+      <view class="photo-grid">
+        <view wx:for="{{photoSlots}}" wx:key="kind" class="photo-slot {{item.media ? 'complete' : ''}} {{item.uploading ? 'uploading' : ''}}">
+          <button wx:if="{{item.media}}" class="photo-preview" data-url="{{item.mediaUrl}}" bindtap="previewPhoto">
+            <image src="{{item.mediaUrl}}" mode="aspectFill" />
+            <view class="photo-shade"><text>{{item.label}}</text><text>{{item.stateLabel}}</text></view>
+          </button>
+          <button wx:else class="photo-empty" data-kind="{{item.kind}}" bindtap="choosePhoto" disabled="{{item.uploading || saving || submitting}}">
+            <view class="photo-icon"><image src="/assets/icons/camera.png" /></view>
+            <text>{{item.label}}</text><text>{{item.hint}}</text><text>{{item.stateLabel}}</text>
+          </button>
+          <view wx:if="{{item.media}}" class="photo-controls">
+            <button data-kind="{{item.kind}}" bindtap="choosePhoto" disabled="{{item.uploading || saving || submitting}}">重拍/替换</button>
+            <button data-id="{{item.media.id}}" catchtap="deletePhoto" disabled="{{item.uploading || saving || submitting}}">删除</button>
+          </view>
+        </view>
+      </view>
+      <view class="photo-note"><image src="/assets/icons/camera.png"/><text>可使用相机或相册。每个位置独立保存，替换一张不会清除其他照片。</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>02</text><text>车辆故障定位</text></view><text>三视图 · 20 个区域</text></view>
+    <view class="diagnostic-panel">
+      <view class="diagnostic-head">
+        <view><text>VEHICLE DIAGNOSTICS</text><text>车身状态数字定位</text></view>
+        <view class="scan-state"><text></text><text>交互检查中</text></view>
+      </view>
+
+      <view class="view-tabs">
+        <button wx:for="{{viewTabs}}" wx:key="id" class="{{item.selected ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="selectView">{{item.label}}</button>
+      </view>
+
+      <view class="vehicle-stage">
+        <view class="vehicle-visual-frame">
+          <image class="vehicle-stage-background" src="/packages/inspection/assets/inspection-checkup/diagnostic-stage.jpg" mode="aspectFill" />
+          <image class="vehicle-image" src="{{activeViewImage}}" mode="aspectFit" />
+          <block wx:for="{{regions}}" wx:key="code">
+            <view class="region-callout-line {{item.faultCount ? 'faulted' : ''}} {{item.selected ? 'selected' : ''}}" style="{{item.lineStyle}}"></view>
+            <button
+              aria-label="{{item.label}}{{item.faultCount ? '，当前显示故障序号' + item.markerLabel + '，该位置共' + item.faultCount + '条故障' : '，点击添加故障'}}"
+              class="region-hotspot {{item.faultCount ? 'faulted' : ''}} {{item.selected ? 'selected' : ''}}"
+              style="{{item.dotStyle}}"
+              data-code="{{item.code}}"
+              bindtap="tapRegion"
+              disabled="{{saving || submitting}}"
+            ><text class="marker-number">{{item.markerLabel}}</text><text wx:if="{{item.faultCount > 1}}" class="region-count">{{item.faultCount}}条</text></button>
+            <button
+              aria-label="{{item.label}}{{item.faultCount ? '，已标记' : '，点击添加故障'}}"
+              class="region-callout-label {{item.faultCount ? 'faulted' : ''}} {{item.selected ? 'selected' : ''}}"
+              style="{{item.labelStyle}}"
+              data-code="{{item.code}}"
+              catchtap="tapRegion"
+              disabled="{{saving || submitting}}"
+            >{{item.label}}</button>
+          </block>
+          <view wx:if="{{activeBubble.visible}}" class="fault-bubble" style="{{activeBubble.style}}">
+            <text>{{activeBubble.title}}</text><text>{{activeBubble.description}}</text>
+          </view>
+        </view>
+        <view class="vehicle-caption"><text>点击定位点或部位名称记录问题</text><text>通用车身示意，不代表实车车型；故障以位置文字和现场照片为准</text></view>
+      </view>
+
+      <view class="diagnostic-legend">
+        <view><text class="legend-dot normal"></text><text>可记录</text></view>
+        <view><text class="legend-dot fault"></text><text>已标记</text></view>
+        <view><text class="legend-count">{{faults.length}}</text><text>条故障</text></view>
+      </view>
+    </view>
+
+    <view class="observation-card">
+      <text class="card-title">车辆可见状态确认</text>
+      <text class="card-copy">故障记录只进入车辆体检报告，不会自动改变年检结论或挂起业务。</text>
+      <view class="observation-options">
+        <button class="{{observationMode === 'no_visible_faults' ? 'selected' : ''}}" data-value="no_visible_faults" bindtap="chooseObservation" disabled="{{saving || submitting}}"><image src="/assets/icons/check-circle.png"/><view><text>未发现明显异常</text><text>已完成现场目视检查</text></view></button>
+        <button class="{{observationMode === 'faults_recorded' ? 'selected' : ''}}" data-value="faults_recorded" bindtap="chooseObservation" disabled="{{saving || submitting}}"><image src="/assets/icons/warning-circle.png"/><view><text>已记录车辆问题</text><text>在示意图上添加一条或多条故障</text></view></button>
+      </view>
+    </view>
+
+    <view wx:if="{{faultViews.length}}" class="fault-list-card">
+      <view class="fault-list-head"><text>故障明细</text><text>{{faultViews.length}} 条</text></view>
+      <view wx:for="{{faultViews}}" wx:key="id" role="button" aria-label="{{item.regionLabel}}，{{item.typeLabel}}，{{item.severityLabel}}" class="fault-row {{activeFaultId === item.id ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="selectFault">
+        <text class="fault-number">{{item.number}}</text>
+        <view class="fault-copy"><text>{{item.regionLabel}} · {{item.typeLabel}}</text><text>{{item.viewLabel}} / {{item.severityLabel}}{{item.description ? ' / ' + item.description : ''}}</text><text class="fault-photo-state state-{{item.photoStatusTone}}">{{item.photoStatus}}</text></view>
+        <view class="fault-actions"><button data-id="{{item.id}}" catchtap="editFault" disabled="{{saving || submitting}}">编辑</button><button data-id="{{item.id}}" catchtap="removeFault" disabled="{{saving || submitting}}">删除</button></view>
+      </view>
+    </view>
+
+    <view class="section-heading"><view><text>03</text><text>年检结论</text></view><text>以检测站实际检验为准</text></view>
+    <view class="conclusion-card">
+      <text class="card-title">本次年检结论</text>
+      <view wx:if="{{legacyConclusionNeedsReentry}}" class="legacy-conclusion-alert"><image src="/assets/icons/warning-circle.png"/><view><text>历史结果待重新录入</text><text>旧版“待复核”结论已停用，请重新选择“通过”或“未通过”。此历史值不会自动算作未通过。</text></view></view>
+      <view class="conclusion-options">
+        <button wx:for="{{conclusionOptions}}" wx:key="value" class="{{item.selected ? 'selected conclusion-' + item.value : ''}}" data-value="{{item.value}}" bindtap="selectConclusion" disabled="{{saving || submitting}}">{{item.label}}</button>
+      </view>
+      <view wx:if="{{conclusion === 'failed'}}" class="failure-fields">
+        <view class="failure-guidance"><image src="/assets/icons/warning-circle.png"/><text>请依据检测站实际检验记录填写。“车辆外观检查”指号牌、灯具、非法改装、严重破损等官方年检项目，并以检测单项目为准；车身剐蹭、凹陷等体检记录不会自动生成未通过结论。</text></view>
+        <view class="failure-field-label"><text>未通过项目类别</text><text>至少选择 1 项</text></view>
+        <view class="failure-category-options">
+          <button wx:for="{{failureCategoryOptions}}" wx:key="value" class="{{item.selected ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="toggleFailureCategory" disabled="{{saving || submitting}}">{{item.label}}</button>
+        </view>
+        <view class="failure-text-field"><text>具体原因 / 检测说明</text><textarea value="{{failureReason}}" maxlength="300" placeholder="请按检测记录填写未通过项目、测量值或异常说明" bindinput="inputFailureReason" disabled="{{saving || submitting}}" /></view>
+        <view class="failure-text-field"><text>整改与复检建议</text><textarea value="{{retestAdvice}}" maxlength="300" placeholder="请填写整改要求、复检项目及建议安排" bindinput="inputRetestAdvice" disabled="{{saving || submitting}}" /></view>
+      </view>
+      <view class="summary-field"><text>结果说明（选填）</text><textarea value="{{summary}}" maxlength="200" placeholder="例如：检测项目完成，车身问题已记录在体检报告中" bindinput="inputSummary" disabled="{{saving || submitting}}" /></view>
+    </view>
+
+    <view class="section-heading"><view><text>04</text><text>法定检测材料</text></view><text>与平台车辆体检留证分开</text></view>
+    <view class="conclusion-card legal-material-card">
+      <view class="legal-material-boundary"><image src="/assets/icons/shield-check.png"/><text>请按检测站实际出具材料留证。平台车辆体检报告用于履约记录，不替代机动车安全技术检验报告、排放检验报告或交管官方记录。</text></view>
+
+      <view class="mark-upload legal-material-item">
+        <view class="mark-heading"><view><text>机动车安全技术检验报告</text><text>检测站如有出具，可作为补充材料上传</text></view><text>{{safetyReportMedia ? '已上传' : '选填'}}</text></view>
+        <button wx:if="{{safetyReportMedia}}" class="mark-preview" data-url="{{safetyReportMedia.url}}" bindtap="previewPhoto"><image src="{{safetyReportMedia.url}}" mode="aspectFill"/><text>点击查看原图</text></button>
+        <button wx:else class="mark-empty" data-kind="safety_inspection_report" bindtap="choosePhoto" disabled="{{safetyReportUploading || saving || submitting}}"><image src="/assets/icons/camera.png"/><text>{{safetyReportUploading ? '正在上传…' : '拍摄或从相册选择检验报告'}}</text></button>
+        <view wx:if="{{safetyReportMedia}}" class="mark-controls"><button data-kind="safety_inspection_report" bindtap="choosePhoto" disabled="{{safetyReportUploading || saving || submitting}}">重拍/替换</button><button data-id="{{safetyReportMedia.id}}" catchtap="deletePhoto" disabled="{{safetyReportUploading || saving || submitting}}">删除</button></view>
+      </view>
+
+      <view class="mark-upload legal-material-item optional-material">
+        <view class="mark-heading"><view><text>排放检验报告</text><text>检测站如有出具，请一并上传</text></view><text>{{emissionsReportMedia ? '已上传' : '选填'}}</text></view>
+        <button wx:if="{{emissionsReportMedia}}" class="mark-preview" data-url="{{emissionsReportMedia.url}}" bindtap="previewPhoto"><image src="{{emissionsReportMedia.url}}" mode="aspectFill"/><text>点击查看原图</text></button>
+        <button wx:else class="mark-empty" data-kind="emissions_inspection_report" bindtap="choosePhoto" disabled="{{emissionsReportUploading || saving || submitting}}"><image src="/assets/icons/camera.png"/><text>{{emissionsReportUploading ? '正在上传…' : '拍摄或从相册选择排放检验报告'}}</text></button>
+        <view wx:if="{{emissionsReportMedia}}" class="mark-controls"><button data-kind="emissions_inspection_report" bindtap="choosePhoto" disabled="{{emissionsReportUploading || saving || submitting}}">重拍/替换</button><button data-id="{{emissionsReportMedia.id}}" catchtap="deletePhoto" disabled="{{emissionsReportUploading || saving || submitting}}">删除</button></view>
+      </view>
+
+      <view wx:if="{{conclusion === 'passed'}}" class="mark-upload legal-material-item">
+        <view class="mark-heading"><view><text>检验合格标志/电子凭证留证</text><text>仅通过结果必须上传纸质标志或电子凭证截图</text></view><text>{{markMedia ? '已上传' : '必传'}}</text></view>
+        <button wx:if="{{markMedia}}" class="mark-preview" data-url="{{markMedia.url}}" bindtap="previewPhoto"><image src="{{markMedia.url}}" mode="aspectFill"/><text>点击查看原图</text></button>
+        <button wx:else class="mark-empty" data-kind="annual_inspection_mark" bindtap="choosePhoto" disabled="{{markUploading || saving || submitting}}"><image src="/assets/icons/camera.png"/><text>{{markUploading ? '正在上传…' : '拍摄或从相册选择合格标志/电子凭证'}}</text></button>
+        <view wx:if="{{markMedia}}" class="mark-controls"><button data-kind="annual_inspection_mark" bindtap="choosePhoto" disabled="{{markUploading || saving || submitting}}">重拍/替换</button><button data-id="{{markMedia.id}}" catchtap="deletePhoto" disabled="{{markUploading || saving || submitting}}">删除</button></view>
+      </view>
+      <view wx:else class="mark-not-issued"><image src="/assets/icons/shield-check.png"/><text>{{conclusion ? '未通过结果不生成检验合格标志/电子凭证留证。' : '选择结论后显示检验合格凭证要求。'}}</text></view>
+    </view>
+
+    <view class="submit-guide"><image src="/assets/icons/shield-check.png"/><view><text>提交前自动检查</text><text>5 张固定现场照片、车辆状态确认和年检结论；每条故障至少 1 张特写。安全与排放检验报告均为选填，通过时必须上传检验合格标志/电子凭证留证。</text></view></view>
+  </block>
+
+  <view wx:elif="{{loadError}}" class="editor-load-error"><image src="/assets/icons/warning-circle.png"/><text>暂时无法填写检测结果</text><text>{{loadError}}</text><view class="editor-error-actions"><button wx:if="{{id}}" bindtap="retryLoad" disabled="{{loading}}">重新加载</button><button bindtap="goTasks">返回检测任务</button></view></view>
+
+  <view wx:if="{{booking && !faultEditorOpen && !previewOpen}}" class="sticky-actions">
+    <button class="save-button" bindtap="saveDraft" loading="{{saving}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0 ? '材料处理中' : '保存草稿'}}</button>
+    <button class="submit-button" bindtap="submitReport" loading="{{submitting}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0 ? '等待材料完成' : '预览并回传结果'}}</button>
+  </view>
+
+  <view wx:if="{{faultEditorOpen}}" class="sheet-layer">
+    <view class="sheet-mask" bindtap="closeFaultEditor" catchtouchmove="blockSheetTouch"></view>
+    <view class="fault-sheet" role="dialog" aria-label="{{editingFaultId ? '编辑车辆故障' : '添加车辆故障'}}" catchtap="blockSheetTouch">
+      <view class="sheet-handle"></view>
+      <view class="sheet-head"><view><text>{{editingFaultId ? '编辑故障' : '添加故障'}}</text><text>{{editingRegionLabel}}</text></view><button aria-label="关闭故障编辑" bindtap="closeFaultEditor">关闭</button></view>
+      <scroll-view class="fault-sheet-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{true}}">
+        <view class="fault-sheet-content">
+          <text class="sheet-label">问题类型</text>
+          <view class="choice-grid fault-types"><button wx:for="{{faultTypeOptions}}" wx:key="value" aria-label="{{item.label}}，{{item.selected ? '已选择' : '未选择'}}" class="{{item.selected ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectFaultType">{{item.label}}<text wx:if="{{item.selected}}">已选</text></button></view>
+          <text class="sheet-label">明显程度</text>
+          <view class="choice-grid severity-types"><button wx:for="{{severityOptions}}" wx:key="value" aria-label="{{item.label}}，{{item.selected ? '已选择' : '未选择'}}" class="{{item.selected ? 'selected' : ''}}" data-value="{{item.value}}" bindtap="selectSeverity">{{item.label}}<text wx:if="{{item.selected}}">已选</text></button></view>
+          <view class="fault-description"><text>补充描述{{editingFaultType === 'other' ? '（必填）' : '（选填）'}}</text><textarea value="{{editingDescription}}" fixed="{{true}}" cursor-spacing="96" disable-default-padding="{{true}}" maxlength="100" placeholder="例如：约 8cm 划痕，未见底漆" bindinput="inputFaultDescription" /></view>
+
+          <view class="fault-photo-section">
+            <view class="fault-photo-heading"><view><text>故障现场特写</text><text>每条故障独立保存 1–3 张，回传前至少 1 张</text></view><text>{{editingFaultPhotos.length}}/3</text></view>
+            <view wx:if="{{!editingFaultPersisted}}" class="fault-photo-lock"><image src="/assets/icons/camera.png"/><text>先保存这条故障取得绑定编号，随后即可拍摄；也可以暂存后稍后补拍。</text></view>
+            <block wx:else>
+              <view wx:if="{{editingFaultPhotos.length}}" class="fault-closeup-grid">
+                <view wx:for="{{editingFaultPhotos}}" wx:key="id" class="fault-closeup-card">
+                  <button class="fault-closeup-preview" data-fault-id="{{editingFaultId}}" data-url="{{item.url}}" bindtap="previewFaultPhoto"><image src="{{item.url}}" mode="aspectFill"/><text>特写 {{item.sequence || index + 1}}</text></button>
+                  <view class="fault-closeup-actions"><button data-fault-id="{{editingFaultId}}" data-photo-id="{{item.id}}" bindtap="chooseFaultPhoto" disabled="{{editingPhotoAttempt && editingPhotoAttempt.status === 'uploading'}}">重拍</button><button data-fault-id="{{editingFaultId}}" data-photo-id="{{item.id}}" bindtap="deleteFaultPhoto" disabled="{{editingPhotoAttempt && editingPhotoAttempt.status === 'uploading'}}">删除</button></view>
+                </view>
+              </view>
+              <view wx:else class="fault-closeup-empty"><text>尚未拍摄现场特写</text><text>结果回传前必须补拍，草稿保存不受影响。</text></view>
+              <view wx:if="{{editingPhotoAttempt}}" class="fault-photo-attempt attempt-{{editingPhotoAttempt.status}}">
+                <image src="{{editingPhotoAttempt.tempPath}}" mode="aspectFill"/>
+                <view><text>{{editingPhotoAttempt.status === 'uploading' ? (editingPhotoAttempt.replacePhotoId ? '正在重拍并上传' : '正在上传特写') : '本次上传失败'}}</text><text>{{editingPhotoAttempt.status === 'uploading' ? (editingPhotoAttempt.replacePhotoId ? '原图会保留到新图上传成功' : '请勿重复点击') : editingPhotoAttempt.error}}</text></view>
+                <view wx:if="{{editingPhotoAttempt.status === 'failed'}}" class="attempt-actions"><button data-fault-id="{{editingFaultId}}" bindtap="retryFaultPhoto">重试</button><button data-fault-id="{{editingFaultId}}" bindtap="discardFaultPhotoAttempt">放弃本次</button></view>
+              </view>
+              <button wx:if="{{editingPhotoCanAdd}}" class="add-fault-photo" data-fault-id="{{editingFaultId}}" bindtap="chooseFaultPhoto"><image src="/assets/icons/camera.png"/><text>新增故障特写</text></button>
+            </block>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view wx:if="{{editingFaultPersisted}}" class="sheet-actions"><button class="sheet-delete" data-id="{{editingFaultId}}" bindtap="removeFault" disabled="{{editingPhotoAttempt && editingPhotoAttempt.status === 'uploading'}}">删除</button><button class="sheet-save" bindtap="saveFault" loading="{{persistingFault}}" disabled="{{persistingFault || (editingPhotoAttempt && editingPhotoAttempt.status === 'uploading')}}">保存修改</button></view>
+      <view wx:else class="new-fault-actions"><button bindtap="saveFault" loading="{{persistingFault}}" disabled="{{persistingFault}}">暂存，稍后补拍</button><button bindtap="saveFaultAndPhoto" loading="{{persistingFault}}" disabled="{{persistingFault}}">保存并拍摄特写</button></view>
+    </view>
+  </view>
+
+  <view wx:if="{{previewOpen}}" class="sheet-layer">
+    <view class="sheet-mask" bindtap="closePreview"></view>
+    <view class="preview-sheet" catchtap="blockSheetTouch">
+      <view class="sheet-handle"></view>
+      <view class="preview-head"><view><text>回传前预览</text><text>{{booking.serviceMode === 'self_drive' ? '发布后车主将收到报告，本次自驾服务同时自动完成' : '确认无误后，车主将收到这份车辆体检报告'}}</text></view><button bindtap="closePreview">关闭</button></view>
+      <scroll-view class="preview-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{true}}">
+        <view class="preview-scroll-content">
+          <view class="preview-result conclusion-{{conclusion}}"><text>本次年检结论</text><text>{{conclusionLabel}}</text></view>
+          <view wx:if="{{conclusion === 'failed'}}" class="preview-failure-details">
+            <view><text>未通过项目</text><view><text wx:for="{{failureCategoryOptions}}" wx:key="value" wx:if="{{item.selected}}">{{item.label}}</text></view></view>
+            <view><text>具体原因</text><text>{{failureReason}}</text></view>
+            <view><text>复检建议</text><text>{{retestAdvice}}</text></view>
+          </view>
+          <view class="preview-metrics">
+            <view><text>{{photoCompleteCount}}/5</text><text>现场照片</text></view>
+            <view><text>{{faults.length}}</text><text>车身问题</text></view>
+            <view><text>{{faultPhotoCount}}</text><text>故障特写</text></view>
+            <view><text>{{markMedia ? '已上传' : (conclusion === 'passed' ? '待上传' : '不适用')}}</text><text>合格凭证</text></view>
+          </view>
+          <view class="preview-row"><text>车辆状态</text><text>{{observationMode === 'no_visible_faults' ? '未发现明显异常' : '已记录车辆问题'}}</text></view>
+          <view class="preview-row"><text>结果说明</text><text>{{summary || '车辆现场检查与年检结果已回传'}}</text></view>
+          <view class="preview-boundary"><image src="/assets/icons/shield-check.png"/><text>故障记录进入车辆体检报告，不会自动改变年检结论；官方检验状态仍以交管记录为准。</text></view>
+          <button class="preview-document-button" bindtap="openFullReportPreview">查看完整报告预览（含逐条故障特写）</button>
+        </view>
+      </scroll-view>
+      <view class="preview-actions"><button bindtap="closePreview">返回修改</button><button bindtap="confirmSubmit">{{booking.serviceMode === 'self_drive' ? '发布报告并完成服务' : '确认回传结果'}}</button></view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,47 @@
+<view class="driver-login-page">
+  <view class="login-hero">
+    <view class="hero-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view>
+    <text>VALET TASK ACCESS</text>
+    <text>代驾任务</text>
+    <text>输入后台针对本笔订单生成的验证码，只领取分配给你的取送任务。</text>
+  </view>
+
+  <view wx:if="{{notice}}" class="notice-bar"><image src="/assets/icons/warning-circle.png"/><text>{{notice}}</text></view>
+
+  <view wx:if="{{checkingSession}}" class="login-card checking-card">
+    <image src="/assets/icons/clock.png"/><text>正在核验上一次代驾任务…</text>
+  </view>
+
+  <view wx:elif="{{cachedTask}}" class="login-card cached-card">
+    <view class="card-heading"><view><text>上次任务仍然有效</text><text>可直接继续，或切换到后台分配的新订单</text></view><text>{{cachedTask.statusLabel}}</text></view>
+    <view class="cached-vehicle">
+      <view class="cached-car-icon"><image src="/assets/icons/car.png"/></view>
+      <view><text>{{cachedTask.plateNumber}}</text><text>{{cachedTask.displayName}}</text><text>{{cachedTask.bookingNumber}}</text></view>
+    </view>
+    <button class="primary-action" bindtap="continueTask">继续处理此任务</button>
+    <button class="secondary-action" bindtap="switchTask">输入新验证码切换任务</button>
+  </view>
+
+  <view wx:else class="login-card code-card">
+    <view class="card-heading"><view><text>领取代驾任务</text><text>验证码为 6 位数字，按 3–3 分组显示</text></view></view>
+
+    <text class="field-label">任务验证码</text>
+    <view class="verification-code-shell {{codeFocused ? 'focused' : ''}} {{error ? 'invalid' : ''}}">
+      <input class="code-native" value="{{verificationCode}}" type="number" maxlength="6" confirm-type="done" bindinput="inputCode" bindfocus="focusCode" bindblur="blurCode" bindconfirm="submit" aria-label="6位代驾任务验证码"/>
+      <view class="code-display" aria-hidden="true">
+        <text class="code-group {{verificationCode.length ? 'filled' : ''}}">{{codeLeftDisplay}}</text>
+        <view class="code-divider"></view>
+        <text class="code-group {{verificationCode.length > 3 ? 'filled' : ''}}">{{codeRightDisplay}}</text>
+      </view>
+    </view>
+    <text class="code-hint">验证码由运营后台生成；失效后请联系后台重新生成。</text>
+
+    <view wx:if="{{sessionError}}" class="login-error"><image src="/assets/icons/warning-circle.png"/><view><text>上次任务核验失败</text><text>{{sessionError}}</text></view><button bindtap="retrySession">重试</button></view>
+    <view wx:if="{{error}}" class="login-error"><image src="/assets/icons/warning-circle.png"/><view><text>暂时无法领取任务</text><text>{{error}}</text></view></view>
+
+    <button class="primary-action" bindtap="submit" loading="{{submitting}}" disabled="{{!codeReady || submitting}}">验证并进入任务</button>
+  </view>
+
+  <view class="security-note"><image src="/assets/icons/shield-check.png"/><text>代驾端仅能查看当前验证码对应的一笔订单，不能访问车主其他订单或检测站后台。</text></view>
+  <button class="back-staff" bindtap="backStaff">返回工作人员入口</button>
+</view>

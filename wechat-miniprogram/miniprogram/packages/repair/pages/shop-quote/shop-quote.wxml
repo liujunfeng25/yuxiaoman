@@ -1,0 +1,60 @@
+<view class="page shop-quote-page">
+  <view wx:if="{{loading}}" class="loading quote-loading">正在准备本店报价…</view>
+  <view wx:elif="{{error && !request}}" class="quote-error">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>报价信息读取失败</text><text>{{error}}</text><button bindtap="retry">重新加载</button>
+  </view>
+
+  <block wx:elif="{{request}}">
+    <view class="demo-line"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{isDemoShop ? '维修门店端 · 演示主体' : '维修门店端 · 实名账号'}}</text></view>
+
+    <view class="request-summary">
+      <view class="summary-icon"><image src="/assets/icons/car-profile.png" mode="aspectFit" /></view>
+      <view><text>{{request.plateMasked}} · {{request.faults.length}} 处车损</text><text>{{request.vehicleLabel}}</text><text>{{shopName}}</text></view>
+      <image src="/assets/icons/wrench.png" mode="aspectFit" />
+    </view>
+
+    <view class="preset-note">
+      <image src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <view><text>{{hasActiveQuote ? '已载入本店最新报价' : '请填写本店报价'}}</text><text>{{hasActiveQuote ? '仅实际变化会生成新版本。' : '填写全款总价和一句维修说明后提交。'}}</text></view>
+    </view>
+
+    <view class="quote-form">
+      <view class="form-heading"><text>{{hasActiveQuote ? '更新维修报价' : '填写维修报价'}}</text><text>总价优先展示给车主</text></view>
+
+      <view class="price-field {{priceError ? 'invalid' : ''}}">
+        <text>¥</text>
+        <input type="digit" value="{{totalInput}}" maxlength="8" placeholder="请输入总价" placeholder-class="input-placeholder" bindinput="totalInput" />
+        <view><text>元</text><text>全款总价</text></view>
+      </view>
+      <text wx:if="{{priceError}}" class="field-error">{{priceError}}</text>
+      <view wx:else class="price-preview"><text>车主侧展示</text><text>¥{{totalPreview}}</text></view>
+
+      <view class="divider"></view>
+
+      <view class="note-label"><text>一句报价说明</text><text>{{noteInput.length}} / 60</text></view>
+      <view class="note-field {{noteError ? 'invalid' : ''}}">
+        <image src="/assets/icons/receipt.png" mode="aspectFit" />
+        <input value="{{noteInput}}" maxlength="60" placeholder="例如：钣金修复+喷漆，质保1年" placeholder-class="input-placeholder" bindinput="noteInput" bindblur="noteBlur" />
+      </view>
+      <text wx:if="{{noteError}}" class="field-error">{{noteError}}</text>
+
+      <view class="included-copy">
+        <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+        <text>请在线下施工前与车主确认维修范围、材料、工期、质保及可能增项；报价总额提交后会完整展示。</text>
+      </view>
+    </view>
+
+    <view class="privacy-card">
+      <image src="/assets/icons/user-circle.png" mode="aspectFit" />
+      <view><text>报价阶段不提供联系人</text><text>只有本店被车主选中且完成模拟支付后，成交详情才会显示合成联系人。</text></view>
+    </view>
+
+    <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{error}}</text></view>
+
+    <view class="quote-footer {{hasActiveQuote ? 'with-withdraw' : ''}}">
+      <button wx:if="{{hasActiveQuote}}" class="withdraw-button" bindtap="withdraw" loading="{{withdrawing}}" disabled="{{submitting || withdrawing}}">撤回报价</button>
+      <button class="submit-button" bindtap="submit" loading="{{submitting}}" disabled="{{submitting || withdrawing}}">{{submitting ? '正在提交' : hasActiveQuote ? '更新报价 ¥' + totalPreview : '提交报价 ¥' + totalPreview}}</button>
+    </view>
+  </block>
+</view>

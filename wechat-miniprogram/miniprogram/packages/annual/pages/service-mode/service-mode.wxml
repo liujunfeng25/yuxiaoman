@@ -1,0 +1,47 @@
+<view class="page service-page">
+  <view class="flow-kicker">
+    <image src="/assets/icons/calendar-search.png" mode="aspectFit" />
+    <text>年检预约 · 第 1 步</text>
+  </view>
+
+  <view class="heading">
+    <text>车辆如何到达检测站？</text>
+    <text>先确认服务方式，下一步将按真实路线为你推荐检测站。</text>
+  </view>
+
+  <view class="mode-grid">
+    <button class="mode {{mode === 'self_drive' ? 'selected' : ''}}" data-mode="self_drive" bindtap="choose">
+      <view class="mode-icon"><image src="/assets/icons/car.png" mode="aspectFit" /></view>
+      <image wx:if="{{mode === 'self_drive'}}" class="selected-icon" src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <text class="mode-title">自驾到店</text>
+      <text class="mode-copy">使用当前位置，计算到检测站的驾车路线</text>
+      <text class="mode-tip">适合自行送检</text>
+    </button>
+
+    <button class="mode {{mode === 'valet' ? 'selected' : ''}}" data-mode="valet" bindtap="choose">
+      <view class="mode-icon"><image src="/assets/icons/map-pin.png" mode="aspectFit" /></view>
+      <image wx:if="{{mode === 'valet'}}" class="selected-icon" src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <text class="mode-title">上门代驾</text>
+      <text class="mode-copy">使用取车地址，计算往返检测站的路线</text>
+      <text class="mode-tip">适合省心代办</text>
+    </button>
+  </view>
+
+  <view class="route-info">
+    <view class="route-info-icon"><image src="/assets/icons/shield-check.png" mode="aspectFit" /></view>
+    <view>
+      <text>路线与价格真实透明</text>
+      <text>未确认当前位置或取车地址时，不展示虚假公里数；地图服务异常时会明确标记为“预计距离”。</text>
+    </view>
+  </view>
+
+  <view class="selection-note">
+    <text>当前选择</text>
+    <text>{{mode === 'self_drive' ? '自驾到店' : '上门代驾'}}</text>
+  </view>
+
+  <button class="primary-button next-button" bindtap="next">
+    <text>确认服务方式</text>
+    <image src="/assets/icons/caret-right.png" mode="aspectFit" />
+  </button>
+</view>

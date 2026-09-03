@@ -1,0 +1,115 @@
+<view class="driver-task-page">
+  <view wx:if="{{loading}}" class="loading-card">
+    <view class="loading-icon"><image src="/assets/icons/clock.png" mode="aspectFit" /></view>
+    <text>{{exchanging ? '正在验证任务入口…' : '正在读取代驾任务…'}}</text>
+    <text>任务权限与车主账号相互独立</text>
+  </view>
+
+  <view wx:elif="{{error && !task}}" class="error-card">
+    <view><image src="/assets/icons/warning-circle.png" mode="aspectFit" /></view>
+    <text>暂时无法打开任务</text>
+    <text>{{error}}</text>
+    <text>{{bookingId ? '任务入口已验证，可直接重试读取。' : '请从运营发送的最新任务入口重新进入。'}}</text>
+    <button wx:if="{{bookingId}}" bindtap="retryTask" loading="{{loading}}" disabled="{{loading || acting}}">重新加载任务</button>
+    <button wx:else bindtap="enterCodeLogin">输入验证码进入代驾端</button>
+  </view>
+
+  <block wx:elif="{{task}}">
+    <view class="task-hero">
+      <view class="hero-top"><text>代驾执行</text><text>代驾执行任务</text></view>
+      <view class="hero-main">
+        <view><text>{{task.vehicle.plateNumber}}</text><text>{{task.vehicle.displayName}}</text></view>
+        <text class="status-pill status-{{task.statusTone}}">{{task.statusLabel}}</text>
+      </view>
+      <view class="hero-meta"><text>{{task.bookingNumber || '预约编号待同步'}}</text><text>{{task.scheduleLabel}}</text></view>
+      <view class="identity-note"><image src="/assets/icons/shield-check.png"/><text>仅可处理当前分配任务，无法访问车主其他订单或后台数据。</text></view>
+    </view>
+
+    <view wx:if="{{error}}" class="inline-task-error"><image src="/assets/icons/warning-circle.png"/><text>{{error}}，当前展示的是上次成功同步的任务状态。</text><button bindtap="retryTask" disabled="{{loading || acting}}">刷新重试</button></view>
+
+    <view class="current-card current-{{task.statusTone}}">
+      <view class="current-step"><text>{{task.currentStep}}</text><view><text>当前任务</text><text>{{task.currentTitle}}</text></view></view>
+      <text class="current-hint">{{task.currentHint}}</text>
+      <view class="current-progress">
+        <view class="{{task.currentStep >= 1 ? 'reached' : ''}}"><text></text><text>取车</text></view>
+        <view class="{{task.currentStep >= 2 ? 'reached' : ''}}"><text></text><text>到站</text></view>
+        <view class="{{task.currentStep >= 3 ? 'reached' : ''}}"><text></text><text>检测</text></view>
+        <view class="{{task.currentStep >= 4 ? 'reached' : ''}}"><text></text><text>送回</text></view>
+      </view>
+    </view>
+
+    <view class="section-heading"><view><text>01</text><text>车辆与路线</text></view><text>单笔任务</text></view>
+    <view class="route-card">
+      <view class="route-line"></view>
+      <view class="route-stop pickup-stop">
+        <text class="route-dot">取</text>
+        <view><text>车主取送地址</text><text>{{task.pickupAddress ? task.pickupAddress.title : '取车地点待同步'}}</text><text>{{task.pickupAddress ? task.pickupAddress.address + (task.pickupAddress.detail ? ' · ' + task.pickupAddress.detail : '') : '请联系运营确认'}}</text><text wx:if="{{task.pickupAddress && task.pickupAddress.note}}">备注：{{task.pickupAddress.note}}</text></view>
+        <button data-target="pickup" bindtap="navigate" disabled="{{!task.pickupAddress}}"><image src="/assets/icons/map-pin.png"/><text>导航</text></button>
+      </view>
+      <view class="route-stop station-stop">
+        <text class="route-dot">站</text>
+        <view><text>预约检测站</text><text>{{task.station ? task.station.name : '检测站待同步'}}</text><text>{{task.station ? task.station.address : '请联系运营确认'}}</text></view>
+        <button data-target="station" bindtap="navigate" disabled="{{!task.station}}"><image src="/assets/icons/map-pin.png"/><text>导航</text></button>
+      </view>
+      <view class="contact-row"><view><image src="/assets/icons/user-circle.png"/><view><text>车主联系人</text><text>{{task.owner.contactName || '联系人待同步'}} · {{task.ownerPhoneDisplay}}</text></view></view><button bindtap="callOwner" disabled="{{!task.owner.contactPhone}}"><image src="/assets/icons/phone.png"/><text>拨打</text></button></view>
+    </view>
+
+    <block wx:if="{{activeStage}}">
+      <view class="section-heading"><view><text>02</text><text>{{activeStageLabel}}</text></view><text>{{photoCompleteCount}}/5</text></view>
+      <view class="capture-card">
+        <view class="capture-intro"><image src="/assets/icons/camera.png"/><view><text>现场相机留证</text><text>按顺序拍摄四角和启动后仪表盘；每张独立保存，重拍不会清空其他位置。</text></view></view>
+        <view class="camera-only-note"><image src="/assets/icons/shield-check.png"/><text>此处仅允许现场调用相机，不使用相册旧图。拍摄本身即为留证，不要求车主确认。</text></view>
+        <view class="photo-grid">
+          <view wx:for="{{photoSlots}}" wx:key="kind" class="photo-slot {{item.media ? 'complete' : ''}} {{item.uploading ? 'uploading' : ''}}">
+            <button wx:if="{{item.media && item.media.url}}" class="photo-preview" data-url="{{item.media.url}}" bindtap="previewActivePhoto">
+              <image src="{{item.media.url}}" mode="aspectFill" />
+              <view><text>{{item.label}}</text><text>{{item.stateLabel}}</text></view>
+            </button>
+            <view wx:elif="{{item.media}}" class="photo-unavailable"><image src="/assets/icons/warning-circle.png"/><text>{{item.label}}</text><text>图片读取失败，下拉刷新后重试</text></view>
+            <button wx:else class="photo-empty" data-kind="{{item.kind}}" bindtap="choosePhoto" disabled="{{item.uploading || acting}}">
+              <view><image src="/assets/icons/camera.png"/></view><text>{{item.label}}</text><text>{{item.hint}}</text><text>{{item.stateLabel}}</text>
+            </button>
+            <view wx:if="{{item.media}}" class="photo-actions"><button data-kind="{{item.kind}}" bindtap="choosePhoto" disabled="{{item.uploading || acting}}">现场重拍</button><button data-id="{{item.media.id}}" catchtap="deletePhoto" disabled="{{item.uploading || acting}}">删除</button></view>
+          </view>
+        </view>
+        <view class="capture-summary"><view><text>{{photoCompleteCount}}</text><text>/ 5 张已保存</text></view><text>{{canCompleteEvidence ? '照片已齐，可以提交当前节点' : '补齐全部位置后才能推进业务流'}}</text></view>
+        <button class="primary-action" bindtap="completeEvidence" loading="{{acting}}" disabled="{{!canCompleteEvidence || acting}}">{{activeStage === 'owner_return' ? '提交送回留证并完成服务' : '提交取车留证并推进'}}</button>
+      </view>
+    </block>
+
+    <view wx:if="{{showStartReturn}}" class="return-action-card">
+      <view><image src="/assets/icons/send.png"/><view><text>检测完成，准备送回</text><text>{{canStartReturn ? '检测结果与检测完成留证均已形成，可以开始返程。' : '等待检测站补齐报告和检测完成留证。'}}</text></view></view>
+      <button bindtap="startReturn" loading="{{acting}}" disabled="{{!canStartReturn || acting}}">开始送回车辆</button>
+    </view>
+
+    <view class="section-heading evidence-heading"><view><text>{{activeStage ? '03' : '02'}}</text><text>全程留证</text></view><text>车主与后台同步可见</text></view>
+    <view class="evidence-card">
+      <view wx:for="{{evidenceViews}}" wx:key="stage" class="evidence-row evidence-{{item.statusTone}}">
+        <view class="evidence-index"><text>{{item.number}}</text><text class="evidence-connector"></text></view>
+        <view class="evidence-content">
+          <view class="evidence-title"><view><text>{{item.label}}</text><text>{{item.capturedByLabel}} · {{item.capturedTimeLabel}}</text></view><text>{{item.statusLabel}}</text></view>
+          <view class="evidence-meta"><text>{{item.photoCountText}}</text><text>{{item.status === 'completed' ? '已进入订单留证记录' : '当前节点尚未封存'}}</text></view>
+          <scroll-view wx:if="{{item.photos.length}}" scroll-x enhanced show-scrollbar="{{false}}" class="evidence-photo-scroll">
+            <view class="evidence-photo-list"><button wx:for="{{item.photos}}" wx:for-item="photo" wx:key="id" data-stage="{{item.stage}}" data-url="{{photo.url}}" bindtap="previewEvidence" disabled="{{!photo.url}}"><image wx:if="{{photo.url}}" src="{{photo.url}}" mode="aspectFill"/><view wx:else class="evidence-photo-unavailable"><image src="/assets/icons/warning-circle.png"/></view><text>{{photo.kind === 'front_left' ? '左前' : photo.kind === 'front_right' ? '右前' : photo.kind === 'rear_left' ? '左后' : photo.kind === 'rear_right' ? '右后' : '仪表盘'}}</text></button></view>
+          </scroll-view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{task.events.length}}" class="section-heading"><view><text>{{activeStage ? '04' : '03'}}</text><text>业务进度记录</text></view><text>服务端时间</text></view>
+    <view wx:if="{{task.events.length}}" class="event-card">
+      <view wx:for="{{task.events}}" wx:key="id" class="event-row"><view><image src="/assets/icons/check-circle.png"/></view><view><text>{{item.title}}</text><text>{{item.description}}</text><text>{{item.createdAt}}</text></view></view>
+    </view>
+
+    <view class="visibility-note"><image src="/assets/icons/shield-check.png"/><view><text>留证自动同步</text><text>每组照片封存后自动推进对应业务节点，车主订单和运营后台均可查看；本流程不要求车主点击确认。</text></view></view>
+  </block>
+
+  <view wx:if="{{viewerOpen}}" class="image-viewer" catchtouchmove="blockViewerTouch">
+    <view class="image-viewer-mask" bindtap="closeViewer"></view>
+    <view class="image-viewer-dialog" role="dialog" aria-label="留证图片查看器" catchtap="blockViewerTouch">
+      <view class="image-viewer-head"><view><text>留证图片</text><text>{{viewerLabel}}</text></view><button aria-label="关闭留证图片查看器" bindtap="closeViewer">关闭</button></view>
+      <view class="image-viewer-stage"><image src="{{viewerUrl}}" mode="aspectFit" aria-label="{{viewerLabel}}"/></view>
+      <view class="image-viewer-controls"><button bindtap="previousViewerImage" disabled="{{!viewerHasPrevious}}"><text>‹</text><text>上一张</text></button><view><text>{{viewerCounter}}</text><text>当前留证组</text></view><button bindtap="nextViewerImage" disabled="{{!viewerHasNext}}"><text>下一张</text><text>›</text></button></view>
+    </view>
+  </view>
+</view>

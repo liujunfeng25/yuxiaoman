@@ -1,0 +1,191 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+<view class="page booking-page">
+  <view class="flow-toolbar">
+    <button class="flow-back" bindtap="goBack" aria-label="返回选择预约时段">
+      <image src="/assets/icons/arrow-left.png" mode="aspectFit" />
+      <text>返回时段</text>
+    </button>
+    <view class="flow-stage">
+      <text>年检预约 · 确认资料</text>
+      <text>最后确认 · 提交后生成订单</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="page-loading">
+    <image src="/assets/icons/file-search.png" mode="aspectFit" />
+    <text>正在读取预约资料…</text>
+  </view>
+
+  <view wx:elif="{{loadError}}" class="booking-load-error">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>暂时无法确认预约</text>
+    <text>{{loadError}}</text>
+    <view class="booking-load-actions">
+      <button wx:if="{{canRetryLoad}}" bindtap="retryLoad" disabled="{{loading}}">重新加载</button>
+      <button bindtap="goHome">返回首页</button>
+    </view>
+  </view>
+
+  <view wx:elif="{{draft}}">
+    <view class="heading">
+      <text>确认预约资料</text>
+      <text>提交前会重新核验报价、站点、时段与照片。</text>
+    </view>
+
+    <view class="booking-section summary-section">
+      <view class="section-head">
+        <view class="section-icon"><image src="/assets/icons/calendar-check.png" mode="aspectFit" /></view>
+        <view><text>本次预约</text><text>请核对检测站与到站时间</text></view>
+      </view>
+      <view class="summary-row">
+        <image src="/assets/icons/storefront.png" mode="aspectFit" />
+        <view><text>检测站</text><text>{{draft.station.name}}</text><text>{{draft.station.address}}</text></view>
+      </view>
+      <view class="summary-row">
+        <image src="/assets/icons/clock.png" mode="aspectFit" />
+        <view><text>预约时间</text><text>{{draft.slot.date}} {{draft.slot.startTime}}–{{draft.slot.endTime}}</text></view>
+      </view>
+      <view class="summary-row">
+        <image src="/assets/icons/car.png" mode="aspectFit" />
+        <view><text>服务方式</text><text>{{draft.serviceMode === 'self_drive' ? '自驾到店' : '上门代驾（往返）'}}</text></view>
+      </view>
+    </view>
+
+    <view class="booking-section contact-section">
+      <view class="section-head">
+        <view class="section-icon"><image src="/assets/icons/user-circle.png" mode="aspectFit" /></view>
+        <view><text>车辆与联系人</text><text>用于检测站核验预约信息</text></view>
+      </view>
+
+      <text class="field-label">预约车辆</text>
+      <view wx:if="{{!vehicles.length}}" class="no-vehicle-card"><image src="/assets/icons/car.png" mode="aspectFit"/><view><text>还没有可预约车辆</text><text>请先添加车辆，之后需要重新选择检测站和时段。</text></view><button bindtap="addVehicle">添加车辆</button></view>
+      <picker wx:else range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" bindchange="changeVehicle" disabled="{{submitting || quoting}}">
+        <view class="picker-value">
+          <view><image src="/assets/icons/car-profile.png" mode="aspectFit" /><text>{{vehicles.length ? vehicles[vehicleIndex].plateNumber : '请先添加车辆'}}</text></view>
+          <image src="/assets/icons/caret-down.png" mode="aspectFit" />
+        </view>
+      </picker>
+
+      <text class="field-label">联系人（必填）</text>
+      <view class="input-shell"><image src="/assets/icons/user-circle.png" mode="aspectFit" /><input value="{{contactName}}" data-field="contactName" bindinput="input" placeholder="请输入联系人姓名" disabled="{{submitting}}" /></view>
+
+      <text class="field-label">联系电话（必填）</text>
+      <view class="input-shell"><image src="/assets/icons/phone.png" mode="aspectFit" /><input value="{{contactPhone}}" data-field="contactPhone" bindinput="input" type="number" maxlength="11" placeholder="请输入 11 位手机号" disabled="{{submitting}}" /></view>
+
+      <block wx:if="{{draft.serviceMode === 'valet'}}">
+        <text class="field-label">取车地址</text>
+        <view class="pickup-card">
+          <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+          <view>
+            <text>{{draft.pickupAddress ? draft.pickupAddress.title : '尚未确定取车点'}}</text>
+            <text>{{draft.pickupAddress ? draft.pickupAddress.address : '请返回站点页重新选择取车地址'}}</text>
+          </view>
+        </view>
+        <view class="input-shell"><image src="/assets/icons/map-pin.png" mode="aspectFit" /><input value="{{draft.pickupAddress ? draft.pickupAddress.detail : ''}}" data-field="detail" bindinput="pickupInput" placeholder="楼栋 / 车位（选填）" disabled="{{submitting}}" /></view>
+      </block>
+
+      <text class="field-label">预约备注</text>
+      <view class="textarea-shell"><textarea value="{{note}}" data-field="note" bindinput="input" placeholder="可填写进场、取车等说明" maxlength="300" disabled="{{submitting}}" /></view>
+    </view>
+
+    <view class="booking-section media-section">
+      <view class="section-head">
+        <view class="section-icon"><image src="/assets/icons/file-arrow-up.png" mode="aspectFit" /></view>
+        <view><text>上传预约资料</text><text>车身四角、启动后仪表盘和行驶证两页</text></view>
+        <text class="required-count">7 项必传</text>
+      </view>
+
+      <view class="uploads">
+        <button wx:for="{{uploads}}" wx:key="kind" data-kind="{{item.kind}}" bindtap="chooseMedia" disabled="{{item.uploading || submitting}}" aria-label="{{item.label}}，{{item.uploading ? '上传中' : item.media ? '已上传，点击可重选' : '未上传，点击选择图片'}}" class="upload-card {{item.media ? 'complete' : ''}} {{item.previewUrl ? 'has-preview' : ''}}">
+          <block wx:if="{{item.previewUrl}}">
+            <image class="upload-preview" src="{{item.previewUrl}}" mode="aspectFill" />
+            <view class="upload-preview-copy">
+              <text class="upload-label">{{item.label}}</text>
+              <text class="upload-status">{{item.uploading ? '上传中…' : '已上传 · 点击重选'}}</text>
+            </view>
+            <view class="upload-state-badge"><image src="{{item.uploading ? '/assets/icons/clock.png' : '/assets/icons/check-circle.png'}}" mode="aspectFit" /></view>
+          </block>
+          <block wx:else>
+            <view class="upload-icon"><image src="{{item.uploading ? '/assets/icons/clock.png' : item.media ? '/assets/icons/check-circle.png' : '/assets/icons/camera.png'}}" mode="aspectFit" /></view>
+            <text class="upload-label">{{item.label}}</text>
+            <text class="upload-status">{{item.uploading ? '上传中…' : item.media ? '已上传 · 可重选' : '点击选择图片'}}</text>
+          </block>
+        </button>
+      </view>
+
+      <view class="privacy-note">
+        <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+        <text>{{draft.serviceMode === 'valet' ? '七张图片用于预约核验；司机取车时仍会另行拍摄五张履约留证。' : '图片仅用于本次预约核验，由服务端安全处理后保存。'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{quote}}" class="booking-section fee-card">
+      <view class="section-head compact">
+        <view class="section-icon"><image src="/assets/icons/receipt.png" mode="aspectFit" /></view>
+        <view><text>费用明细</text><text>根据当前车辆和路线实时核算</text></view>
+      </view>
+      <view class="fee-row"><text>年检服务费</text><text>¥{{fmt.money(quote.inspectionFeeFen)}}</text></view>
+      <block wx:if="{{draft.serviceMode === 'valet'}}">
+        <view class="fee-row"><text>代驾起步价{{quote.rule ? '（含 ' + quote.rule.includedKm + ' km）' : ''}}</text><text>¥{{fmt.money(quote.breakdown.valetBaseFeeFen)}}</text></view>
+        <view wx:if="{{quote.breakdown.valetDistanceFeeFen > 0 && quote.rule}}" class="fee-row"><text>超出里程加价（{{quote.extraKm}} km × ¥{{fmt.money(quote.rule.perKmFen)}}/km）</text><text>¥{{fmt.money(quote.breakdown.valetDistanceFeeFen)}}</text></view>
+        <view wx:elif="{{quote.breakdown.valetDistanceFeeFen > 0}}" class="fee-row"><text>超出里程加价（{{quote.extraKm}} km）</text><text>¥{{fmt.money(quote.breakdown.valetDistanceFeeFen)}}</text></view>
+        <view wx:else class="fee-row"><text>超出里程加价</text><text>¥0</text></view>
+        <view class="fee-row valet-total-line"><text>上门代驾费小计</text><text>¥{{fmt.money(quote.valetFeeFen)}}</text></view>
+        <view class="route-summary">
+          <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+          <view>
+            <text>单程 {{fmt.distanceLabel(quote.oneWayDistanceKm || quote.distanceKm, quote.driveMinutes, quote.distanceBasis)}}</text>
+            <text>往返已含；代驾费按单程真实驾车路线计算（含起步里程内部分，超出按公里加价）</text>
+            <text wx:if="{{quote.rule}}">服务半径：{{quote.rule.maxRadiusKm === null ? '不限' : quote.rule.maxRadiusKm + ' km'}}</text>
+          </view>
+        </view>
+      </block>
+      <view wx:else class="distance-row"><image src="/assets/icons/map-pin.png" mode="aspectFit" /><text>自驾到店不收取代驾费</text></view>
+      <view class="total-row"><view><text>应付合计</text><text>演示预约不会真实扣款</text></view><text>¥{{fmt.money(quote.serviceFeeFen)}}</text></view>
+      <view wx:if="{{!quote.serviceable}}" class="quote-unserviceable"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{quote.reason === 'origin_required' ? '请先返回确定取车地址，再重新报价。' : '当前地址不在代驾服务范围内，请返回重选地址或改用自驾。'}}</text></view>
+    </view>
+
+    <view wx:elif="{{quoting}}" class="booking-section quote-state">
+      <image src="/assets/icons/clock.png" mode="aspectFit" />
+      <text>正在计算报价…</text>
+    </view>
+
+    <view wx:elif="{{quoteError}}" class="booking-section quote-error {{quoteBlocked ? 'blocked' : ''}}">
+      <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+      <view>
+        <text>{{quoteBlocked ? '预约已暂停' : '暂时无法计算报价'}}</text>
+        <text>{{quoteError}}</text>
+        <text wx:if="{{quoteBlocked}}">为避免按错误日期预约，普通自驾和取送车预约均已关闭。</text>
+      </view>
+      <button wx:if="{{quoteBlocked}}" bindtap="verifyInspectionDate">返回年检查询核验</button>
+      <button wx:else bindtap="quote">重新计算报价</button>
+    </view>
+
+    <view wx:else class="booking-section quote-state">
+      <image src="/assets/icons/receipt.png" mode="aspectFit" />
+      <text>请选择预约车辆后计算报价</text>
+    </view>
+
+    <view class="demo-notice">
+      <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+      <text>当前为本地演示流程，提交后可继续体验模拟支付，不会产生真实扣款。</text>
+    </view>
+
+    <view class="submit-spacer"></view>
+    <view class="submit-bar">
+      <view class="submit-total">
+        <text>应付金额</text>
+        <text wx:if="{{quote}}">¥{{fmt.money(quote.serviceFeeFen)}}</text>
+        <text wx:else>待报价</text>
+      </view>
+      <button loading="{{submitting || quoting || mediaUploadingCount > 0}}" disabled="{{submitting || quoting || mediaUploadingCount > 0 || quoteBlocked || !quote || !quote.serviceable}}" bindtap="submit">{{submitting ? '提交中' : quoting ? '正在计算' : mediaUploadingCount > 0 ? '等待图片上传' : quoteBlocked ? '请先核验日期' : quote && !quote.serviceable ? '当前地址不可服务' : '提交预约'}}</button>
+    </view>
+  </view>
+
+  <view wx:else class="booking-load-error">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>预约资料不存在</text>
+    <text>请返回首页重新选择验车方式。</text>
+    <view class="booking-load-actions"><button bindtap="goHome">返回首页</button></view>
+  </view>
+</view>

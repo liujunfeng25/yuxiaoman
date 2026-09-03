@@ -1,0 +1,23 @@
+.staff-page { min-height: 100vh; padding: 64rpx 30rpx calc(40rpx + env(safe-area-inset-bottom)); box-sizing: border-box; color: #17304d; background: linear-gradient(180deg, #eaf5ff 0, #f4f8fc 430rpx, #f6f9fc 100%); }
+.staff-hero { display: flex; align-items: center; flex-direction: column; text-align: center; }
+.hero-icon { display: flex; width: 94rpx; height: 94rpx; align-items: center; justify-content: center; border-radius: 29rpx; background: linear-gradient(145deg, #0b70e8, #1756bb); box-shadow: 0 18rpx 34rpx rgba(19, 91, 177, .2); }
+.hero-icon image { width: 49rpx; height: 49rpx; filter: brightness(0) invert(1); }
+.staff-hero > text:nth-of-type(1) { margin-top: 24rpx; color: #4382bd; font-size: 17rpx; font-weight: 800; letter-spacing: 2rpx; }
+.staff-hero > text:nth-of-type(2) { margin-top: 7rpx; color: #122b48; font-size: 39rpx; font-weight: 850; }
+.staff-hero > text:nth-of-type(3) { max-width: 590rpx; margin-top: 12rpx; color: #6d8095; font-size: 21rpx; line-height: 1.55; }
+.entry-list { display: grid; margin-top: 42rpx; gap: 20rpx; }
+.entry-card { display: grid; width: 100%; min-height: 164rpx; padding: 25rpx 22rpx; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18rpx; border: 1rpx solid #d5e4f2; border-radius: 27rpx; text-align: left; background: rgba(255,255,255,.96); box-shadow: 0 14rpx 38rpx rgba(40, 81, 124, .08); }
+.entry-card::after { border: 0; }
+.entry-icon { display: flex; width: 82rpx; height: 82rpx; align-items: center; justify-content: center; border-radius: 24rpx; background: #eaf4ff; }
+.entry-icon image { width: 47rpx; height: 47rpx; }
+.driver-card .entry-icon { background: #edf7ff; }
+.repair-card .entry-icon { background: #eef4ff; }
+.entry-copy { display: flex; min-width: 0; flex-direction: column; gap: 12rpx; }
+.entry-copy > view { display: flex; align-items: center; flex-wrap: wrap; gap: 10rpx; }
+.entry-copy > view text:first-child { color: #18344f; font-size: 28rpx; font-weight: 850; }
+.entry-copy > view text:last-child { padding: 4rpx 10rpx; color: #1768cf; border-radius: 999rpx; background: #eaf4ff; font-size: 16rpx; font-weight: 750; }
+.entry-copy > text { color: #74879b; font-size: 19rpx; line-height: 1.5; }
+.entry-caret { width: 30rpx; height: 30rpx; }
+.access-note { display: flex; margin: 28rpx 8rpx 0; padding: 19rpx 20rpx; align-items: flex-start; gap: 10rpx; border: 1rpx solid #d9e6f1; border-radius: 18rpx; color: #71869a; background: rgba(255,255,255,.72); font-size: 18rpx; line-height: 1.55; }
+.access-note image { width: 25rpx; height: 25rpx; flex: none; }
+.back-owner { min-height: 88rpx; margin: 24rpx auto 0; color: #5f748a; background: transparent; font-size: 21rpx; }

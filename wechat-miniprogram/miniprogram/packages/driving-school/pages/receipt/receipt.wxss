@@ -1,0 +1,37 @@
+page { background: #f4f7fb; }
+.receipt-page { min-height: 100vh; padding: 26rpx 22rpx 60rpx; color: #17263b; box-sizing: border-box; }
+button { padding: 0; line-height: normal; }
+button::after { border: 0; }
+.success-hero { display: flex; padding: 32rpx 20rpx; align-items: center; flex-direction: column; border-radius: 22rpx; color: #fff; background: linear-gradient(125deg,#126ca4,#159371); box-shadow: 0 10rpx 26rpx rgba(19,125,109,.18); }
+.success-hero.withdrawn { background: linear-gradient(125deg,#667386,#8793a2); }
+.success-icon { display: flex; width: 72rpx; height: 72rpx; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,.2); }
+.success-icon image { width: 40rpx; height: 40rpx; filter: brightness(0) invert(1); }
+.success-hero > text:nth-child(2) { margin-top: 15rpx; font-size: 31rpx; font-weight: 900; }
+.success-hero > text:last-child { margin-top: 8rpx; color: #ddf6ee; font-size: 19rpx; text-align: center; }
+.receipt-card,.process-card { margin-top: 16rpx; padding: 23rpx; border-radius: 20rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(26,55,89,.06); }
+.receipt-head { display: flex; align-items: center; justify-content: space-between; }
+.receipt-head > view { display: flex; align-items: center; gap: 9rpx; }
+.receipt-head > view text:first-child { font-size: 25rpx; font-weight: 900; }
+.receipt-head > view text:last-child { padding: 6rpx 9rpx; color: #168263; border-radius: 7rpx; background: #e8f7f1; font-size: 16rpx; font-weight: 800; }
+.receipt-head button { color: #1768cf; font-size: 19rpx; }
+.code { display: block; margin-top: 14rpx; padding: 15rpx; color: #1768cf; border-radius: 11rpx; background: #edf5ff; font-size: 27rpx; font-weight: 900; text-align: center; letter-spacing: 1rpx; }
+.detail-grid { display: grid; margin-top: 18rpx; grid-template-columns: 1fr 1fr; gap: 15rpx 18rpx; }
+.detail-grid > view { display: flex; min-width: 0; flex-direction: column; }
+.detail-grid text:first-child { color: #8a96a5; font-size: 16rpx; }
+.detail-grid text:last-child { margin-top: 5rpx; overflow-wrap: anywhere; color: #33475f; font-size: 20rpx; font-weight: 700; }
+.duplicate-note { margin-top: 17rpx; padding: 13rpx; color: #6d5938; border-radius: 10rpx; background: #fff6e8; font-size: 17rpx; line-height: 1.5; }
+.process-card > text { display: block; font-size: 25rpx; font-weight: 900; }
+.process-card > view { display: grid; margin-top: 17rpx; grid-template-columns: 39rpx 1fr; align-items: start; gap: 11rpx; }
+.process-card > view > text { display: flex; width: 35rpx; height: 35rpx; align-items: center; justify-content: center; color: #1768cf; border-radius: 50%; background: #eaf3ff; font-size: 17rpx; font-weight: 900; }
+.process-card > view > view { display: flex; flex-direction: column; }
+.process-card > view > view text:first-child { color: #33475f; font-size: 20rpx; font-weight: 900; }
+.process-card > view > view text:last-child { margin-top: 5rpx; color: #8592a2; font-size: 17rpx; }
+.error-card { display: flex; margin-top: 14rpx; padding: 15rpx; gap: 10rpx; border-radius: 12rpx; background: #fff0ee; }
+.error-card image { width: 28rpx; height: 28rpx; }.error-card > view { display: flex; flex-direction: column; }.error-card text:first-child { color: #a9433b; font-size: 19rpx; font-weight: 900; }.error-card text:last-child { margin-top: 4rpx; color: #b65b53; font-size: 17rpx; }
+.withdraw-button { width: 100%; height: 70rpx; margin-top: 16rpx; color: #b34646; border: 1rpx solid #e8bcbc; border-radius: 13rpx; background: #fff; font-size: 20rpx; text-align: center; }
+.actions { display: grid; margin-top: 16rpx; grid-template-columns: 1fr 1fr; gap: 11rpx; }
+.actions button { height: 70rpx; color: #1768cf; border-radius: 13rpx; background: #eaf3ff; font-size: 20rpx; font-weight: 800; }
+.actions button:last-child { color: #fff; background: #1768cf; }
+.privacy-note { display: block; margin-top: 18rpx; color: #929dab; font-size: 16rpx; line-height: 1.5; text-align: center; }
+.empty-state { display: flex; margin-top: 120rpx; padding: 55rpx 24rpx; align-items: center; flex-direction: column; border-radius: 21rpx; background: #fff; }
+.empty-state image { width: 70rpx; height: 70rpx; }.empty-state text:nth-child(2) { margin-top: 16rpx; font-size: 27rpx; font-weight: 900; }.empty-state text:nth-child(3) { margin-top: 8rpx; color: #8491a1; font-size: 19rpx; text-align: center; }.empty-state button { margin-top: 22rpx; padding: 14rpx 25rpx; color: #fff; border-radius: 12rpx; background: #1768cf; font-size: 21rpx; }

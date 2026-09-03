@@ -1,0 +1,110 @@
+<view class="home-page">
+  <view wx:if="{{showProfileGate}}" class="profile-gate" catchtouchmove="true">
+    <view class="profile-gate-card">
+      <block wx:if="{{profileGateMode === 'wechat'}}">
+        <text class="profile-gate-eyebrow">WELCOME</text>
+        <text class="profile-gate-title">欢迎使用驭小满</text>
+        <text class="profile-gate-copy">继续后将授权微信昵称与头像，便于平台客服识别您的订单与服务。</text>
+        <button class="profile-gate-button" loading="{{profileGateLoading}}" bindtap="authorizeWechatProfile">继续</button>
+      </block>
+      <block wx:else>
+        <text class="profile-gate-eyebrow">WECHAT PROFILE</text>
+        <text class="profile-gate-title">授权微信资料</text>
+        <text class="profile-gate-copy">请使用微信提供的头像与昵称能力完成授权。</text>
+        <button class="profile-gate-avatar" open-type="chooseAvatar" bind:chooseavatar="onGateChooseAvatar">
+          <image wx:if="{{profileAvatarPreview}}" class="profile-gate-avatar-image" src="{{profileAvatarPreview}}" mode="aspectFill" />
+          <text wx:else>选择微信头像</text>
+        </button>
+        <input class="profile-gate-nickname" type="nickname" maxlength="32" placeholder="微信昵称" value="{{profileNickname}}" bindinput="onGateNicknameInput" />
+        <button class="profile-gate-button" loading="{{profileGateLoading}}" bindtap="submitNativeProfile">继续</button>
+      </block>
+    </view>
+  </view>
+
+  <view class="home-brand-row">
+    <view class="brand-lockup"><image src="../../assets/icons/shield-check.png"/><text>驭小满</text></view>
+    <view class="city"><text>天津</text><image src="../../assets/icons/map-pin.png"/></view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading home-loading">正在同步车辆信息…</view>
+  <view wx:elif="{{loadError && !hero}}" class="home-load-error">
+    <image src="../../assets/icons/warning-circle.png" mode="aspectFit"/>
+    <text>首页信息暂时无法加载</text>
+    <text>{{loadError}}</text>
+    <button bindtap="retryLoad" loading="{{loading}}" disabled="{{loading}}">重新加载</button>
+  </view>
+  <block wx:else>
+    <view wx:if="{{loadError}}" class="home-inline-error"><text>{{loadError}}，当前显示上次成功同步的信息。</text><button bindtap="retryLoad" disabled="{{loading}}">刷新</button></view>
+    <view wx:if="{{hero}}" class="inspection-hero hero-{{hero.tone}}">
+      <image class="hero-background" src="../../assets/brand/hero-tianjin-background.jpg" mode="aspectFill"/>
+      <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" class="hero-car-edit" bindtap="editCurrentVehicle">
+        <image class="hero-car-image" src="{{hero.vehicleImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
+        <text>编辑车型</text>
+      </view>
+      <view class="hero-copy">
+        <view role="button" aria-label="切换车辆 {{hero.plate}}" hover-class="tap-pressed" hover-stay-time="120" class="hero-plate" data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go"><text>{{hero.plate}}</text><image class="hero-plate-caret" src="../../assets/icons/caret-right.png"/></view>
+        <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" hover-class="tap-pressed" hover-stay-time="120" class="hero-model-button" bindtap="editCurrentVehicle"><text>{{hero.vehicleCopy}}</text><image src="../../assets/icons/caret-right.png"/></view>
+        <text class="hero-vehicle">{{hero.vehicleDetail}}</text>
+        <text class="countdown-label">{{hero.countdownLabel}}</text>
+        <view class="countdown"><text>{{hero.countdownValue}}</text><text>{{hero.countdownUnit}}</text></view>
+        <text class="due-date">{{hero.dueLabel}} {{hero.dueDate}}</text>
+        <text class="due-detail">{{hero.dueDetail}}</text>
+      </view>
+    </view>
+    <view wx:else class="inspection-hero empty-hero">
+      <image class="hero-background" src="../../assets/brand/hero-tianjin-background.jpg" mode="aspectFill"/>
+      <image class="hero-car-edit empty-car" src="/assets/brand/hero-car-generic.png" mode="aspectFit"/>
+      <view class="hero-copy"><text class="countdown-label">还没有车辆档案</text><text class="empty-title">先添加车辆，再获得年检提醒</text><button class="hero-add" data-url="/packages/vehicle/pages/vehicle-form/vehicle-form" bindtap="go">添加车辆</button></view>
+    </view>
+
+    <view class="primary-actions">
+      <view role="button" aria-label="{{hero ? hero.actionLabel : '先添加车辆'}}" hover-class="tap-pressed" hover-stay-time="120" class="action-button book-action {{hero && hero.conflict ? 'review-action' : ''}}" bindtap="book"><image src="../../assets/icons/calendar-check-white.png"/><text>{{hero ? hero.actionLabel : '先添加车辆'}}</text></view>
+      <view role="button" aria-label="查询是否需上线" hover-class="tap-pressed" hover-stay-time="120" class="action-button query-action" data-url="/packages/annual/pages/eligibility/eligibility" bindtap="go"><image src="../../assets/icons/file-search.png"/><text>查询是否需上线</text><image class="action-caret" src="../../assets/icons/caret-right.png"/></view>
+    </view>
+
+    <view id="annual-inspection-service" class="annual-service-section {{serviceFocus ? 'is-focused' : ''}}">
+      <view class="home-section-title"><text>年检服务</text><text>先选交车方式，再选站点与时间</text></view>
+      <view class="inspection-job-grid">
+        <button class="inspection-job-card self-drive-job" hover-class="tap-pressed" hover-stay-time="120" data-mode="self_drive" bindtap="beginInspection" disabled="{{entryTarget !== ''}}" aria-label="自驾验车，自己开车到检测站">
+          <view class="job-card-main">
+            <view class="job-icon"><image src="../../assets/icons/car.png" mode="aspectFit"/></view>
+            <text class="job-title">自驾验车</text>
+            <text class="job-badge">{{activeBooking ? '查看订单' : '直接预约'}}</text>
+          </view>
+          <view class="job-action"><text>{{entryTarget === 'self_drive' ? '正在进入…' : (activeBooking ? '继续当前年检' : '选站点与时间')}}</text><image src="../../assets/icons/caret-right.png" mode="aspectFit"/></view>
+        </button>
+        <button class="inspection-job-card valet-job" hover-class="tap-pressed" hover-stay-time="120" data-mode="valet" bindtap="beginInspection" disabled="{{entryTarget !== ''}}" aria-label="代驾验车，上门取车并送回原地址">
+          <view class="job-card-main">
+            <view class="job-icon"><image src="../../assets/icons/map-pin.png" mode="aspectFit"/></view>
+            <text class="job-title">代驾验车</text>
+            <text class="job-badge valet-badge">{{activeBooking ? '查看订单' : '上门取送'}}</text>
+          </view>
+          <view class="job-action"><text>{{entryTarget === 'valet' ? '正在进入…' : (activeBooking ? '继续当前年检' : '填地址并预约')}}</text><image src="../../assets/icons/caret-right.png" mode="aspectFit"/></view>
+        </button>
+      </view>
+      <button class="report-entry report-{{reportEntry.tone}}" hover-class="tap-pressed" hover-stay-time="120" bindtap="openReportCenter" disabled="{{entryTarget !== ''}}" aria-label="进入检测报告中心，{{reportEntry.badge}}">
+        <view class="report-icon"><image src="../../assets/icons/shield-check.png" mode="aspectFit"/></view>
+        <view class="report-copy">
+          <view class="report-heading"><text>{{reportEntry.title}}</text><text>{{reportEntry.badge}}</text></view>
+          <text>{{entryTarget === 'report' ? '正在打开报告中心…' : reportEntry.detail}}</text>
+        </view>
+        <image class="report-caret" src="../../assets/icons/caret-right.png" mode="aspectFit"/>
+      </button>
+    </view>
+
+    <view class="services-section">
+      <view class="home-section-title"><text>车主服务</text><text>常用服务，一步直达</text></view>
+      <view class="service-grid">
+        <view role="button" aria-label="洗车" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/wash/pages/wash-booking/wash-booking" bindtap="go"><image src="../../assets/icons/drop.png"/><text class="service-name">洗车</text><text class="service-copy">自驾 / 代驾 · 透明计价</text></view>
+        <view role="button" aria-label="查询年检" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/annual/pages/eligibility/eligibility" bindtap="go"><image src="../../assets/icons/calendar-search.png"/><text class="service-name">查询年检</text><text class="service-copy">规则测算 · 办理建议</text></view>
+        <view role="button" aria-label="保险服务" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/insurance/pages/insurance-lead/insurance-lead" bindtap="go"><image src="../../assets/icons/umbrella.png"/><text class="service-name">保险服务</text><text class="service-copy">续保需求 · 专人对接</text></view>
+        <view role="button" aria-label="维修报价" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/inspection/pages/checkup-reports/checkup-reports" bindtap="go"><image src="../../assets/icons/wrench.png"/><text class="service-name">维修报价</text><text class="service-copy">报告车损 · 一键询价</text></view>
+        <view role="button" aria-label="汽车租赁" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/car-rental/pages/car-rental-home/car-rental-home" bindtap="go"><image src="../../assets/icons/car-profile.png"/><text class="service-name">汽车租赁</text><text class="service-copy">同店取还 / 送车上门</text></view>
+        <view role="button" aria-label="车辆报废" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-service="车辆报废" bindtap="showService"><image src="../../assets/icons/recycle.png"/><text class="service-name">车辆报废</text><text class="service-copy">正规流程 · 便捷省心</text></view>
+        <view role="button" aria-label="二手车交易" hover-class="tap-pressed" hover-stay-time="120" class="service-item subsidy-service" data-url="/packages/subsidy/pages/form/form" bindtap="go"><image src="../../assets/icons/receipt.png"/><text class="service-name">二手车交易</text><text class="service-copy">政策材料 · 合法咨询</text></view>
+        <view role="button" aria-label="车辆档案" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go"><image src="../../assets/icons/car.png"/><text class="service-name">车辆档案</text><text class="service-copy">车型信息 · 年检依据</text></view>
+        <view role="button" aria-label="驾校服务" hover-class="tap-pressed" hover-stay-time="120" class="service-item" data-url="/packages/driving-school/pages/list/list" bindtap="go"><image src="../../assets/icons/storefront.png"/><text class="service-name">驾校服务</text><text class="service-copy">按准驾车型筛选 · 价格可查</text></view>
+      </view>
+    </view>
+  </block>
+</view>

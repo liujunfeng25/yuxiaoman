@@ -1,0 +1,66 @@
+page { background: #f4f7fb; }
+.inquiry-page { min-height: 100vh; padding: 20rpx 22rpx; color: #17263b; box-sizing: border-box; }
+button { padding: 0; line-height: normal; text-align: left; }
+button::after { border: 0; }
+.school-summary { display: grid; padding: 15rpx; grid-template-columns: 152rpx 1fr; gap: 16rpx; border-radius: 19rpx; background: #fff; box-shadow: 0 7rpx 20rpx rgba(26,55,89,.06); }
+.school-summary > image { width: 152rpx; height: 116rpx; border-radius: 13rpx; background: #e1e9f1; }
+.school-summary > view { display: flex; min-width: 0; justify-content: center; flex-direction: column; }
+.school-summary text:first-child { font-size: 25rpx; font-weight: 900; }
+.school-summary text:nth-child(2) { margin-top: 6rpx; overflow: hidden; color: #79879a; font-size: 17rpx; text-overflow: ellipsis; white-space: nowrap; }
+.school-summary text:last-child { align-self: flex-start; margin-top: 8rpx; padding: 5rpx 8rpx; color: #1768cf; border-radius: 6rpx; background: #eaf3ff; font-size: 15rpx; }
+.receiver-banner { display: flex; margin-top: 15rpx; padding: 18rpx; gap: 12rpx; border: 1rpx solid #bcd7f7; border-radius: 16rpx; background: #edf6ff; }
+.receiver-banner > image { width: 35rpx; height: 35rpx; flex: 0 0 auto; }
+.receiver-banner > view { display: flex; flex-direction: column; }
+.receiver-banner text:first-child { color: #145eac; font-size: 21rpx; font-weight: 900; }
+.receiver-banner text:last-child { margin-top: 5rpx; color: #58718d; font-size: 17rpx; line-height: 1.55; }
+.demo-notice { display: flex; margin-top: 11rpx; padding: 14rpx; align-items: center; justify-content: space-between; gap: 12rpx; color: #9b5c24; border-radius: 11rpx; background: #fff4e5; }
+.demo-notice > view { display: flex; flex-direction: column; }.demo-notice > view text:first-child { font-size: 18rpx; font-weight: 900; }.demo-notice > view text:last-child { margin-top: 4rpx; font-size: 15rpx; }.demo-notice button { padding: 11rpx 14rpx; color: #fff; border-radius: 9rpx; background: #d78031; font-size: 17rpx; white-space: nowrap; }
+.form-card { margin-top: 15rpx; padding: 23rpx; border-radius: 20rpx; background: #fff; box-shadow: 0 8rpx 22rpx rgba(26,55,89,.06); }
+.section-title { display: block; margin-bottom: 19rpx; font-size: 27rpx; font-weight: 900; }
+.field-label { display: block; margin: 18rpx 0 9rpx; color: #5f7085; font-size: 19rpx; font-weight: 800; }
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 10rpx; }
+.mode-switch button { height: 68rpx; color: #4c5f77; border: 1rpx solid #dfe7ef; border-radius: 12rpx; background: #f8fafc; font-size: 21rpx; text-align: center; }
+.mode-switch button.active { color: #1768cf; border-color: #1768cf; background: #eaf3ff; font-weight: 900; }
+.picker-cell,.input-cell { display: flex; min-height: 70rpx; padding: 0 15rpx; align-items: center; gap: 10rpx; border: 1rpx solid #dfe6ee; border-radius: 12rpx; background: #fbfcfe; box-sizing: border-box; }
+.picker-cell { justify-content: space-between; }
+.picker-cell text { font-size: 21rpx; }
+.picker-cell image { width: 18rpx; height: 18rpx; }
+.input-cell > image { width: 28rpx; height: 28rpx; }
+.input-cell input { min-width: 0; flex: 1; font-size: 21rpx; }
+.invalid { border-color: #d65d5d !important; }
+.field-error { display: block; margin-top: 7rpx; color: #c84646 !important; font-size: 17rpx !important; }
+.window-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9rpx; }
+.window-grid button { display: flex; min-height: 70rpx; padding: 10rpx 13rpx; align-items: center; gap: 10rpx; border: 1rpx solid #dfe7ef; border-radius: 12rpx; background: #fff; }
+.window-grid button.active { border-color: #1768cf; background: #eaf3ff; }
+.window-grid image { width: 29rpx; height: 29rpx; }
+.window-grid view { display: flex; flex-direction: column; }
+.window-grid text:first-child { font-size: 19rpx; font-weight: 900; }.window-grid text:last-child { margin-top: 3rpx; color: #8a96a5; font-size: 15rpx; }
+textarea { width: 100%; height: 155rpx; padding: 15rpx; border: 1rpx solid #dfe6ee; border-radius: 12rpx; background: #fbfcfe; font-size: 20rpx; line-height: 1.55; box-sizing: border-box; }
+.count { display: block; margin-top: 6rpx; color: #9aa4b1; font-size: 15rpx; text-align: right; }
+.consent-card { margin-top: 15rpx; padding: 18rpx; border: 1rpx solid #dfe6ee; border-radius: 15rpx; background: #fff; }
+.check-button { display: inline-flex; align-items: center; gap: 8rpx; font-size: 19rpx; }
+.checkbox { display: flex; width: 29rpx; height: 29rpx; align-items: center; justify-content: center; border: 1rpx solid #b9c5d2; border-radius: 7rpx; background: #fff; box-sizing: border-box; }
+.checkbox.checked { border-color: #1768cf; background: #1768cf; }
+.checkbox image { width: 21rpx; height: 21rpx; }
+.disclosure-link { display: inline; margin-left: 4rpx; color: #1768cf; font-size: 19rpx; }
+.consent-card > text { display: block; margin-top: 9rpx; color: #8390a0; font-size: 16rpx; line-height: 1.5; }
+.submit-error { display: flex; margin-top: 12rpx; padding: 14rpx; align-items: flex-start; gap: 8rpx; color: #ad453c; border-radius: 11rpx; background: #fff0ee; font-size: 18rpx; }
+.submit-error image { width: 25rpx; height: 25rpx; }
+.submit-safe { height: 210rpx; }
+.fixed-submit { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; display: grid; min-height: 112rpx; padding: 14rpx 22rpx calc(14rpx + env(safe-area-inset-bottom)); grid-template-columns: 1fr 240rpx; align-items: center; gap: 12rpx; border-top: 1rpx solid #e0e6ee; background: rgba(255,255,255,.97); box-sizing: border-box; }
+.fixed-submit > view { display: flex; min-width: 0; flex-direction: column; }
+.fixed-submit > view text:first-child { color: #33475f; font-size: 19rpx; font-weight: 900; }.fixed-submit > view text:last-child { margin-top: 4rpx; color: #76869a; font-size: 17rpx; line-height: 1.35; white-space: normal; }
+.fixed-submit > button { height: 75rpx; color: #fff; border-radius: 13rpx; background: #1768cf; font-size: 23rpx; font-weight: 900; text-align: center; }
+.fixed-submit > button.disabled { background: #9db7d4; }
+.disclosure-overlay { position: fixed; z-index: 50; inset: 0; display: flex; align-items: flex-end; background: rgba(12,27,45,.46); }
+.disclosure-panel { width: 100%; height: 80vh; padding: 25rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; box-sizing: border-box; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.panel-head > view { display: flex; flex-direction: column; }.panel-head > view text:first-child { font-size: 29rpx; font-weight: 900; }.panel-head > view text:last-child { margin-top: 4rpx; color: #8995a4; font-size: 17rpx; }
+.panel-head button image { width: 34rpx; height: 34rpx; }
+.disclosure-body { height: calc(80vh - 190rpx); margin-top: 18rpx; }
+.recipient { display: flex; padding: 18rpx; flex-direction: column; border-radius: 13rpx; background: #edf6ff; }.recipient text:first-child { color: #6b7c90; font-size: 17rpx; }.recipient text:nth-child(2) { margin-top: 4rpx; color: #1768cf; font-size: 27rpx; font-weight: 900; }.recipient text:last-child { margin-top: 5rpx; color: #60758d; font-size: 17rpx; }
+.disclosure-section { display: flex; margin-top: 20rpx; flex-direction: column; }.disclosure-section > text:first-child { margin-bottom: 7rpx; color: #33475f; font-size: 21rpx; font-weight: 900; }.disclosure-section > text:not(:first-child) { color: #65758a; font-size: 18rpx; line-height: 1.65; }
+.accept-button { width: 100%; height: 74rpx; color: #fff; border-radius: 13rpx; background: #1768cf; font-size: 22rpx; font-weight: 900; text-align: center; }
+.loading-state,.state-card { display: flex; margin-top: 100rpx; padding: 50rpx 25rpx; align-items: center; flex-direction: column; border-radius: 20rpx; background: #fff; }.loading-state > view { width: 54rpx; height: 54rpx; border: 5rpx solid #dce8f5; border-top-color: #1768cf; border-radius: 50%; animation: spin .8s linear infinite; }.loading-state text { margin-top: 16rpx; color: #728197; font-size: 20rpx; }
+.state-card > image { width: 66rpx; height: 66rpx; }.state-card > text:nth-child(2) { margin-top: 15rpx; font-size: 27rpx; font-weight: 900; }.state-card > text:nth-child(3) { margin-top: 8rpx; color: #8491a1; font-size: 19rpx; text-align: center; }.state-card > view { display: flex; margin-top: 22rpx; gap: 10rpx; }.state-card button { padding: 13rpx 22rpx; color: #1768cf; border-radius: 11rpx; background: #eaf3ff; font-size: 20rpx; }.state-card button:last-child { color: #fff; background: #1768cf; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,14 @@
+<view class="orders-page">
+  <view class="orders-hero"><view><text>我的租车订单</text><text>查看模拟支付与履约进度</text></view><button bindtap="goRent">去租车</button></view>
+  <view wx:if="{{loading}}" class="skeleton-list"><view wx:for="{{[1,2,3]}}" wx:key="*this"></view><text>正在读取租车订单…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text class="state-title">订单读取失败</text><text class="state-copy">{{error}}</text><button bindtap="retry">重新加载</button></view>
+  <view wx:elif="{{!orders.length}}" class="state-card"><image src="/assets/icons/receipt.png"/><text class="state-title">还没有租车订单</text><text class="state-copy">选择地点、时间和指定车型后，可以在这里查看完整订单。</text><button bindtap="goRent">开始租车</button></view>
+  <view wx:else class="order-list">
+    <button wx:for="{{orders}}" wx:key="id" data-id="{{item.id}}" bindtap="openOrder" class="order-card">
+      <view class="order-head"><text>{{item.orderNumber}}</text><text class="tone-{{item.statusTone}}">{{item.statusLabel}}</text></view>
+      <view class="model"><image src="{{item.model.imageUrl}}" mode="aspectFill" webp="{{true}}" data-index="{{index}}" binderror="modelImageError"/><view><text>{{item.model.brandName}} {{item.model.name}}</text><text>{{item.placeLabel}}</text><text>{{item.pickupLabel}} · {{item.rentalDays}}天</text></view></view>
+      <view class="order-foot"><text>{{item.fulfillmentMode === 'home_delivery' ? '同址送取' : '同店取还'}}</text><view><text>预付</text><text>¥{{item.totalLabel}}</text><image src="/assets/icons/caret-right.png"/></view></view>
+    </button>
+    <view class="list-note">全部为合成演示订单，不代表真实车辆预订或支付。</view>
+  </view>
+</view>

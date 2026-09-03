@@ -1,0 +1,42 @@
+{
+  "compileType": "miniprogram",
+  "libVersion": "3.8.10",
+  "appid": "wxc2bcae6b519337e0",
+  "projectname": "yuxiaoman-native-mvp",
+  "miniprogramRoot": "miniprogram/",
+  "srcMiniprogramRoot": "miniprogram/",
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {},
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": false,
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "minified": true,
+    "minifyWXML": true,
+    "minifyWXSS": true,
+    "urlCheck": false,
+    "ignoreUploadUnusedFiles": false
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "file",
+        "value": "assets/brand/hero-car-generic.webp"
+      },
+      {
+        "type": "suffix",
+        "value": ".d.ts"
+      },
+      {
+        "type": "suffix",
+        "value": ".map"
+      }
+    ],
+    "include": []
+  },
+  "condition": {},
+  "isGameTourist": false
+}

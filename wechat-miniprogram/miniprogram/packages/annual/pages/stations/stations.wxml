@@ -1,0 +1,100 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+<view class="page stations-page">
+  <view class="flow-kicker">
+    <image src="/assets/icons/storefront.png" mode="aspectFit" />
+    <text>年检预约 · 选择站点</text>
+  </view>
+
+  <view class="heading">
+    <text>选择检测站</text>
+    <text>{{mode === 'self_drive' ? '自驾可使用当前位置；' : '代驾使用取车地址；'}}路线会按起点重新排序。</text>
+  </view>
+
+  <view class="origin-card">
+    <view class="origin-icon"><image src="/assets/icons/map-pin.png" mode="aspectFit" /></view>
+    <view class="origin-copy">
+      <text>{{mode === 'self_drive' ? '自驾起点' : '取车地址'}}</text>
+      <text>{{originText}}</text>
+    </view>
+    <button wx:if="{{mode === 'self_drive'}}" class="origin-action" loading="{{locating}}" disabled="{{locating}}" bindtap="locate">{{hasOrigin ? '重新定位' : '获取位置'}}</button>
+    <button wx:else class="origin-action" loading="{{locating}}" disabled="{{locating}}" bindtap="chooseOnMap">地图选点</button>
+  </view>
+
+  <view wx:if="{{mode === 'valet'}}" class="search-box">
+    <image src="/assets/icons/search.png" mode="aspectFit" />
+    <!-- 不绑 value：异步 setData(suggestions) 后受控 input 会在真机显示字面量 undefined -->
+    <input
+      wx:if="{{searchBoxVisible}}"
+      class="pickup-search-input"
+      aria-label="搜索取车小区、停车场或地址"
+      placeholder="搜索取车小区、停车场或地址"
+      confirm-type="search"
+      bindinput="search"
+    />
+    <text wx:if="{{searching}}">搜索中…</text>
+  </view>
+
+  <view wx:if="{{mode === 'valet' && searchError}}" class="search-feedback error-feedback"><image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>{{searchError}}</text></view>
+  <view wx:elif="{{mode === 'valet' && searchQuery.length >= 2 && !searching && !suggestions.length}}" class="search-feedback"><text>未找到匹配地点，请调整关键词或使用地图选点。</text></view>
+
+  <view wx:if="{{suggestions.length}}" class="suggestions">
+    <view role="button" aria-label="选择{{item.title}}" class="suggestion-row" wx:for="{{suggestions}}" wx:key="poiId" data-index="{{index}}" bindtap="selectSuggestion">
+      <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+      <view>
+        <text>{{item.title}}</text>
+        <text>{{item.address}}</text>
+      </view>
+      <image class="suggestion-caret" src="/assets/icons/caret-right.png" mode="aspectFit" />
+    </view>
+  </view>
+
+  <view class="route-notice">
+    <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+    <view>
+      <text>路线显示说明</text>
+      <text>无起点时显示“确定起点后计算”；地图服务异常时会标记为“预计距离”。</text>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="station-loading">
+    <image src="/assets/icons/storefront.png" mode="aspectFit" />
+    <text>正在计算路线并排序…</text>
+  </view>
+
+  <view wx:elif="{{stationError}}" class="empty-state station-error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>检测站读取失败</text>
+    <text>{{stationError}}</text>
+    <button bindtap="retryStations" disabled="{{loading}}">重新加载检测站</button>
+  </view>
+
+  <block wx:else>
+    <view role="button" aria-label="{{canSelectStation ? '选择' + item.name : '请先确定取车地址后选择' + item.name}}" wx:for="{{stations}}" wx:key="id" data-id="{{item.id}}" bindtap="selectStation" class="station-card {{canSelectStation ? '' : 'requires-origin'}}">
+      <image class="station-photo" src="/packages/annual/assets/stations/inspection-station.jpg" mode="aspectFill" />
+      <view class="station-body">
+        <view class="station-flags">
+          <text class="district {{item.distanceKm !== null && index === 0 ? 'nearest' : ''}}">{{item.distanceKm === null ? item.district : index === 0 ? '距离最近' : item.district}}</text>
+          <text class="rating">评分 {{item.rating}}</text>
+        </view>
+        <text class="station-name">{{item.name}}</text>
+        <text class="address">{{item.address}}</text>
+        <view class="route-row">
+          <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+          <text>{{fmt.stationDistance(item)}}</text>
+        </view>
+        <view class="tags"><text wx:for="{{item.tags}}" wx:key="*this">{{item}}</text></view>
+        <view class="station-bottom">
+          <view class="price"><text>年检参考价</text><text>¥{{fmt.money(item.serviceFeeFen)}}</text></view>
+          <view class="choose-station"><text>{{canSelectStation ? '选择站点' : '先确定取车地址'}}</text><image src="/assets/icons/caret-right.png" mode="aspectFit" /></view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{!loading && !stationError && !stations.length}}" class="empty-state">
+    <image src="/assets/icons/storefront.png" mode="aspectFit" />
+    <text>暂时没有可预约的检测站</text>
+    <text>请稍后刷新，或重新选择路线起点。</text>
+    <button bindtap="retryStations" disabled="{{loading}}">刷新检测站</button>
+  </view>
+</view>

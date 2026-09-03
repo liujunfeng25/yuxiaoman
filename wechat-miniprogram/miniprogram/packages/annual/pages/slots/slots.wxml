@@ -1,0 +1,81 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+<view class="page slots-page">
+  <view class="flow-toolbar">
+    <button class="flow-back" bindtap="goBack" aria-label="返回选择检测站">
+      <image src="/assets/icons/arrow-left.png" mode="aspectFit" />
+      <text>返回站点</text>
+    </button>
+    <view class="flow-stage">
+      <text>年检预约 · 选择时段</text>
+      <text>站点已选 · 下一步确认资料</text>
+    </view>
+  </view>
+
+  <view class="heading">
+    <text>选择到站时段</text>
+    <text>点击可用时段后，将直接进入预约信息确认页。</text>
+  </view>
+
+  <view class="station-summary" wx:if="{{station}}">
+    <image class="station-photo" src="/packages/annual/assets/stations/inspection-station.jpg" mode="aspectFill" />
+    <view class="station-copy">
+      <text>{{station.name}}</text>
+      <view><image src="/assets/icons/map-pin.png" mode="aspectFit" /><text>{{station.address}}</text></view>
+      <view><image src="/assets/icons/clock.png" mode="aspectFit" /><text>{{station.openHours}}</text></view>
+    </view>
+  </view>
+
+  <view class="price-note" wx:if="{{station}}">
+    <view>
+      <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+      <text>年检服务参考价</text>
+    </view>
+    <text>¥{{fmt.money(station.serviceFeeFen)}}</text>
+    <text>精确价格将在下一页根据车辆信息重新核算</text>
+  </view>
+
+  <view class="slots-heading">
+    <view>
+      <text>可预约时段</text>
+      <text>号源实时更新</text>
+    </view>
+    <text>{{slots.length}} 个时段</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="slot-loading">
+    <image src="/assets/icons/clock.png" mode="aspectFit" />
+    <text>正在读取可用号源…</text>
+  </view>
+
+  <view wx:elif="{{loadError}}" class="empty-state error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>号源读取失败</text>
+    <text>{{loadError}}</text>
+    <button bindtap="retry" disabled="{{loading}}">重新加载号源</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{slots.length}}" class="slot-grid">
+      <button wx:for="{{slots}}" wx:key="id" data-id="{{item.id}}" bindtap="choose" disabled="{{item.remaining <= 0 || navigatingSlotId}}" class="slot-card {{item.remaining <= 0 ? 'full' : ''}} {{navigatingSlotId === item.id ? 'navigating' : ''}}">
+        <view class="slot-date"><image src="/assets/icons/calendar-check.png" mode="aspectFit" /><text>{{item.date}}</text></view>
+        <text class="slot-time">{{item.startTime}}–{{item.endTime}}</text>
+        <view class="slot-bottom">
+          <text>{{navigatingSlotId === item.id ? '正在进入…' : item.remaining > 0 ? '剩余 ' + item.remaining + ' 位' : '已约满'}}</text>
+          <image wx:if="{{item.remaining > 0 && navigatingSlotId !== item.id}}" src="/assets/icons/caret-right.png" mode="aspectFit" />
+        </view>
+      </button>
+    </view>
+
+    <view wx:if="{{!slots.length}}" class="empty-state">
+      <image src="/assets/icons/calendar-search.png" mode="aspectFit" />
+      <text>暂无可预约号源</text>
+      <text>检测站可能尚未开放新时段，请稍后再试。</text>
+      <button bindtap="retry" disabled="{{loading}}">刷新号源</button>
+    </view>
+  </block>
+
+  <view class="booking-tip">
+    <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+    <text>号源选择成功后仍会在提交预约前再次核验，避免重复预约。</text>
+  </view>
+</view>

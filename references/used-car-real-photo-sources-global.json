@@ -1,0 +1,594 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-20",
+  "purpose": "Traceable real-model exterior photos for the used-car demo. This file covers the global/joint-venture brand subset assigned to this research pass.",
+  "selectionPolicy": "Wikimedia Commons file pages with explicit reusable licenses were preferred. China-specific long-wheelbase or joint-venture variants were selected where the catalog model is China-specific. Every selected image is landscape and depicts the named exterior model.",
+  "downloadDirectory": "public/assets/used-cars/real-sources/models",
+  "localDownloadSummary": {
+    "downloadedAndVisuallyChecked": [
+      "model-audi-a4l",
+      "model-audi-a6l",
+      "model-audi-q5l",
+      "model-bmw-3-series",
+      "model-bmw-5-series",
+      "model-bmw-x3",
+      "model-mercedes-c-class",
+      "model-mercedes-e-class",
+      "model-mercedes-glc",
+      "model-honda-accord",
+      "model-honda-crv",
+      "model-honda-odyssey",
+      "model-volkswagen-magotan",
+      "model-volkswagen-tiguan-l",
+      "model-volkswagen-id4x",
+      "model-toyota-camry",
+      "model-toyota-rav4",
+      "model-toyota-highlander",
+      "model-tesla-model-3",
+      "model-tesla-model-y"
+    ],
+    "notDownloaded": []
+  },
+  "priorityListingCoverage": [
+    {
+      "listingId": "used-car-listing-008",
+      "modelId": "model-tesla-model-3",
+      "sourceEntryId": "tesla-model-3"
+    },
+    {
+      "listingId": "used-car-listing-009",
+      "modelId": "model-tesla-model-y",
+      "sourceEntryId": "tesla-model-y"
+    },
+    {
+      "listingId": "used-car-listing-029",
+      "modelId": "model-tesla-model-y",
+      "sourceEntryId": "tesla-model-y"
+    },
+    {
+      "listingId": "used-car-listing-010",
+      "modelId": "model-bmw-3-series",
+      "sourceEntryId": "bmw-3-series"
+    },
+    {
+      "listingId": "used-car-listing-011",
+      "modelId": "model-bmw-x3",
+      "sourceEntryId": "bmw-x3"
+    },
+    {
+      "listingId": "used-car-listing-012",
+      "modelId": "model-mercedes-c-class",
+      "sourceEntryId": "mercedes-c-class"
+    },
+    {
+      "listingId": "used-car-listing-013",
+      "modelId": "model-mercedes-glc",
+      "sourceEntryId": "mercedes-glc"
+    },
+    {
+      "listingId": "used-car-listing-014",
+      "modelId": "model-audi-a4l",
+      "sourceEntryId": "audi-a4l"
+    },
+    {
+      "listingId": "used-car-listing-015",
+      "modelId": "model-audi-q5l",
+      "sourceEntryId": "audi-q5l"
+    }
+  ],
+  "licenseNotice": "All selected files remain subject to their individual file-page license and attribution requirements. Any crop, resize, compression, or WebP conversion must be disclosed as a modification and, for CC BY-SA files, distributed under a compatible license.",
+  "entries": [
+    {
+      "id": "audi-a4l",
+      "modelId": "model-audi-a4l",
+      "brand": "奥迪",
+      "model": "A4L",
+      "marketVariant": "B9 中国长轴版",
+      "fileTitle": "File:AUDI A4L (B9) China (2).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-audi-a4l/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:AUDI_A4L_(B9)_China_(2).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/AUDI_A4L_%28B9%29_China_%282%29.jpg/1920px-AUDI_A4L_%28B9%29_China_%282%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cd/AUDI_A4L_%28B9%29_China_%282%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6212,
+        "height": 3642
+      },
+      "capturedAt": "2022-09-24 09:56:08",
+      "matchEvidence": "Commons file title and description explicitly identify AUDI A4L (B9) China."
+    },
+    {
+      "id": "audi-a6l",
+      "modelId": "model-audi-a6l",
+      "brand": "奥迪",
+      "model": "A6L",
+      "marketVariant": "C8 中国长轴版",
+      "fileTitle": "File:AUDI A6L C8 China (2).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-audi-a6l/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:AUDI_A6L_C8_China_(2).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/AUDI_A6L_C8_China_%282%29.jpg/1920px-AUDI_A6L_C8_China_%282%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1b/AUDI_A6L_C8_China_%282%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 4650,
+        "height": 3099
+      },
+      "capturedAt": "2022-05-25 10:08:45",
+      "matchEvidence": "Commons file title explicitly identifies AUDI A6L C8 China; selected instead of an overseas short-wheelbase A6."
+    },
+    {
+      "id": "audi-q5l",
+      "modelId": "model-audi-q5l",
+      "brand": "奥迪",
+      "model": "Q5L",
+      "marketVariant": "中国长轴版",
+      "fileTitle": "File:AUDI Q5L China (5).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-audi-q5l/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:AUDI_Q5L_China_(5).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/AUDI_Q5L_China_%285%29.jpg/1920px-AUDI_Q5L_China_%285%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a2/AUDI_Q5L_China_%285%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6727,
+        "height": 4406
+      },
+      "capturedAt": "2022-06-25 15:23:27",
+      "matchEvidence": "Commons file title and description explicitly identify AUDI Q5L China."
+    },
+    {
+      "id": "bmw-3-series",
+      "modelId": "model-bmw-3-series",
+      "brand": "宝马",
+      "model": "3系",
+      "marketVariant": "G28 中国长轴轿车",
+      "fileTitle": "File:BMW 3 SERIES LWB SEDAN (G28) China (3).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-bmw-3-series/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BMW_3_SERIES_LWB_SEDAN_(G28)_China_(3).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/BMW_3_SERIES_LWB_SEDAN_%28G28%29_China_%283%29.jpg/1920px-BMW_3_SERIES_LWB_SEDAN_%28G28%29_China_%283%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/ff/BMW_3_SERIES_LWB_SEDAN_%28G28%29_China_%283%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 8192,
+        "height": 4619
+      },
+      "capturedAt": "2022-05-29 09:14:31",
+      "matchEvidence": "Commons file title explicitly identifies the China-only G28 long-wheelbase 3 Series sedan."
+    },
+    {
+      "id": "bmw-5-series",
+      "modelId": "model-bmw-5-series",
+      "brand": "宝马",
+      "model": "5系",
+      "marketVariant": "G38 中国长轴轿车",
+      "fileTitle": "File:BMW 5 SERIES LWB SEDAN (BMW G38) China (24).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-bmw-5-series/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BMW_5_SERIES_LWB_SEDAN_(BMW_G38)_China_(24).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/BMW_5_SERIES_LWB_SEDAN_%28BMW_G38%29_China_%2824%29.jpg/1920px-BMW_5_SERIES_LWB_SEDAN_%28BMW_G38%29_China_%2824%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ca/BMW_5_SERIES_LWB_SEDAN_%28BMW_G38%29_China_%2824%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 7447,
+        "height": 4321
+      },
+      "capturedAt": "2022-12-10 10:34:25",
+      "matchEvidence": "Commons file title explicitly identifies the China-only G38 long-wheelbase 5 Series sedan."
+    },
+    {
+      "id": "bmw-x3",
+      "modelId": "model-bmw-x3",
+      "brand": "宝马",
+      "model": "X3",
+      "marketVariant": "G08 中国版",
+      "fileTitle": "File:BMW X3 (G08) China.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-bmw-x3/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BMW_X3_(G08)_China.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/BMW_X3_%28G08%29_China.jpg/1920px-BMW_X3_%28G08%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d4/BMW_X3_%28G08%29_China.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 7057,
+        "height": 4289
+      },
+      "capturedAt": "2022-05-20 10:00:50",
+      "matchEvidence": "Commons file title and description explicitly identify BMW X3 (G08) China."
+    },
+    {
+      "id": "mercedes-c-class",
+      "modelId": "model-mercedes-c-class",
+      "brand": "奔驰",
+      "model": "C级",
+      "marketVariant": "V206 中国长轴版",
+      "fileTitle": "File:MERCEDES-BENZ C-CLASS LWB (V206) China (2).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-mercedes-c-class/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:MERCEDES-BENZ_C-CLASS_LWB_(V206)_China_(2).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/MERCEDES-BENZ_C-CLASS_LWB_%28V206%29_China_%282%29.jpg/1920px-MERCEDES-BENZ_C-CLASS_LWB_%28V206%29_China_%282%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/61/MERCEDES-BENZ_C-CLASS_LWB_%28V206%29_China_%282%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 5851,
+        "height": 3407
+      },
+      "capturedAt": "2022-11-17 10:15:04",
+      "matchEvidence": "Commons file title explicitly identifies the V206 China long-wheelbase C-Class."
+    },
+    {
+      "id": "mercedes-e-class",
+      "modelId": "model-mercedes-e-class",
+      "brand": "奔驰",
+      "model": "E级",
+      "marketVariant": "W214 中国市场车型",
+      "fileTitle": "File:MERCEDES-BENZ E CLASS (W214) China (2).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-mercedes-e-class/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:MERCEDES-BENZ_E_CLASS_(W214)_China_(2).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/MERCEDES-BENZ_E_CLASS_%28W214%29_China_%282%29.jpg/1920px-MERCEDES-BENZ_E_CLASS_%28W214%29_China_%282%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b4/MERCEDES-BENZ_E_CLASS_%28W214%29_China_%282%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 7483,
+        "height": 3745
+      },
+      "capturedAt": "2025-08-09 17:04:11",
+      "matchEvidence": "Commons file title and description explicitly identify the W214 E-Class in China."
+    },
+    {
+      "id": "mercedes-glc",
+      "modelId": "model-mercedes-glc",
+      "brand": "奔驰",
+      "model": "GLC",
+      "marketVariant": "X254 中国版",
+      "fileTitle": "File:MERCEDES-BENZ GLC (X254) China.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-mercedes-glc/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:MERCEDES-BENZ_GLC_(X254)_China.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/MERCEDES-BENZ_GLC_%28X254%29_China.jpg/1920px-MERCEDES-BENZ_GLC_%28X254%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/63/MERCEDES-BENZ_GLC_%28X254%29_China.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6887,
+        "height": 3551
+      },
+      "capturedAt": "2024-02-22 14:05:16",
+      "matchEvidence": "Commons file title and description explicitly identify Mercedes-Benz GLC (X254) China."
+    },
+    {
+      "id": "honda-accord",
+      "modelId": "model-honda-accord",
+      "brand": "本田",
+      "model": "雅阁",
+      "marketVariant": "CY 第十一代中国版",
+      "fileTitle": "File:HONDA ACCORD (CY) China (4).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-honda-accord/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:HONDA_ACCORD_(CY)_China_(4).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/HONDA_ACCORD_%28CY%29_China_%284%29.jpg/1920px-HONDA_ACCORD_%28CY%29_China_%284%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/79/HONDA_ACCORD_%28CY%29_China_%284%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6075,
+        "height": 3678
+      },
+      "capturedAt": "2023-10-14 14:37:59",
+      "matchEvidence": "Commons file title identifies the CY China-market eleventh-generation Accord."
+    },
+    {
+      "id": "honda-cr-v",
+      "modelId": "model-honda-crv",
+      "brand": "本田",
+      "model": "CR-V",
+      "marketVariant": "第六代中国版",
+      "fileTitle": "File:HONDA CR-V SIXTH GENERATION China (16).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-honda-crv/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:HONDA_CR-V_SIXTH_GENERATION_China_(16).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/HONDA_CR-V_SIXTH_GENERATION_China_%2816%29.jpg/1920px-HONDA_CR-V_SIXTH_GENERATION_China_%2816%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/76/HONDA_CR-V_SIXTH_GENERATION_China_%2816%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6737,
+        "height": 3728
+      },
+      "capturedAt": "2024-04-08 17:27:12",
+      "matchEvidence": "Commons file title and category explicitly identify the sixth-generation China-market CR-V."
+    },
+    {
+      "id": "honda-odyssey",
+      "modelId": "model-honda-odyssey",
+      "brand": "本田",
+      "model": "奥德赛",
+      "marketVariant": "第五代中国版",
+      "fileTitle": "File:Honda Odyssey V China 2015-04-13.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-honda-odyssey/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Honda_Odyssey_V_China_2015-04-13.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/b/be/Honda_Odyssey_V_China_2015-04-13.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/be/Honda_Odyssey_V_China_2015-04-13.jpg",
+      "author": "Navigator84",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Navigator84",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 1300,
+        "height": 791
+      },
+      "capturedAt": "2015-04-13 10:43:33",
+      "matchEvidence": "Commons description explicitly identifies a fifth-generation Honda Odyssey photographed in Beijing, China."
+    },
+    {
+      "id": "volkswagen-magotan",
+      "modelId": "model-volkswagen-magotan",
+      "brand": "大众",
+      "model": "迈腾",
+      "marketVariant": "B8L 中国长轴版",
+      "fileTitle": "File:VOLKSWAGEN MAGOTAN B8L China (2).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-volkswagen-magotan/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:VOLKSWAGEN_MAGOTAN_B8L_China_(2).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/VOLKSWAGEN_MAGOTAN_B8L_China_%282%29.jpg/1920px-VOLKSWAGEN_MAGOTAN_B8L_China_%282%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/40/VOLKSWAGEN_MAGOTAN_B8L_China_%282%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6858,
+        "height": 3949
+      },
+      "capturedAt": "2022-10-07 09:46:56",
+      "matchEvidence": "Commons title and description explicitly identify the China-specific Magotan B8L, not an overseas Passat."
+    },
+    {
+      "id": "volkswagen-tiguan-l",
+      "modelId": "model-volkswagen-tiguan-l",
+      "brand": "大众",
+      "model": "途观L",
+      "marketVariant": "2020 上汽大众途观L 中期改款",
+      "fileTitle": "File:2020 SAIC-Volkswagen Tiguan L (facelift, front).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-volkswagen-tiguan-l/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2020_SAIC-Volkswagen_Tiguan_L_(facelift,_front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2020_SAIC-Volkswagen_Tiguan_L_%28facelift%2C_front%29.jpg/1920px-2020_SAIC-Volkswagen_Tiguan_L_%28facelift%2C_front%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/2020_SAIC-Volkswagen_Tiguan_L_%28facelift%2C_front%29.jpg",
+      "author": "User3204",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:User3204",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6167,
+        "height": 3773
+      },
+      "capturedAt": "2023-05-24 23:00:18",
+      "matchEvidence": "Commons title and Chinese description explicitly identify an SAIC-Volkswagen Tiguan L; no overseas Tiguan/Allspace substitution."
+    },
+    {
+      "id": "volkswagen-id4-x",
+      "modelId": "model-volkswagen-id4x",
+      "brand": "大众",
+      "model": "ID.4 X",
+      "marketVariant": "2023 上汽大众 ID.4 X",
+      "fileTitle": "File:2023 SAIC-Volkswagen ID.4 X.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-volkswagen-id4x/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2023_SAIC-Volkswagen_ID.4_X.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/2023_SAIC-Volkswagen_ID.4_X.jpg/1920px-2023_SAIC-Volkswagen_ID.4_X.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c3/2023_SAIC-Volkswagen_ID.4_X.jpg",
+      "author": "User3204",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:User3204",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6250,
+        "height": 3786
+      },
+      "capturedAt": "2023-08-22 13:46:39",
+      "matchEvidence": "Commons title and Chinese description explicitly identify SAIC-Volkswagen ID.4 X; no ID.4 Crozz or overseas ID.4 substitution."
+    },
+    {
+      "id": "toyota-camry",
+      "modelId": "model-toyota-camry",
+      "brand": "丰田",
+      "model": "凯美瑞",
+      "marketVariant": "XV80 第十一代中国版",
+      "fileTitle": "File:TOYOTA CAMRY (XV80) China.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-toyota-camry/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:TOYOTA_CAMRY_(XV80)_China.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/TOYOTA_CAMRY_%28XV80%29_China.jpg/1920px-TOYOTA_CAMRY_%28XV80%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/54/TOYOTA_CAMRY_%28XV80%29_China.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 5783,
+        "height": 3001
+      },
+      "capturedAt": "2024-04-18 10:59:24",
+      "matchEvidence": "Commons title and multilingual description explicitly identify the XV80 China-spec Camry."
+    },
+    {
+      "id": "toyota-rav4",
+      "modelId": "model-toyota-rav4",
+      "brand": "丰田",
+      "model": "RAV4荣放",
+      "marketVariant": "XA50 中国版",
+      "fileTitle": "File:TOYOTA RAV4 (XA50) China (7).jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-toyota-rav4/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:TOYOTA_RAV4_(XA50)_China_(7).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/TOYOTA_RAV4_%28XA50%29_China_%287%29.jpg/1920px-TOYOTA_RAV4_%28XA50%29_China_%287%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cb/TOYOTA_RAV4_%28XA50%29_China_%287%29.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 6911,
+        "height": 3650
+      },
+      "capturedAt": "2023-10-23 13:07:02",
+      "matchEvidence": "Commons title and category explicitly identify an XA50 RAV4 photographed in China."
+    },
+    {
+      "id": "toyota-highlander",
+      "modelId": "model-toyota-highlander",
+      "brand": "丰田",
+      "model": "汉兰达",
+      "marketVariant": "XU70 中国版",
+      "fileTitle": "File:TOYOTA HIGHLANDER (XU70) China.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-toyota-highlander/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:TOYOTA_HIGHLANDER_(XU70)_China.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/TOYOTA_HIGHLANDER_%28XU70%29_China.jpg/1920px-TOYOTA_HIGHLANDER_%28XU70%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/14/TOYOTA_HIGHLANDER_%28XU70%29_China.jpg",
+      "author": "Dinkun Chen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Dinkun_Chen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 5717,
+        "height": 3386
+      },
+      "capturedAt": "2022-12-17 11:12:30",
+      "matchEvidence": "Commons title and category explicitly identify the current XU70 Highlander in China."
+    },
+    {
+      "id": "tesla-model-3",
+      "modelId": "model-tesla-model-3",
+      "brand": "特斯拉",
+      "model": "Model 3",
+      "marketVariant": "中国版",
+      "fileTitle": "File:China-version Tesla Model 3 in Shanghai.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-tesla-model-3/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:China-version_Tesla_Model_3_in_Shanghai.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/China-version_Tesla_Model_3_in_Shanghai.jpg/1920px-China-version_Tesla_Model_3_in_Shanghai.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c2/China-version_Tesla_Model_3_in_Shanghai.jpg",
+      "author": "Jengtingchen",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Jengtingchen",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 1928,
+        "height": 1446
+      },
+      "capturedAt": "2019-10-21 19:07:55",
+      "matchEvidence": "Commons title and description explicitly identify a China-version Tesla Model 3 photographed in Shanghai."
+    },
+    {
+      "id": "tesla-model-y",
+      "modelId": "model-tesla-model-y",
+      "brand": "特斯拉",
+      "model": "Model Y",
+      "marketVariant": "中国实拍",
+      "fileTitle": "File:Tesla Model Y 2021032001.jpg",
+      "localFile": "public/assets/used-cars/real-sources/models/model-tesla-model-y/cover.webp",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Tesla_Model_Y_2021032001.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Tesla_Model_Y_2021032001.jpg/1920px-Tesla_Model_Y_2021032001.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Tesla_Model_Y_2021032001.jpg",
+      "author": "Evnerd",
+      "authorPage": "https://commons.wikimedia.org/wiki/User:Evnerd",
+      "license": {
+        "name": "CC BY-SA 4.0",
+        "spdx": "CC-BY-SA-4.0",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      },
+      "originalDimensions": {
+        "width": 4000,
+        "height": 3000
+      },
+      "capturedAt": "2021-03-20 15:12:40",
+      "matchEvidence": "Commons file description identifies Tesla Model Y and the file is categorized under Tesla automobiles in China."
+    }
+  ],
+  "permanentDerivative": {
+    "format": "WebP",
+    "maxEdge": 2048,
+    "quality": 90,
+    "processing": [
+      "auto-orient",
+      "remove EXIF metadata",
+      "resize without enlargement"
+    ],
+    "pathRoot": "public/assets/used-cars/real-sources",
+    "note": "These are localized derivatives of the exact-model source photos identified in each entry."
+  }
+}

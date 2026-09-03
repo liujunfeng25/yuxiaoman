@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "代驾执行任务",
+  "navigationBarBackgroundColor": "#F4F8FC",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#F4F8FC",
+  "enablePullDownRefresh": true
+}

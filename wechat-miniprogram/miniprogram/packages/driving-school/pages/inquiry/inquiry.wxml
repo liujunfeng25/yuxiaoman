@@ -1,0 +1,46 @@
+<view class="inquiry-page">
+  <view wx:if="{{loading}}" class="loading-state"><view></view><text>正在读取驾校与信息使用说明…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/{{stateKind === 'not_found' ? 'file-search' : 'warning-circle'}}.png"/><text>{{stateKind === 'not_found' ? '驾校不存在或已下架' : stateKind === 'offline' ? '当前网络不可用' : '暂时无法提交咨询'}}</text><text>{{error}}</text><view><button bindtap="back">返回</button><button wx:if="{{stateKind !== 'not_found'}}" bindtap="retry">重新加载</button></view></view>
+  <block wx:elif="{{school && disclosure}}">
+    <view class="school-summary"><image src="{{coverImage}}" mode="aspectFill" webp="{{true}}" binderror="imageError"/><view><text>{{school.name}}</text><text>{{school.district}} · {{school.address || '地址待维护'}}</text><text>{{school.isDemo ? '演示驾校信息' : '真实机构信息'}}</text></view></view>
+
+    <view class="receiver-banner"><image src="/assets/icons/shield-check.png"/><view><text>接收方仅为{{disclosure.recipient.name}}</text><text>资料仅供{{disclosure.recipient.name}}内部跟进，不向驾校转交；如需联系学校，请由您在详情页主动拨号。</text></view></view>
+    <view wx:if="{{!disclosure.acceptsRealData}}" class="demo-notice"><view><text>当前为演示模式，请勿提交真实个人信息</text><text>演示资料不会触发真实外呼</text></view><button bindtap="fillDemoContact">填入演示资料</button></view>
+
+    <view class="form-card">
+      <text class="section-title">1. 选择咨询项目</text>
+      <text class="field-label">申领方式</text>
+      <view class="mode-switch"><button class="{{applicationMode === 'initial' ? 'active' : ''}}" data-mode="initial" bindtap="chooseMode">初次申领</button><button class="{{applicationMode === 'upgrade' ? 'active' : ''}}" data-mode="upgrade" bindtap="chooseMode">增驾</button></view>
+      <text class="field-label">准驾车型</text>
+      <picker range="{{classOptions}}" range-key="label" value="{{licenseClassIndex}}" bindchange="classChange"><view class="picker-cell {{fieldErrors.licenseClassCode ? 'invalid' : ''}}"><text>{{classOptions.length ? classOptions[licenseClassIndex].label : '当前方式暂无可选车型'}}</text><image src="/assets/icons/caret-down.png"/></view></picker>
+      <text wx:if="{{fieldErrors.licenseClassCode}}" class="field-error">{{fieldErrors.licenseClassCode}}</text>
+      <text class="field-label">报价项目（可选）</text>
+      <picker range="{{offerOptions}}" range-key="label" value="{{offerIndex}}" bindchange="offerChange"><view class="picker-cell"><text>{{offerOptions[offerIndex].label}}</text><image src="/assets/icons/caret-down.png"/></view></picker>
+    </view>
+
+    <view class="form-card">
+      <text class="section-title">2. 填写联系方式</text>
+      <text class="field-label">联系人姓名</text>
+      <view class="input-cell {{fieldErrors.contactName ? 'invalid' : ''}}"><image src="/assets/icons/user-circle.png"/><input value="{{contactName}}" maxlength="30" disabled="{{!disclosure.acceptsRealData}}" placeholder="{{disclosure.acceptsRealData ? '请输入姓名' : '请使用上方演示资料按钮'}}" bindinput="nameInput"/></view>
+      <text wx:if="{{fieldErrors.contactName}}" class="field-error">{{fieldErrors.contactName}}</text>
+      <text class="field-label">手机号</text>
+      <view class="input-cell {{fieldErrors.contactPhone ? 'invalid' : ''}}"><image src="/assets/icons/phone.png"/><input value="{{contactPhone}}" type="number" maxlength="11" disabled="{{!disclosure.acceptsRealData}}" placeholder="{{disclosure.acceptsRealData ? '用于驭小满团队回访' : '演示模式不接收真实手机号'}}" bindinput="phoneInput"/></view>
+      <text wx:if="{{fieldErrors.contactPhone}}" class="field-error">{{fieldErrors.contactPhone}}</text>
+      <text class="field-label">方便联系时段</text>
+      <view class="window-grid"><button wx:for="{{contactOptions}}" wx:key="value" class="{{contactWindow === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="chooseWindow"><image src="{{item.icon}}"/><view><text>{{item.label}}</text><text>{{item.copy}}</text></view></button></view>
+      <text class="field-label">备注（可选）</text>
+      <textarea value="{{message}}" maxlength="300" disabled="{{!disclosure.acceptsRealData}}" placeholder="{{disclosure.acceptsRealData ? '例如：希望了解周末班、接送范围等' : '演示模式不接收自由备注'}}" bindinput="messageInput"/><text class="count">{{message.length}} / 300</text>
+    </view>
+
+    <view class="consent-card {{fieldErrors.consentAccepted || fieldErrors.disclosure ? 'invalid' : ''}}">
+      <button class="check-button" bindtap="toggleConsent"><view class="checkbox {{consentAccepted ? 'checked' : ''}}"><image wx:if="{{consentAccepted}}" src="/assets/icons/check-white.png"/></view><text>我已阅读并同意</text></button><button class="disclosure-link" bindtap="showDisclosure">《驾校咨询信息使用说明》</button>
+      <text>版本 {{disclosure.version}} · 信息接收方仅为{{disclosure.recipient.name}} · {{disclosure.contactEtaText}}</text>
+      <text wx:if="{{fieldErrors.consentAccepted || fieldErrors.disclosure}}" class="field-error">{{fieldErrors.consentAccepted || fieldErrors.disclosure}}</text>
+    </view>
+    <view wx:if="{{submitError}}" class="submit-error"><image src="/assets/icons/warning-circle.png"/><text>{{submitError}}</text></view>
+    <view class="submit-safe"></view>
+    <view class="fixed-submit"><view><text>由{{disclosure.recipient.name}}接收</text><text>{{disclosure.contactEtaText}}</text></view><button class="{{consentAccepted ? '' : 'disabled'}}" loading="{{submitting}}" disabled="{{submitting}}" bindtap="submit">{{submitting ? '提交中…' : '提交咨询'}}</button></view>
+
+    <view wx:if="{{disclosureOpen}}" class="disclosure-overlay" bindtap="closeDisclosure"><view class="disclosure-panel" catchtap="noop"><view class="panel-head"><view><text>驾校咨询信息使用说明</text><text>版本 {{disclosure.version}}</text></view><button bindtap="closeDisclosure"><image src="/assets/icons/x.png"/></button></view><scroll-view scroll-y class="disclosure-body"><view class="recipient"><text>唯一接收方</text><text>{{disclosure.recipient.name}}</text><text>资料仅供团队内部跟进，不向驾校转交</text></view><view class="disclosure-section"><text>收集信息</text><text wx:for="{{disclosure.dataScope}}" wx:key="*this">· {{item}}</text></view><view class="disclosure-section"><text>使用目的</text><text>{{disclosure.purpose}}</text></view><view class="disclosure-section"><text>保存期限</text><text>{{disclosure.retention}}</text></view><view class="disclosure-section"><text>授权说明</text><text>{{disclosure.consentText}}</text></view></scroll-view><button class="accept-button" bindtap="acceptDisclosure">同意并继续</button></view></view>
+  </block>
+</view>

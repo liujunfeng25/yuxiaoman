@@ -1,0 +1,42 @@
+{
+  "name": "yuxiaoman-wechat-miniprogram",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "check:main-package": "node scripts/check-main-package-budget.cjs",
+    "test:booking-upload": "node ../node_modules/tsx/dist/cli.mjs --test tests/booking-upload-state.test.ts",
+    "test:owner-session": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-session.test.ts",
+    "test:owner-media": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-media.test.ts",
+    "test:media-url": "node ../node_modules/tsx/dist/cli.mjs --test tests/media-url-normalization.test.ts",
+    "test:operator-session-media": "node ../node_modules/tsx/dist/cli.mjs --test tests/operator-session-media.test.ts",
+    "test:repair-operator": "node ../node_modules/tsx/dist/cli.mjs --test tests/repair-operator-session.test.ts",
+    "test:wash-category": "node ../node_modules/tsx/dist/cli.mjs --test tests/wash-vehicle-category.test.ts",
+    "test:wash-store-picker": "node ../node_modules/tsx/dist/cli.mjs --test tests/wash-store-picker.test.ts",
+    "test:car-rental": "node ../node_modules/tsx/dist/cli.mjs --test tests/car-rental-flow.test.ts",
+    "test:checkup-report": "node ../node_modules/tsx/dist/cli.mjs --test tests/checkup-report.test.ts",
+    "test:driver-task": "node ../node_modules/tsx/dist/cli.mjs --test tests/driver-task.test.ts",
+    "test:subsidy-consultation": "node ../node_modules/tsx/dist/cli.mjs --test tests/subsidy-consultation.test.ts",
+    "test:driving-school": "node ../node_modules/tsx/dist/cli.mjs --test tests/driving-school-flow.test.ts",
+    "test:network-images": "node ../node_modules/tsx/dist/cli.mjs --test tests/network-image-compat.test.ts",
+    "test:repair-marketplace": "node ../node_modules/tsx/dist/cli.mjs --test miniprogram/packages/repair/utils/owner-repair.test.ts miniprogram/packages/repair/utils/shop-model.test.ts",
+    "test:repair-ui-runner": "node ../node_modules/tsx/dist/cli.mjs --test tests/repair-ui-click-runner.test.ts",
+    "test:annual-ui-runner": "node ../node_modules/tsx/dist/cli.mjs --test tests/annual-ui-evidence-runner.test.ts",
+    "check": "npm run typecheck && npm run check:main-package && npm run test:network-images && npm run test:owner-session && npm run test:owner-media && npm run test:media-url && npm run test:operator-session-media && npm run test:repair-operator && npm run test:booking-upload && npm run test:wash-category && npm run test:wash-store-picker && npm run test:car-rental && npm run test:checkup-report && npm run test:driver-task && npm run test:subsidy-consultation && npm run test:driving-school && npm run test:repair-marketplace && npm run test:repair-ui-runner && npm run test:annual-ui-runner",
+    "qa:smoke": "node scripts/qa-smoke.cjs",
+    "qa:remote": "node scripts/qa-remote-device.cjs",
+    "qa:wash-valet": "node scripts/qa-wash-valet.cjs",
+    "qa:wash-valet-success": "node scripts/qa-wash-valet-success.cjs",
+    "qa:wash-map-proof": "node scripts/qa-wash-map-proof.cjs",
+    "qa:wash-store-picker": "node scripts/qa-wash-store-picker.cjs",
+    "qa:inspect": "node scripts/qa-inspect.cjs",
+    "qa:eligibility": "node scripts/qa-eligibility.cjs",
+    "qa:vehicle-identity": "node scripts/qa-vehicle-identity.cjs",
+    "qa:annual-booking-e2e": "node scripts/qa-annual-booking-e2e.cjs",
+    "qa:annual-native-e2e": "node scripts/qa-annual-booking-e2e.cjs",
+    "qa:repair-marketplace": "node scripts/qa-repair-marketplace.cjs"
+  },
+  "devDependencies": {
+    "miniprogram-automator": "^0.12.1"
+  }
+}

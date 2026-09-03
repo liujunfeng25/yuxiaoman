@@ -1,0 +1,34 @@
+<view class="page operator-station-page">
+  <view wx:if="{{station}}" class="station-hero">
+    <view class="station-icon"><image src="/assets/icons/storefront.png"/></view>
+    <view class="station-copy"><text>固定演示站点</text><text>{{stationName}}</text><text>{{station.address}}</text></view>
+  </view>
+
+  <view wx:if="{{station}}" class="station-info">
+    <view><image src="/assets/icons/clock.png"/><view><text>营业时间</text><text>{{station.openHours || '未配置'}}</text></view></view>
+    <view><image src="/assets/icons/phone.png"/><view><text>联系电话</text><text>{{station.phone || '未配置'}}</text></view></view>
+    <view><image src="/assets/icons/car.png"/><view><text>服务车型</text><text>小型轿车、新能源小型车</text></view></view>
+  </view>
+
+  <view class="capacity-heading">
+    <view><text>号源管理</text><text>未来时段容量</text></view>
+    <picker mode="date" value="{{date}}" bindchange="dateChange"><view class="date-picker"><image src="/assets/icons/calendar-check.png"/><text>{{date}}</text><image src="/assets/icons/caret-down.png"/></view></picker>
+  </view>
+
+  <view class="capacity-note"><image src="/assets/icons/shield-check.png"/><text>容量不能低于已预约数量；修改后会立即影响后续预约。</text></view>
+
+  <view wx:if="{{loading}}" class="loading station-loading">正在读取号源…</view>
+  <block wx:else>
+    <view wx:for="{{slots}}" wx:key="id" class="slot-card">
+      <view class="slot-main"><text>{{item.timeLabel}}</text><text>已约 {{item.booked}} · 剩余 {{item.remaining}}</text><text class="occupancy occupancy-{{item.occupancyTone}}">号源{{item.occupancyLabel}}</text></view>
+      <view class="capacity-stepper">
+        <view role="button" aria-label="减少容量" aria-disabled="{{savingId === item.id}}" class="step-button {{savingId === item.id ? 'disabled' : ''}}" data-id="{{item.id}}" data-delta="-1" bindtap="adjust">减少</view>
+        <view><text>{{item.capacity}}</text><text>可预约</text></view>
+        <view role="button" aria-label="增加容量" aria-disabled="{{savingId === item.id}}" class="step-button {{savingId === item.id ? 'disabled' : ''}}" data-id="{{item.id}}" data-delta="1" bindtap="adjust">增加</view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{!loading && !slots.length}}" class="empty station-empty"><image src="/assets/icons/calendar-search.png"/><text>这个日期暂无可配置时段</text><text>可切换日期查看未来号源</text></view>
+  <view class="station-disclosure"><image src="/assets/icons/shield-check.png"/><text>站点、号源、联系方式与服务数据均为合成演示数据。</text></view>
+</view>

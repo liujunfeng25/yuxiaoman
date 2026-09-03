@@ -1,0 +1,20 @@
+<view class="page precheck-page">
+  <view class="precheck-hero">
+    <text>PHOTO PRECHECK</text>
+    <text>预约资料预审</text>
+    <text>跨预约日期集中处理；支付后 30 分钟提醒，2 小时标记超时。</text>
+  </view>
+  <view wx:if="{{loading}}" class="state-card">正在同步待预审订单…</view>
+  <view wx:elif="{{loadError && !items.length}}" class="state-card error"><text>{{loadError}}</text><button bindtap="retry">重新加载</button></view>
+  <view wx:else class="precheck-list">
+    <view wx:if="{{loadError}}" class="inline-error">{{loadError}}，当前展示上次同步结果。</view>
+    <button wx:for="{{items}}" wx:key="id" class="precheck-card" data-id="{{item.id}}" bindtap="open">
+      <view class="card-head"><view><text>{{item.plateNumber}}</text><text>{{item.serviceModeLabel}}</text></view><text class="sla {{item.slaTone}}">{{item.slaLabel}}</text></view>
+      <view class="card-row"><text>预约时间</text><text>{{item.appointmentLabel}}</text></view>
+      <view class="card-row"><text>支付提交</text><text>{{item.submittedLabel}}</text></view>
+      <view class="photo-progress"><view><text>预审照片</text><text>{{item.photoCount}} / 7</text></view><view><view style="width: {{item.photoCount / 7 * 100}}%"></view></view></view>
+      <view class="card-action"><text>核对资料并处理</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
+    </button>
+    <view wx:if="{{!items.length}}" class="state-card empty"><image src="/assets/icons/check-circle.png"/><text>暂无待预审订单</text><text>新支付订单会自动进入这里</text></view>
+  </view>
+</view>

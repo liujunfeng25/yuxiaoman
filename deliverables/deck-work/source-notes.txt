@@ -1,0 +1,40 @@
+驭小满业务闭环演示文稿——本地证据来源
+
+最终年检 UI 点击证据
+- 目录：E:\yuxiaoman\Yuxiaoman-MVP-macOS\.runtime\annual-demo-media\artifacts\native-annual-final-verified9-20260830
+- 摘要：run-summary.json
+- 范围：full-native-closure
+- 内容：自驾与代驾两条小程序原生点击链路、检测站推进、司机四阶段留证、车主报告弹窗、后台最终详情。
+- 验证边界：摘要必须为 passed；两条订单均 completed 且报告 published；代驾四阶段均 completed、每阶段 5 张；consoleIssueCount 为 0。
+- 操作说明以最终页面可见按钮为准，包括“提交预约”“本地模拟支付”“安排司机并生成验证码”“验证并进入任务”“提交取车留证并推进”“提交留证并完成到站核验”“填写体检报告并回传”“开始送回车辆”和“提交送回留证并完成服务”。
+
+最终维修报价 UI 点击证据
+- 目录：E:\yuxiaoman\Yuxiaoman-MVP-macOS\.runtime\annual-demo-media\artifacts\native-repair-final-verified9-20260830
+- 摘要：run-summary.json
+- 范围：ui-only-repair-marketplace-transaction
+- 内容：车主从已发布报告发起询价、三家门店分别提交报价、车主明确选择 ¥1,980 并模拟支付、中选/未中选门店权限收口。
+- 关联校验：repair run 的 annualBookingId 必须与上述年检 run 中代驾 bookingId 一致；consoleIssueCount 为 0。
+- 操作说明以最终页面可见按钮为准，包括“一键咨询维修报价”“同意共享上述维修询价资料”“发布维修询价”“立即报价”“提交报价 ¥金额”“刷新报价”“确认模拟支付 ¥1,980”和“查看成交回执”。
+
+代驾端入口补充截图
+- 目录：E:\yuxiaoman\Yuxiaoman-MVP-macOS\deliverables\deck-work\driver-entry-evidence-20260830
+- 内容：工作人员入口中的“代驾端”切换卡片、代驾端六位任务验证码登录页面。
+- 采集方式：连接正在运行的微信开发者工具，通过真实小程序页面导航后截图；未伪造界面。
+
+操作按钮文案核对来源
+- 代驾司机：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\driver\pages\task\task.wxml
+- 检测站：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\operator\pages\operator-detail\operator-detail.wxml
+- 报告入口：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\inspection\pages\checkup-report\checkup-report.wxml
+- 维修询价：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\repair\pages\owner-request-confirm\owner-request-confirm.wxml
+- 门店报价：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\repair\pages\shop-quote\shop-quote.wxml
+- 车主选店支付：E:\yuxiaoman\Yuxiaoman-MVP-macOS\wechat-miniprogram\miniprogram\packages\repair\pages\owner-quotes\owner-quotes.wxml
+
+车辆与证件测试素材
+- 准备目录：E:\yuxiaoman\Yuxiaoman-MVP-macOS\.runtime\annual-demo-media\runs\2026-08-29T17-52-45-661Z-6064\prepared
+- 素材来自用户提供的两组车辆照片及可用证件/检验标志照片，进入本地隔离测试流程后用于上传保留、履约留证、故障照片和报告展示验证。
+- TEST ONLY 边界记录：valet/licenseBack.TEST-ONLY.jpg、self-drive/annualInspectionMark.TEST-ONLY.jpg、self-drive/safetyInspectionReport.TEST-ONLY.jpg、valet/safetyInspectionReport.TEST-ONLY.jpg。
+- 这些占位文件只验证页面与业务流，不是法定材料，不应对外表述为正式检验凭证。
+
+本地测试环境来源
+- E:\yuxiaoman\Yuxiaoman-MVP-macOS\.runtime\annual-demo-media\result.local.json 记录隔离测试 schema、占位边界和素材运行目录。
+- 现场内测演示允许展示当前有效任务验证码和测试账号，以便完整走通多角色流程；这些信息只用于本地测试环境。

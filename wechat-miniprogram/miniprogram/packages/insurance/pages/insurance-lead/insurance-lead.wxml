@@ -1,0 +1,159 @@
+<view class="insurance-page">
+  <view class="trust-banner">
+    <image src="/assets/icons/shield-check.png" />
+    <text>提交需求，{{disclosure ? disclosure.contactEtaText : '专业服务人员将在1个工作日内联系'}}</text>
+  </view>
+
+  <view class="insurance-content">
+    <view wx:if="{{vehicleLoading && !selectedVehicle}}" class="vehicle-card vehicle-loading">
+      <view class="vehicle-icon"><image src="/assets/icons/car.png" /></view>
+      <view><text>正在读取车辆档案…</text><text>用于识别本次续保需求</text></view>
+    </view>
+
+    <picker wx:elif="{{selectedVehicle}}" range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" bindchange="changeVehicle">
+      <view class="vehicle-card {{fieldErrors.vehicleId ? 'has-error' : ''}}">
+        <view class="vehicle-icon"><image src="/assets/icons/car.png" /></view>
+        <view class="vehicle-copy">
+          <text>{{selectedVehicle.plateNumber}}</text>
+          <text>{{selectedVehicle.vehicleType}} · {{selectedVehicle.seats}}座 · {{selectedVehicle.usageNature === 'non_operational' ? '非营运' : selectedVehicle.usageNature === 'operational' ? '营运' : selectedVehicle.usageNature}}</text>
+        </view>
+        <view class="vehicle-action"><text>更换</text><image src="/assets/icons/caret-right.png" /></view>
+      </view>
+    </picker>
+
+    <button wx:else class="vehicle-card add-vehicle" bindtap="addVehicle">
+      <view class="vehicle-icon"><image src="/assets/icons/plus.png" /></view>
+      <view class="vehicle-copy"><text>添加车辆后继续</text><text>用于识别本次续保需求</text></view>
+      <view class="vehicle-action"><text>去添加</text><image src="/assets/icons/caret-right.png" /></view>
+    </button>
+    <text wx:if="{{fieldErrors.vehicleId}}" class="field-error">{{fieldErrors.vehicleId}}</text>
+
+    <view class="form-section renewal-section">
+      <text class="section-heading">预计续保时间</text>
+      <view class="renewal-options">
+        <view
+          wx:for="{{renewalOptions}}"
+          wx:key="value"
+          data-value="{{item.value}}"
+          bindtap="chooseRenewal"
+          role="button"
+          aria-label="{{item.label}}"
+          aria-pressed="{{renewalWindow === item.value}}"
+          hover-class="tap-pressed"
+          hover-stay-time="120"
+          class="option-button {{renewalWindow === item.value ? 'active' : ''}}"
+        ><image class="option-symbol" src="/assets/icons/clock.png" /><text>{{item.label}}</text></view>
+      </view>
+      <view class="speed-note"><image src="/assets/icons/clock.png" /><text>60秒即可完成登记，越早提交，越早安排对接</text></view>
+    </view>
+
+    <view class="linear-fields">
+      <view class="linear-field {{fieldErrors.contactName ? 'has-error' : ''}}">
+        <text class="section-heading">联系人</text>
+        <view class="input-line">
+          <image src="/assets/icons/user-circle.png" />
+          <input value="{{contactName}}" maxlength="30" bindinput="inputName" placeholder="请输入联系人姓名" placeholder-class="input-placeholder" />
+        </view>
+        <text wx:if="{{fieldErrors.contactName}}" class="field-error">{{fieldErrors.contactName}}</text>
+      </view>
+
+      <view class="linear-field {{fieldErrors.contactPhone ? 'has-error' : ''}}">
+        <text class="section-heading">手机号码</text>
+        <view class="input-line">
+          <image src="/assets/icons/phone.png" />
+          <input value="{{contactPhone}}" maxlength="11" type="number" bindinput="inputPhone" placeholder="请输入11位手机号码" placeholder-class="input-placeholder" />
+        </view>
+        <text wx:if="{{fieldErrors.contactPhone}}" class="field-error">{{fieldErrors.contactPhone}}</text>
+      </view>
+    </view>
+
+    <view class="form-section contact-section">
+      <text class="section-heading">方便联系时段</text>
+      <view class="contact-options">
+        <view
+          wx:for="{{contactOptions}}"
+          wx:key="value"
+          data-value="{{item.value}}"
+          bindtap="chooseContactWindow"
+          role="button"
+          aria-label="{{item.label}} {{item.copy}}"
+          aria-pressed="{{contactWindow === item.value}}"
+          hover-class="tap-pressed"
+          hover-stay-time="120"
+          class="contact-button {{contactWindow === item.value ? 'active' : ''}}"
+        >
+          <image class="contact-symbol" src="{{item.icon}}" />
+          <view><text>{{item.label}}</text><text>{{item.copy}}</text></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="form-section license-section">
+      <text class="section-heading">行驶证主页</text>
+      <button wx:if="{{!licensePhotoPath}}" class="upload-card {{fieldErrors.licensePhoto ? 'has-error' : ''}}" bindtap="choosePhoto">
+        <view class="upload-icon"><image src="/assets/icons/file-arrow-up.png" /></view>
+        <view class="upload-copy"><text>上传1张清晰主页</text><text>支持JPG/PNG/WebP格式，大小不超过5MB</text></view>
+        <image class="upload-caret" src="/assets/icons/caret-right.png" />
+      </button>
+      <view wx:else class="upload-card upload-complete">
+        <image class="license-preview" src="{{licensePhotoPath}}" mode="aspectFill" bindtap="previewPhoto" />
+        <view class="upload-copy" bindtap="previewPhoto"><text>{{licensePhotoName}}</text><text>{{licensePhotoSizeText}} · 点击图片可预览</text></view>
+        <view class="upload-actions"><button bindtap="choosePhoto">更换</button><button bindtap="removePhoto">删除</button></view>
+      </view>
+      <text wx:if="{{fieldErrors.licensePhoto}}" class="field-error">{{fieldErrors.licensePhoto}}</text>
+      <view wx:if="{{disclosure && !disclosure.acceptsRealData}}" class="demo-warning">
+        <image src="/assets/icons/warning-circle.png" /><text>当前为演示环境，请勿上传真实资料，仅使用合成演示图片与号码。</text>
+      </view>
+    </view>
+
+    <view class="consent-section">
+      <view class="consent-line">
+        <button class="consent-toggle" bindtap="toggleConsent">
+          <view class="checkbox {{consentAccepted ? 'checked' : ''}}"><image wx:if="{{consentAccepted}}" src="/assets/icons/check-white.png" /></view>
+          <text>我已阅读并同意</text>
+        </button>
+        <button class="disclosure-link" bindtap="showDisclosure">信息使用说明</button>
+        <text wx:if="{{disclosureLoading}}" class="loading-dot">加载中</text>
+      </view>
+      <text wx:if="{{fieldErrors.consentAccepted}}" class="field-error">{{fieldErrors.consentAccepted}}</text>
+      <button wx:if="{{disclosureError}}" class="disclosure-error" bindtap="retryDisclosure">{{disclosureError}} · 点击重试</button>
+    </view>
+
+    <view wx:if="{{submitError}}" class="submit-error"><image src="/assets/icons/warning-circle.png" /><text>{{submitError}}</text></view>
+  </view>
+
+  <view class="submit-bar">
+    <button loading="{{submitting}}" disabled="{{submitting}}" bindtap="submit">{{submitting ? '正在提交' : '提交续保需求'}}</button>
+    <view><image src="/assets/icons/shield-check.png" /><text>驭小满仅提供需求登记与服务对接，不提供报价或承保</text></view>
+  </view>
+</view>
+
+<view wx:if="{{disclosureOpen}}" class="sheet-mask" bindtap="closeDisclosure" catchtouchmove="noop">
+  <view class="disclosure-sheet" catchtap="noop">
+    <view class="sheet-handle"></view>
+    <view class="sheet-header">
+      <view><text>{{disclosure ? disclosure.title : '信息使用说明'}}</text><text>{{disclosure ? '版本 ' + disclosure.version : '请先加载最新说明'}}</text></view>
+      <button bindtap="closeDisclosure" aria-label="关闭说明"><image src="/assets/icons/x.png" /></button>
+    </view>
+    <scroll-view scroll-y class="sheet-scroll">
+      <view wx:if="{{disclosure}}" class="disclosure-content">
+        <view wx:if="{{!disclosure.acceptsRealData}}" class="sheet-demo-warning">
+          <image src="/assets/icons/warning-circle.png" /><view><text>当前为演示环境</text><text>仅提交合成演示资料，不会转交真实保险机构。</text></view>
+        </view>
+        <view class="disclosure-facts">
+          <view><text>信息接收方</text><text>{{disclosure.partner.name}}{{disclosure.partner.recipientName !== disclosure.partner.name ? ' · ' + disclosure.partner.recipientName : ''}}</text></view>
+          <view><text>使用目的</text><text>{{disclosure.purpose}}</text></view>
+          <view><text>保存期限</text><text>{{disclosure.retention}}</text></view>
+        </view>
+        <view class="scope-card">
+          <text>本次使用的信息</text>
+          <view wx:for="{{disclosure.dataScope}}" wx:key="*this"><image src="/assets/icons/check-circle.png" /><text>{{item}}</text></view>
+        </view>
+        <text class="consent-copy">{{disclosure.consentText}}</text>
+        <button class="agree-button" bindtap="acceptDisclosure">同意并继续</button>
+      </view>
+      <view wx:elif="{{disclosureLoading}}" class="sheet-state"><image class="sheet-spinner" src="/assets/icons/clock.png" /><text>正在加载最新说明</text></view>
+      <view wx:else class="sheet-state"><text>说明加载失败</text><text>{{disclosureError}}</text><button bindtap="retryDisclosure">重新加载</button></view>
+    </scroll-view>
+  </view>
+</view>

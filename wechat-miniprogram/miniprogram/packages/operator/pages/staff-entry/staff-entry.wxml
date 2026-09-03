@@ -1,0 +1,40 @@
+<view class="staff-page">
+  <view class="staff-hero">
+    <view class="hero-icon"><image src="/assets/icons/shield-check.png" mode="aspectFit"/></view>
+    <text>STAFF ACCESS</text>
+    <text>工作人员入口</text>
+    <text>请选择本次要使用的履约端。工作人员权限与车主服务相互隔离。</text>
+  </view>
+
+  <view class="entry-list">
+    <button class="entry-card station-card" bindtap="enterStation" aria-label="进入检测站端">
+      <view class="entry-icon"><image src="/assets/icons/storefront.png" mode="aspectFit"/></view>
+      <view class="entry-copy">
+        <view><text>检测站端</text><text>账号登录</text></view>
+        <text>接车留证、到站核验、检测报告与结果回传</text>
+      </view>
+      <image class="entry-caret" src="/assets/icons/caret-right.png" mode="aspectFit"/>
+    </button>
+
+    <button class="entry-card repair-card" bindtap="enterRepair" aria-label="进入维修门店端">
+      <view class="entry-icon"><image src="/assets/icons/wrench.png" mode="aspectFit"/></view>
+      <view class="entry-copy">
+        <view><text>维修门店端</text><text>账号登录</text></view>
+        <text>查看开放维修需求，提交本店报价和查看已成交信息</text>
+      </view>
+      <image class="entry-caret" src="/assets/icons/caret-right.png" mode="aspectFit"/>
+    </button>
+
+    <button class="entry-card driver-card" bindtap="enterDriver" aria-label="进入代驾端">
+      <view class="entry-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view>
+      <view class="entry-copy">
+        <view><text>代驾端</text><text>6 位验证码</text></view>
+        <text>领取单笔取送任务，完成取车与送回现场留证</text>
+      </view>
+      <image class="entry-caret" src="/assets/icons/caret-right.png" mode="aspectFit"/>
+    </button>
+  </view>
+
+  <view class="access-note"><image src="/assets/icons/shield-check.png"/><text>检测站和维修门店使用平台创建的实名账号登录；代驾人员使用后台针对单笔订单生成的验证码进入。</text></view>
+  <button class="back-owner" bindtap="backOwner">返回车主端</button>
+</view>

@@ -1,0 +1,71 @@
+<view class="receipt-page">
+  <view wx:if="{{loading && !receipt}}" class="receipt-state">
+    <view><image src="/assets/icons/receipt.png" /></view>
+    <text>正在读取咨询凭证…</text>
+    <text>价格与资料状态以服务端记录为准</text>
+  </view>
+
+  <view wx:elif="{{!receipt}}" class="receipt-state empty-state">
+    <view><image src="/assets/icons/warning-circle.png" /></view>
+    <text>暂未找到咨询凭证</text>
+    <text>{{error || '请返回首页重新提交咨询'}}</text>
+    <button wx:if="{{consultationId}}" class="secondary-action" bindtap="retry">重新读取</button>
+    <button class="primary-action" bindtap="backHome">返回首页</button>
+  </view>
+
+  <block wx:else>
+    <view class="receipt-hero {{statusTone}}">
+      <view class="status-icon"><image src="{{statusIcon}}" /></view>
+      <text class="status-label">{{statusLabel}}</text>
+      <text class="status-title">{{statusTitle}}</text>
+      <text class="status-copy">{{statusCopy}}</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="sync-note">正在同步最新状态…</view>
+
+    <view class="receipt-card">
+      <view class="receipt-code">
+        <view><text>咨询编号</text><text>{{receipt.consultationCode}}</text></view>
+        <button bindtap="copyCode">复制编号</button>
+      </view>
+      <view class="fee-summary">
+        <view class="fee-summary-head">
+          <view><text>车主自报车辆估值</text><text>{{declaredValueText}}</text></view>
+          <view><text>过户费用合计（参考）</text><text>{{feeBreakdown.totalTransferCostText}}</text></view>
+        </view>
+        <view class="receipt-fee-lines">
+          <view><text>咨询服务费</text><text>{{feeBreakdown.consultationFeeText}}</text></view>
+          <view><text>牌照费（参考）</text><text>{{feeBreakdown.plateFeeText}}</text></view>
+          <view><text>邮寄费（参考）</text><text>{{feeBreakdown.mailingFeeText}}</text></view>
+          <view><text>制作工本费（参考）</text><text>{{feeBreakdown.productionFeeText}}</text></view>
+          <view class="receipt-administrative"><text>行政收费参考小计</text><text>{{feeBreakdown.administrativeFeeText}}</text></view>
+          <view class="receipt-total"><text>过户费用合计（参考）</text><text>{{feeBreakdown.totalTransferCostText}}</text></view>
+        </view>
+        <text>费用为提交时的服务端冻结快照；本页面不收款，实际费用以办理机构及所选服务为准。</text>
+      </view>
+      <view class="receipt-row"><text>价格档位</text><text>{{tierText}}</text></view>
+      <view class="receipt-row"><text>咨询车辆</text><text>{{receipt.vehicle.plateNumber}} · {{receipt.vehicle.modelName}}</text></view>
+      <view class="receipt-row"><text>联系人</text><text>{{receipt.contactNameMasked}}</text></view>
+      <view class="receipt-row"><text>联系电话</text><text>{{receipt.maskedPhone}}</text></view>
+      <view class="receipt-row"><text>提交时间</text><text>{{submittedAtText}}</text></view>
+      <view class="receipt-row"><text>预计联系</text><text>{{receipt.contactEtaText || '1个工作日内联系'}}</text></view>
+      <view class="receipt-row"><text>价格版本</text><text>{{receipt.planVersion}}</text></view>
+    </view>
+
+    <view class="boundary-notice">
+      <image src="/assets/icons/shield-check.png" />
+      <view><text>咨询服务边界</text><text>{{receipt.serviceBoundaryNotice}} 车辆估值由车主自行填写，仅用于匹配咨询服务费；本凭证不属于专业车辆评估、官方补贴金额、发票或申报回执。</text></view>
+    </view>
+
+    <view wx:if="{{error}}" class="receipt-error">
+      <image src="/assets/icons/warning-circle.png" />
+      <view><text>最新状态同步失败</text><text>{{error}}</text></view>
+      <button bindtap="retry">重试</button>
+    </view>
+
+    <view class="receipt-actions">
+      <button wx:if="{{canWithdraw}}" class="withdraw-button" loading="{{withdrawing}}" disabled="{{withdrawing}}" bindtap="withdraw">{{withdrawing ? '正在撤回' : '撤回本次咨询'}}</button>
+      <button class="home-button" bindtap="backHome">返回首页</button>
+    </view>
+  </block>
+</view>

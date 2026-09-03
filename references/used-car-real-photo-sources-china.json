@@ -1,0 +1,594 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-20",
+  "scope": "中国品牌二手车车型真实外观照片来源清单",
+  "entryCount": 26,
+  "selectionPolicy": "每个 modelId 仅选择能在 Wikimedia Commons 文件页或分类中明确识别为该精确车型的横向外观照片；不使用同品牌近似车型。",
+  "localization": {
+    "source": "Wikimedia Commons",
+    "retrievalWidth": 1920,
+    "retrievalFormat": "JPEG",
+    "retrievedVia": "images.weserv.nl image proxy after Wikimedia temporarily rate-limited this environment; the canonical source and license remain the linked Commons file page",
+    "attributionRule": "保留作者、Commons 文件页和许可证链接；裁切或压缩后仍须遵守对应 CC 许可，CC BY-SA 素材的衍生物须使用兼容许可。"
+  },
+  "entries": [
+    {
+      "modelId": "model-byd-qin-plus",
+      "displayName": "比亚迪 秦PLUS DM-i",
+      "commonsFileTitle": "File:BYD Qin Plus DM-i 003 (cropped).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BYD_Qin_Plus_DM-i_003_(cropped).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1a/BYD_Qin_Plus_DM-i_003_%28cropped%29.jpg",
+      "author": "SAIC GM sucks",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description and category identify BYD Qin Plus DM-i.",
+      "original": {
+        "width": 3498,
+        "height": 2099,
+        "mime": "image/jpeg",
+        "sha1": "cf2a410efe1e67831b999e272e70b21be181b0a6"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-byd-qin-plus/cover.webp"
+    },
+    {
+      "modelId": "model-byd-song-plus",
+      "displayName": "比亚迪 宋PLUS DM-i",
+      "commonsFileTitle": "File:BYD SONG PLUS DM-I FRONT.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BYD_SONG_PLUS_DM-I_FRONT.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/BYD_SONG_PLUS_DM-I_FRONT.jpg",
+      "author": "Mateusmatsuda",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "exactModelEvidence": "File title and description state BYD SONG PLUS DM-I FRONT VIEW.",
+      "original": {
+        "width": 3520,
+        "height": 2604,
+        "mime": "image/jpeg",
+        "sha1": "de8ab36d3aabbb5c79d0866deb1701665895857e"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-byd-song-plus/cover.webp"
+    },
+    {
+      "modelId": "model-byd-han",
+      "displayName": "比亚迪 汉DM-i",
+      "commonsFileTitle": "File:BYD Han DM-i 001.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BYD_Han_DM-i_001.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cf/BYD_Han_DM-i_001.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description identifies BYD Han DM-i.",
+      "original": {
+        "width": 4000,
+        "height": 3000,
+        "mime": "image/jpeg",
+        "sha1": "64c3c19cf71075236f4e14d2f10d26b06170735e"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-byd-han/cover.webp"
+    },
+    {
+      "modelId": "model-byd-tang",
+      "displayName": "比亚迪 唐DM-i",
+      "commonsFileTitle": "File:BYD Tang DM-i 1.5 Premium 2025 (1).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:BYD_Tang_DM-i_1.5_Premium_2025_(1).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/a/af/BYD_Tang_DM-i_1.5_Premium_2025_%281%29.jpg",
+      "author": "Captainmorlypogi1959",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and description identify the BYD Tang DM-i 1.5 Premium.",
+      "original": {
+        "width": 4128,
+        "height": 3096,
+        "mime": "image/jpeg",
+        "sha1": "35f1a4dc30b96e27ec8cda11b8f09bfac299e877"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-byd-tang/cover.webp"
+    },
+    {
+      "modelId": "model-byd-seal",
+      "displayName": "比亚迪 海豹06 DM-i",
+      "commonsFileTitle": "File:2024 BYD Seal 06 DM-i.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2024_BYD_Seal_06_DM-i.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1b/2024_BYD_Seal_06_DM-i.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description identifies a BYD Seal 06 DM-i sedan; this is not the Touring derivative.",
+      "original": {
+        "width": 6590,
+        "height": 3732,
+        "mime": "image/jpeg",
+        "sha1": "345c81aca87cc7cf46df0e92c421f6e5c80fc2d4"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-byd-seal/cover.webp"
+    },
+    {
+      "modelId": "model-hongqi-h5",
+      "displayName": "红旗 H5",
+      "commonsFileTitle": "File:Hongqi H5 II 010.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Hongqi_H5_II_010.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d9/Hongqi_H5_II_010.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "exactModelEvidence": "Commons description and category identify second-generation Hongqi H5.",
+      "original": {
+        "width": 3991,
+        "height": 2993,
+        "mime": "image/jpeg",
+        "sha1": "d07c1709df88b38bc1af3c72056e5c0b7a8388c8"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-hongqi-h5/cover.webp"
+    },
+    {
+      "modelId": "model-hongqi-hs5",
+      "displayName": "红旗 HS5",
+      "commonsFileTitle": "File:Hongqi HS5 DSC 1240.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Hongqi_HS5_DSC_1240.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/1/14/Hongqi_HS5_DSC_1240.jpg",
+      "author": "Alexander Migl",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description identifies Hongqi HS5.",
+      "original": {
+        "width": 4997,
+        "height": 2896,
+        "mime": "image/jpeg",
+        "sha1": "820d532753b29378f5b1aa61c5d9d7d78dcf609e"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-hongqi-hs5/cover.webp"
+    },
+    {
+      "modelId": "model-zeekr-001",
+      "displayName": "极氪 001",
+      "commonsFileTitle": "File:Zeekr 001 facelift 004.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Zeekr_001_facelift_004.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e3/Zeekr_001_facelift_004.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "exactModelEvidence": "Commons description and category identify the Zeekr 001 facelift.",
+      "original": {
+        "width": 4032,
+        "height": 3024,
+        "mime": "image/jpeg",
+        "sha1": "7c2ecb0a8faed1324171f52e2b33f0e130fae57b"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-zeekr-001/cover.webp"
+    },
+    {
+      "modelId": "model-zeekr-007",
+      "displayName": "极氪 007",
+      "commonsFileTitle": "File:ZEEKR 007 front 20231120.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:ZEEKR_007_front_20231120.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/ZEEKR_007_front_20231120.jpg",
+      "author": "Nissangeniss",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title, description and category identify the Zeekr 007 front at Auto Guangzhou 2023.",
+      "original": {
+        "width": 6000,
+        "height": 4000,
+        "mime": "image/jpeg",
+        "sha1": "8bb1548349313f81cd33d949ec6a6a346e68e491"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-zeekr-007/cover.webp"
+    },
+    {
+      "modelId": "model-zeekr-7x",
+      "displayName": "极氪 7X",
+      "commonsFileTitle": "File:2025 Zeekr 7X front.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2025_Zeekr_7X_front.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c1/2025_Zeekr_7X_front.jpg",
+      "author": "LuvsMG481",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and description identify a 2025 Zeekr 7X front view.",
+      "original": {
+        "width": 5840,
+        "height": 2636,
+        "mime": "image/jpeg",
+        "sha1": "baeb3f00380728a92b9a8a19489c2050809b30ab"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-zeekr-7x/cover.webp"
+    },
+    {
+      "modelId": "model-li-l6",
+      "displayName": "理想 L6",
+      "commonsFileTitle": "File:(CHN-Shanghai) Showcar Li L6 No-plate 2024-11-24.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:(CHN-Shanghai)_Showcar_Li_L6_No-plate_2024-11-24.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e3/%28CHN-Shanghai%29_Showcar_Li_L6_No-plate_2024-11-24.jpg",
+      "author": "S5A-0043",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "exactModelEvidence": "Commons description explicitly identifies a Li L6 showcar.",
+      "original": {
+        "width": 5120,
+        "height": 2880,
+        "mime": "image/jpeg",
+        "sha1": "09bb17f40951e8f9f450b1c95c755e1a62bbedc7"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-li-l6/cover.webp"
+    },
+    {
+      "modelId": "model-li-l7",
+      "displayName": "理想 L7",
+      "commonsFileTitle": "File:2025 Lixiang L7 silver front.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2025_Lixiang_L7_silver_front.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b2/2025_Lixiang_L7_silver_front.jpg",
+      "author": "Throwawayacc222",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "exactModelEvidence": "File title and description identify a silver Li Auto L7 front view.",
+      "original": {
+        "width": 5061,
+        "height": 3034,
+        "mime": "image/jpeg",
+        "sha1": "eb715339c856c48d48e057e25858e40b9cf3d8b9"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-li-l7/cover.webp"
+    },
+    {
+      "modelId": "model-li-l8",
+      "displayName": "理想 L8",
+      "commonsFileTitle": "File:2023 Lixiang L8 (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2023_Lixiang_L8_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7f/2023_Lixiang_L8_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a 2023 Li Auto L8 front view.",
+      "original": {
+        "width": 6499,
+        "height": 3659,
+        "mime": "image/jpeg",
+        "sha1": "7e4e0a17949357e78b99367085f417181247af49"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-li-l8/cover.webp"
+    },
+    {
+      "modelId": "model-li-l9",
+      "displayName": "理想 L9",
+      "commonsFileTitle": "File:Li Auto L9 001.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Li_Auto_L9_001.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Li_Auto_L9_001.jpg",
+      "author": "SAIC GM sucks",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description and category identify Li Auto (Lixiang) L9.",
+      "original": {
+        "width": 3893,
+        "height": 2920,
+        "mime": "image/jpeg",
+        "sha1": "9b93c45263f6fe8b7c81acc3c74a62d2f4a55350"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-li-l9/cover.webp"
+    },
+    {
+      "modelId": "model-aito-m5",
+      "displayName": "问界 M5",
+      "commonsFileTitle": "File:2022 Seres AITO M5 (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2022_Seres_AITO_M5_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/4/47/2022_Seres_AITO_M5_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a 2022 Seres AITO M5.",
+      "original": {
+        "width": 4904,
+        "height": 3072,
+        "mime": "image/jpeg",
+        "sha1": "c5a0a7b9a26d75c7a91de159db92b1f0d87c6e4b"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-aito-m5/cover.webp"
+    },
+    {
+      "modelId": "model-aito-m7",
+      "displayName": "问界 M7",
+      "commonsFileTitle": "File:2022 Seres AITO M7 (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2022_Seres_AITO_M7_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/6/62/2022_Seres_AITO_M7_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a 2022 Seres AITO M7.",
+      "original": {
+        "width": 6359,
+        "height": 3545,
+        "mime": "image/jpeg",
+        "sha1": "142d2dc67cfae2a33c2f7e1bea17fa475e2979e8"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-aito-m7/cover.webp"
+    },
+    {
+      "modelId": "model-aito-m9",
+      "displayName": "问界 M9",
+      "commonsFileTitle": "File:Aito 9 right diagonal front view.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Aito_9_right_diagonal_front_view.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Aito_9_right_diagonal_front_view.jpg",
+      "author": "Pancho507",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "exactModelEvidence": "Commons description identifies a first-generation AITO M9 right-front three-quarter view.",
+      "original": {
+        "width": 4624,
+        "height": 3472,
+        "mime": "image/jpeg",
+        "sha1": "67a837c536b78f52014336db1e907e318d6448ea"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-aito-m9/cover.webp"
+    },
+    {
+      "modelId": "model-nio-et5",
+      "displayName": "蔚来 ET5",
+      "commonsFileTitle": "File:NIO ET5 show car (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:NIO_ET5_show_car_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1b/NIO_ET5_show_car_%28front%29.jpg",
+      "author": "GZrex",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a NIO ET5 show car front view.",
+      "original": {
+        "width": 2017,
+        "height": 1517,
+        "mime": "image/jpeg",
+        "sha1": "2410904438f2c28548046d5552f1ce0bb2693232"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-nio-et5/cover.webp"
+    },
+    {
+      "modelId": "model-nio-et5t",
+      "displayName": "蔚来 ET5T",
+      "commonsFileTitle": "File:2023 NIO ET5 Touring (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2023_NIO_ET5_Touring_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9d/2023_NIO_ET5_Touring_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a NIO ET5 Touring / ET5T front view.",
+      "original": {
+        "width": 6419,
+        "height": 3502,
+        "mime": "image/jpeg",
+        "sha1": "7a7cc25dec7aa74678dcffd5ac9e2e605f47bcf5"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-nio-et5t/cover.webp"
+    },
+    {
+      "modelId": "model-nio-es6",
+      "displayName": "蔚来 ES6",
+      "commonsFileTitle": "File:2023 NIO ES6 (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2023_NIO_ES6_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/0/07/2023_NIO_ES6_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a 2023 NIO ES6 front view.",
+      "original": {
+        "width": 6089,
+        "height": 3739,
+        "mime": "image/jpeg",
+        "sha1": "2d46089d32e9c7bf1a0c16dcd26a3a2c38383a12"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-nio-es6/cover.webp"
+    },
+    {
+      "modelId": "model-xpeng-mona-m03",
+      "displayName": "小鹏 MONA M03",
+      "commonsFileTitle": "File:XPeng MONA M03 at Chengdu Motor Show 2024-A.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:XPeng_MONA_M03_at_Chengdu_Motor_Show_2024-A.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/4/42/XPeng_MONA_M03_at_Chengdu_Motor_Show_2024-A.jpg",
+      "author": "iMoD Official",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+      "exactModelEvidence": "File title, description and Commons category identify XPeng MONA M03 at Chengdu Motor Show 2024.",
+      "original": {
+        "width": 3258,
+        "height": 1831,
+        "mime": "image/jpeg",
+        "sha1": "83dc4de7cfec4540a984f6a04e176845c6bd9811"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xpeng-mona-m03/cover.webp"
+    },
+    {
+      "modelId": "model-xpeng-p7i",
+      "displayName": "小鹏 P7i",
+      "commonsFileTitle": "File:XPeng P7i 001.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:XPeng_P7i_001.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/9/91/XPeng_P7i_001.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "Commons description and category identify XPeng P7i.",
+      "original": {
+        "width": 4032,
+        "height": 3024,
+        "mime": "image/jpeg",
+        "sha1": "3437afc847d40fdefe7766fa36fe523ca5c6543e"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xpeng-p7i/cover.webp"
+    },
+    {
+      "modelId": "model-xpeng-g6",
+      "displayName": "小鹏 G6",
+      "commonsFileTitle": "File:2024 Xpeng G6.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2024_Xpeng_G6.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/2024_Xpeng_G6.jpg",
+      "author": "Calreyn88",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title, Commons description and category identify XPeng G6.",
+      "original": {
+        "width": 16320,
+        "height": 10774,
+        "mime": "image/jpeg",
+        "sha1": "c225a53e98d14e6135cb22d9815b76b1db9c3a0e"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xpeng-g6/cover.webp"
+    },
+    {
+      "modelId": "model-xpeng-g9",
+      "displayName": "小鹏 G9",
+      "commonsFileTitle": "File:2022 XPeng G9 (front).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2022_XPeng_G9_(front).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7f/2022_XPeng_G9_%28front%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a 2022 XPeng G9 front view.",
+      "original": {
+        "width": 6134,
+        "height": 3386,
+        "mime": "image/jpeg",
+        "sha1": "e442d8e9e496aa4e17ffa433e1415dc0f4e2898c"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xpeng-g9/cover.webp"
+    },
+    {
+      "modelId": "model-xiaomi-su7",
+      "displayName": "小米汽车 SU7",
+      "commonsFileTitle": "File:Xiaomi SU7 blue front view.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Xiaomi_SU7_blue_front_view.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/3/35/Xiaomi_SU7_blue_front_view.jpg",
+      "author": "茅野ふたば",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and description identify a Xiaomi SU7 blue front view.",
+      "original": {
+        "width": 4032,
+        "height": 2268,
+        "mime": "image/jpeg",
+        "sha1": "ef38168b0ddec9d60b4163333a88b3d8c21384b6"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xiaomi-su7/cover.webp"
+    },
+    {
+      "modelId": "model-xiaomi-yu7",
+      "displayName": "小米汽车 YU7",
+      "commonsFileTitle": "File:2025 Xiaomi YU7 (green).jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2025_Xiaomi_YU7_(green).jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/d/dc/2025_Xiaomi_YU7_%28green%29.jpg",
+      "author": "User3204",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "exactModelEvidence": "File title and Commons description identify a green 2025 Xiaomi YU7.",
+      "original": {
+        "width": 6618,
+        "height": 4412,
+        "mime": "image/jpeg",
+        "sha1": "4e03006fe2bef48415ffedeb150e77627cd47881"
+      },
+      "localFile": "public/assets/used-cars/real-sources/models/model-xiaomi-yu7/cover.webp"
+    }
+  ],
+  "listingSpecific": [
+    {
+      "listingId": "used-car-listing-001",
+      "modelId": "model-li-l7",
+      "imageOrder": 1,
+      "colorHint": "银灰色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:2025_Lixiang_L7_silver_front.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b2/2025_Lixiang_L7_silver_front.jpg",
+      "author": "Throwawayacc222",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-001/01.webp"
+    },
+    {
+      "listingId": "used-car-listing-001",
+      "modelId": "model-li-l7",
+      "imageOrder": 2,
+      "colorHint": "银灰色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Moscow,_Li_Auto_L7_silver,_Apr_2026_04.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Moscow%2C_Li_Auto_L7_silver%2C_Apr_2026_04.jpg",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-001/02.webp"
+    },
+    {
+      "listingId": "used-car-listing-002",
+      "modelId": "model-li-l7",
+      "imageOrder": 1,
+      "colorHint": "黑色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Moscow,_Li_Auto_L7_black,_Mar_2026_01.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/Moscow%2C_Li_Auto_L7_black%2C_Mar_2026_01.jpg",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-002/01.webp"
+    },
+    {
+      "listingId": "used-car-listing-002",
+      "modelId": "model-li-l7",
+      "imageOrder": 2,
+      "colorHint": "黑色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Moscow,_Li_Auto_L7_black,_Sept_2025_01.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9e/Moscow%2C_Li_Auto_L7_black%2C_Sept_2025_01.jpg",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-002/02.webp"
+    },
+    {
+      "listingId": "used-car-listing-003",
+      "modelId": "model-li-l7",
+      "imageOrder": 1,
+      "colorHint": "深绿色（室内光线下接近黑色）",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Li_Auto_L7_001.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/5/58/Li_Auto_L7_001.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-003/01.webp"
+    },
+    {
+      "listingId": "used-car-listing-003",
+      "modelId": "model-li-l7",
+      "imageOrder": 2,
+      "colorHint": "深绿色（室内光线下接近黑色）",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Li_Auto_L7_002.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Li_Auto_L7_002.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-003/02.webp"
+    },
+    {
+      "listingId": "used-car-listing-004",
+      "modelId": "model-li-l7",
+      "imageOrder": 1,
+      "colorHint": "白色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Moscow,_Li_Auto_L7_white,_Apr_2026_01.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/3/31/Moscow%2C_Li_Auto_L7_white%2C_Apr_2026_01.jpg",
+      "author": "Retired electrician",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-004/01.webp"
+    },
+    {
+      "listingId": "used-car-listing-004",
+      "modelId": "model-li-l7",
+      "imageOrder": 2,
+      "colorHint": "白色",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Li_Auto_L7_007.jpg",
+      "directDownloadUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Li_Auto_L7_007.jpg",
+      "author": "JustAnotherCarDesigner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "localFile": "public/assets/used-cars/real-sources/listings/used-car-listing-004/02.webp"
+    }
+  ],
+  "permanentDerivative": {
+    "format": "WebP",
+    "maxEdge": 2048,
+    "quality": 90,
+    "processing": [
+      "auto-orient",
+      "remove EXIF metadata",
+      "resize without enlargement"
+    ],
+    "pathRoot": "public/assets/used-cars/real-sources",
+    "note": "These are localized derivatives of the exact-model source photos identified in each entry."
+  }
+}

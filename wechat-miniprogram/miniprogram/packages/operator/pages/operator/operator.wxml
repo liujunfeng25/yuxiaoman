@@ -1,0 +1,70 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+
+<view class="page operator-page">
+  <view class="operator-header">
+    <picker wx:if="{{!stationLocked}}" class="station-switch" range="{{stations}}" range-key="name" value="{{stationIndex}}" bindchange="stationChange" disabled="{{loading}}">
+      <view class="station-switch-value"><text>{{stationName}}</text><image src="/assets/icons/caret-down.png" /></view>
+    </picker>
+    <view wx:else class="station-switch station-switch-value"><text>{{stationName}}</text><image src="/assets/icons/shield-check.png" /></view>
+    <button class="role-pill" bindtap="backHome"><image src="/assets/icons/user-circle.png"/><text>站点负责人</text><image src="/assets/icons/caret-right.png"/></button>
+  </view>
+
+  <view class="scope-bar">
+    <picker mode="date" value="{{date}}" bindchange="dateChange" disabled="{{loading}}">
+      <view class="scope-date"><image src="/assets/icons/calendar-check.png"/><text>{{date}}</text><image src="/assets/icons/caret-down.png"/></view>
+    </picker>
+    <view class="synthetic-label"><image src="/assets/icons/shield-check.png"/><text>合成演示数据</text></view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading operator-loading">正在读取工作台…</view>
+  <view wx:elif="{{loadError && !workbench}}" class="operator-load-error"><image src="/assets/icons/warning-circle.png"/><text>检测站工作台暂时无法加载</text><text>{{loadError}}</text><button bindtap="retryLoad" loading="{{loading}}" disabled="{{loading}}">重新加载</button></view>
+  <block wx:else>
+    <view wx:if="{{loadError}}" class="operator-inline-error"><image src="/assets/icons/warning-circle.png"/><text>{{loadError}}，当前保留的是上次成功同步的任务。</text><button bindtap="retryLoad" disabled="{{loading}}">刷新重试</button></view>
+    <block wx:if="{{workbench}}">
+    <view class="overview-card">
+      <view class="overview-metrics">
+        <view class="metric"><image src="/assets/icons/calendar-check.png"/><view><text>今日已预约</text><text>{{workbench.summary.todayBookings}}<text> / {{workbench.summary.totalCapacity}}</text></text></view></view>
+        <view class="metric"><image src="/assets/icons/car.png"/><view><text>待到站</text><text>{{workbench.summary.awaitingArrival}}</text></view></view>
+        <view class="metric"><image src="/assets/icons/clock.png"/><view><text>检测中</text><text>{{workbench.summary.inspecting}}</text></view></view>
+      </view>
+      <view wx:if="{{primaryPressure}}" role="button" aria-label="调整号源" class="pressure-row" bindtap="stationSettings">
+        <image src="/assets/icons/clock.png"/>
+        <text>{{primaryPressure.label}} 时段压力：<text>{{primaryPressure.levelLabel}}</text></text>
+        <text>调整号源</text>
+        <image src="/assets/icons/caret-right.png"/>
+      </view>
+    </view>
+
+    <button class="precheck-entry" bindtap="openPrechecks">
+      <view class="precheck-entry-icon"><image src="/assets/icons/shield-check.png"/></view>
+      <view class="precheck-entry-copy"><text>预约资料待预审</text><text>跨日期核对支付订单的 7 张预约照片</text></view>
+      <view class="precheck-entry-count"><text>{{workbench.summary.pendingPrecheckCount}}</text><text>待处理</text></view>
+      <image class="precheck-entry-caret" src="/assets/icons/caret-right.png"/>
+    </button>
+
+    <view class="task-heading">
+      <view><text>履约任务</text><text>按所选日期和预约时段依次处理</text></view>
+      <button bindtap="load" loading="{{loading}}" disabled="{{loading}}"><image src="/assets/icons/recycle.png"/><text>{{loading ? '刷新中' : '刷新'}}</text></button>
+    </view>
+
+    <scroll-view scroll-x class="filter-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="filter-row">
+        <button wx:for="{{filters}}" wx:key="*this" data-filter="{{item}}" bindtap="filter" disabled="{{loading}}" class="{{filter === item ? 'active' : ''}}">{{item === 'all' ? '全部' : fmt.statusLabel(item)}}</button>
+      </view>
+    </scroll-view>
+
+    <view wx:if="{{visibleBookings.length}}" class="task-list">
+      <view role="button" aria-label="查看{{item.plateNumber}}任务" wx:for="{{visibleBookings}}" wx:key="id" data-id="{{item.id}}" bindtap="open" class="task-row {{index === 0 ? 'next' : ''}}">
+        <view class="task-time"><text>{{item.startTime}}</text><text>至 {{item.endTime}}</text><text>{{item.dateLabel}}</text></view>
+        <view class="task-main"><text>{{item.plateNumber}}</text><text>{{item.vehicleTypeLabel}}</text><text>{{item.contactLabel}}</text></view>
+        <view class="task-status status-{{item.status}}"><text>{{fmt.statusLabel(item.status)}}</text><text>{{item.statusHint}}</text></view>
+        <image class="task-caret" src="/assets/icons/caret-right.png"/>
+        <view wx:if="{{item.pickupAddress}}" class="task-address"><image src="/assets/icons/map-pin.png"/><text>{{item.pickupAddress.title}}</text></view>
+      </view>
+      <view class="list-note"><image src="/assets/icons/clock.png"/><text>任务时间为预约时段，请合理安排叫号与检测流程。</text></view>
+    </view>
+
+    <view wx:else class="empty operator-empty"><image src="/assets/icons/receipt.png"/><text>当前筛选暂无任务</text><text>切换筛选条件或刷新工作台</text></view>
+    </block>
+  </block>
+</view>

@@ -1,0 +1,69 @@
+{
+  "photoDirectory": "<LOCAL_PRIVATE_PHOTO_DIRECTORY>",
+  "scenarios": {
+    "selfFailed": {
+      "key": "self-failed",
+      "marker": "full-inspection-closure-20260826-v1:self-drive:failed",
+      "plateNumber": "<SELF_DRIVE_PLATE>",
+      "expectedVehicleId": null,
+      "registrationDate": "<YYYY-MM-DD>",
+      "serviceMode": "self_drive",
+      "conclusion": "failed",
+      "hasIndependentBodyFault": false,
+      "contact": {
+        "name": "演示联系人",
+        "phone": "13800000000"
+      },
+      "photos": {
+        "front_left": "<front-left.jpg>",
+        "front_right": "<front-right.jpg>",
+        "rear_left": "<rear-left.jpg>",
+        "rear_right": "<rear-right.jpg>",
+        "dashboard_started": "<dashboard-started.jpg>",
+        "license_front": "<license-front.jpg>",
+        "license_back": "<license-back.jpg>"
+      }
+    },
+    "valetPassed": {
+      "key": "valet-passed",
+      "marker": "full-inspection-closure-20260826-v1:valet:passed",
+      "plateNumber": "<VALET_PLATE>",
+      "expectedVehicleId": null,
+      "registrationDate": "<YYYY-MM-DD>",
+      "serviceMode": "valet",
+      "conclusion": "passed",
+      "hasIndependentBodyFault": true,
+      "createVehicle": {
+        "vehicleType": "小型轿车",
+        "usageNature": "非营运",
+        "seats": 5,
+        "powertrainType": "gasoline",
+        "vehicleClassCode": "passenger_car",
+        "isVan": false,
+        "washVehicleCategory": "sedan"
+      },
+      "contact": {
+        "name": "演示联系人",
+        "phone": "13800000000"
+      },
+      "driver": {
+        "name": "演示司机",
+        "phone": "13900000000"
+      },
+      "pickup": {
+        "query": "<PICKUP_SEARCH_QUERY>",
+        "detail": "<PICKUP_DETAIL>"
+      },
+      "photos": {
+        "front_left": "<front-left.jpg>",
+        "front_right": "<front-right.jpg>",
+        "rear_left": "<rear-left.jpg>",
+        "rear_right": "<rear-right.jpg>",
+        "dashboard_started": "<dashboard-started.jpg>",
+        "license_front": "<license-front.jpg>",
+        "license_back": "<license-back.jpg>",
+        "annual_inspection_mark": "<annual-inspection-mark.jpg>"
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+<view class="page shop-detail-page">
+  <view wx:if="{{loading}}" class="loading detail-loading">正在读取维修需求…</view>
+  <view wx:elif="{{error}}" class="detail-error">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text>需求读取失败</text><text>{{error}}</text><button bindtap="retry">重新加载</button>
+  </view>
+
+  <block wx:elif="{{request}}">
+    <view class="synthetic-label"><text>{{isDemoShop ? '维修门店端 · 演示主体' : '维修门店端 · 实名账号'}}</text><image src="/assets/icons/shield-check.png" mode="aspectFit" /></view>
+
+    <view class="request-hero">
+      <view class="hero-icon"><image src="/assets/icons/car-profile.png" mode="aspectFit" /></view>
+      <view class="hero-copy">
+        <view><text>{{request.plateMasked}}</text><text>{{requestStatusLabel}}</text></view>
+        <text>{{request.vehicleLabel}}</text>
+        <text>{{request.requestNo ? '需求单 ' + request.requestNo + ' · ' : ''}}{{request.submittedAt}}</text>
+      </view>
+    </view>
+
+    <view class="contact-gate {{request.status === 'won' ? 'ready' : ''}}">
+      <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+      <view>
+        <text>{{request.status === 'won' ? '联系权限已满足' : '联系人暂不可见'}}</text>
+        <text>{{request.status === 'won' ? '本店已被选中且车主完成模拟支付，请从成交详情查看合成联系人。' : '报价前及等待选择期间不展示车主姓名、手机号或其他联系方式。'}}</text>
+      </view>
+    </view>
+
+    <view class="section-heading">
+      <view><text>车辆损伤明细</text><text>{{faults.length}} 处 · 逐条现场特写</text></view>
+      <text>仅供维修报价参考</text>
+    </view>
+
+    <view class="fault-list">
+      <view wx:for="{{faults}}" wx:key="id" class="fault-card">
+        <view class="fault-heading">
+          <text class="fault-number">{{item.sequence}}</text>
+          <view><text>{{item.regionLabel}} · {{item.typeLabel}}</text><text>{{item.description || '现场记录未补充文字描述'}}</text></view>
+          <text class="severity severity-{{item.severityTone}}">{{item.severityLabel}}</text>
+        </view>
+        <scroll-view wx:if="{{item.photoUrls.length}}" scroll-x class="photo-scroll" enhanced show-scrollbar="{{false}}">
+          <view class="photo-row">
+            <button wx:for="{{item.photoUrls}}" wx:for-item="photo" wx:key="*this" data-fault-id="{{item.id}}" data-photo-index="{{index}}" data-url="{{photo}}" bindtap="handlePhotoTap" aria-label="{{photo ? '预览' : '重新读取'}}第{{index + 1}}条车损特写">
+              <image wx:if="{{photo}}" src="{{photo}}" mode="aspectFill" data-fault-id="{{item.id}}" data-photo-index="{{index}}" binderror="handlePrivatePhotoError" />
+              <view wx:else class="photo-retry"><image src="/assets/icons/camera.png" mode="aspectFit"/><text>点击重试</text></view>
+              <text>现场特写 {{index + 1}}</text>
+            </button>
+          </view>
+        </scroll-view>
+        <view wx:else class="photo-empty"><image src="/assets/icons/camera.png" mode="aspectFit" /><text>该车损暂未提供特写</text></view>
+        <view class="fault-footer"><image src="/assets/icons/camera.png" mode="aspectFit" /><text>{{item.photoCountLabel}} · 点击图片可放大</text></view>
+      </view>
+    </view>
+
+    <view class="quote-card {{request.status === 'won' ? 'won' : ''}}">
+      <view class="quote-heading"><view><image src="/assets/icons/wrench.png" mode="aspectFit" /><text>本店报价</text></view><text>{{quoteStatusLabel}}</text></view>
+      <view wx:if="{{quoteAmountLabel}}" class="quote-price"><text>¥</text><text>{{quoteAmountLabel}}</text><text>全款总价</text></view>
+      <text wx:if="{{request.myQuote && request.myQuote.status === 'active'}}" class="quote-note">{{request.myQuote.note}}</text>
+      <view wx:else class="no-quote"><text>{{request.myQuote && request.myQuote.status === 'withdrawn' ? '上一版报价已撤回' : '尚未针对该需求提交报价'}}</text><text>总价与一句说明即可完成报价。</text></view>
+      <view wx:if="{{request.myQuote && request.myQuote.status === 'active'}}" class="quote-meta"><text>更新于 {{request.myQuote.updatedAt}}</text><text wx:if="{{request.myQuote.revision}}">第 {{request.myQuote.revision}} 版</text></view>
+    </view>
+
+    <view class="boundary-card">
+      <image src="/assets/icons/shield-check.png" mode="aspectFit" />
+      <view><text>报价与履约边界</text><text>{{request.serviceBoundary || '平台展示车损、传递报价并完成本地模拟支付；维修项目、进店时间、增项与验收由双方线下协商，平台不跟踪维修履约。'}}</text></view>
+    </view>
+
+    <view wx:if="{{request.status === 'pending_quote' || request.status === 'quoted' || request.status === 'won'}}" class="detail-footer">
+      <view><text>{{shopName}}</text><text>{{request.status === 'won' ? '已中选并完成模拟支付' : request.status === 'quoted' ? '可更新或撤回报价' : '报价后等待车主选择'}}</text></view>
+      <button bindtap="primaryAction">{{quoteActionLabel}}</button>
+    </view>
+  </block>
+</view>

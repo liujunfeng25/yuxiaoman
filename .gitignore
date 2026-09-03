@@ -1,0 +1,25 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+.dev-full.*.log
+.env
+data/
+*.log
+wechat-miniprogram/project.private.config.json
+wechat-miniprogram/node_modules/
+.runtime/
+handoff/macos/transfer.env
+database/*.pgdump
+database/*.pgdump.contents.txt
+.cursor/
+.codex/
+.openai/
+
+# Local annual-inspection QA may contain customer plates, document photos and runtime IDs.
+audit/full-inspection-closure-20260826/*.png
+audit/full-inspection-closure-20260826/*.jpg
+audit/full-inspection-closure-20260826/service-closure-state.json
+audit/full-inspection-closure-20260826/service-closure-result.json
+audit/full-inspection-closure-20260826/suv-form-data.json
+audit/full-inspection-closure-20260826/scenario-config.local.json

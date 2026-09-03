@@ -1,0 +1,83 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="detail-loading"><view class="hero-skeleton"></view><view wx:for="{{[1,2,3]}}" wx:key="*this" class="block-skeleton"><text></text><text></text><text></text></view></view>
+  <view wx:elif="{{error}}" class="state-wrap">
+    <image src="/assets/icons/{{stateKind === 'not_found' ? 'file-search' : 'warning-circle'}}.png"/>
+    <text class="state-title">{{stateKind === 'not_found' ? '这所驾校不存在或已下架' : stateKind === 'offline' ? '当前网络不可用' : '暂时无法读取详情'}}</text>
+    <text class="state-copy">{{error}}</text>
+    <view><button bindtap="backToList">返回列表</button><button wx:if="{{stateKind !== 'not_found'}}" bindtap="retry">重新加载</button></view>
+  </view>
+  <block wx:elif="{{school}}">
+    <view class="hero">
+      <swiper class="hero-swiper" current="{{currentGalleryIndex}}" bindchange="galleryChange" circular="{{gallery.length > 1}}">
+        <swiper-item wx:for="{{gallery}}" wx:key="id">
+          <view class="hero-slide" role="button" aria-label="{{item.altText || item.captionText}}" data-index="{{index}}" bindtap="previewImage">
+            <image src="{{item.url}}" mode="aspectFill" webp="{{true}}" data-index="{{index}}" binderror="imageError"/>
+          </view>
+        </swiper-item>
+      </swiper>
+      <view class="hero-badges"><text class="{{school.isDemo ? 'demo' : 'real'}}">{{school.dataLabel}}</text><text>{{school.regulatoryTypeText}}</text></view>
+      <view class="gallery-meta"><text>{{currentGalleryCaption}}</text><text>{{currentGalleryIndex + 1}} / {{gallery.length}}</text></view>
+    </view>
+
+    <view class="card school-head">
+      <text class="school-name">{{school.name}}</text>
+      <text wx:if="{{school.legalName && school.legalName !== school.name}}" class="legal-name">登记名称：{{school.legalName}}</text>
+      <text class="description">{{school.description || '该驾校暂未维护详细介绍，请以公开备案信息和线下核验结果为准。'}}</text>
+      <view wx:if="{{school.tags.length}}" class="tag-row"><text wx:for="{{school.tags}}" wx:key="*this">{{item}}</text></view>
+    </view>
+
+    <view class="card section">
+      <view class="section-head"><view><image src="/assets/icons/shield-check.png"/><text>备案与许可核验</text></view><text class="status">{{school.regulatoryStatusText}}</text></view>
+      <view class="reg-grid">
+        <view><text>类型</text><text>{{school.regulatoryTypeText}}</text></view>
+        <view><text>编号</text><text>{{school.regulatory.number || '待补充'}}</text></view>
+        <view><text>主管 / 登记机构</text><text>{{school.regulatory.authority || '待补充'}}</text></view>
+        <view><text>有效期</text><text>{{school.regulatoryValidityText}}</text></view>
+        <view wx:if="{{school.regulatoryCapabilityText}}" class="reg-capability"><text>培训能力类别（非质量评级）</text><text>{{school.regulatoryCapabilityText}}；按可培训车型数量划分，不代表教学质量、通过率、星级或推荐排名。</text></view>
+        <view><text>最近核验</text><text>{{school.verifiedText}}</text></view>
+        <view><text>公开来源</text><text>{{school.regulatory.sourceLabel || '来源待补充'}}</text></view>
+      </view>
+      <button class="source-link {{school.regulatory.sourceUrl ? '' : 'disabled'}}" bindtap="copySource">{{school.regulatory.sourceUrl ? '复制公开来源链接' : '暂无公开来源链接'}}</button>
+      <view class="notice">备案/许可状态仅反映页面所示核验时间点，不替代公安交管部门对个人申领资格的审核。</view>
+    </view>
+
+    <view class="card section">
+      <view class="section-head"><view><image src="/assets/icons/car.png"/><text>准驾车型培训能力</text></view><text>{{school.trainingClassViews.length}} 类</text></view>
+      <view wx:if="{{school.trainingClassViews.length}}" class="training-list">
+        <view wx:for="{{school.trainingClassViews}}" wx:key="licenseClassCode" class="training-item">
+          <view class="class-code"><text>{{item.licenseClassCode}}</text><text>{{item.name}}</text></view>
+          <view class="class-facts"><text>{{item.modeText}}</text><text wx:if="{{item.capabilityText}}">{{item.capabilityText}}</text></view>
+          <text class="conditions">{{item.conditionsText}}</text>
+        </view>
+      </view>
+      <view wx:else class="inline-empty">该驾校暂未维护准驾车型能力</view>
+    </view>
+
+    <view class="card section offers-section">
+      <view class="section-head"><view><image src="/assets/icons/receipt.png"/><text>服务项目与报价</text></view><text>{{school.offerViews.length}} 项</text></view>
+      <view wx:if="{{school.offerViews.length}}" class="offer-list">
+        <view wx:for="{{school.offerViews}}" wx:key="id" class="offer-card">
+          <view class="offer-top"><view><text>{{item.licenseClassCode}} · {{item.name}}</text><text>{{item.priceTypeText}} · {{item.modeText}}</text></view><view><text>{{item.priceText}}</text><text>{{item.unit || '每人'}}</text></view></view>
+          <text wx:if="{{item.description}}" class="offer-desc">{{item.description}}</text>
+          <view class="include-exclude">
+            <view><text>价格包含</text><text wx:if="{{!item.includedItems.length}}">暂未说明</text><text wx:for="{{item.includedItems}}" wx:key="*this">· {{item}}</text></view>
+            <view><text>价格不含</text><text wx:if="{{!item.excludedItems.length}}">暂未说明</text><text wx:for="{{item.excludedItems}}" wx:key="*this">· {{item}}</text></view>
+          </view>
+          <button wx:if="{{school.inquiryAvailable}}" data-offer-id="{{item.id}}" bindtap="chooseOffer">咨询此项目</button>
+        </view>
+      </view>
+      <view wx:else class="inline-empty price-empty"><image src="/assets/icons/receipt.png"/><text>暂无公开报价</text><text>可先查看联系方式，或提交咨询由驭小满团队协助确认。</text></view>
+    </view>
+
+    <view class="card section contact-section">
+      <view class="section-head"><view><image src="/assets/icons/storefront.png"/><text>校区与联系方式</text></view></view>
+      <button class="contact-row {{school.hasPhone ? '' : 'disabled'}}" bindtap="callSchool"><image src="/assets/icons/phone.png"/><view><text>公开电话</text><text>{{school.publicPhone || '暂未公开电话'}}</text></view><image src="/assets/icons/caret-right.png"/></button>
+      <button class="contact-row {{school.hasMap ? '' : 'disabled'}}" bindtap="navigateSchool"><image src="/assets/icons/map-pin.png"/><view><text>{{school.district}} · {{school.locationTitle}}</text><text>{{school.locationAddress}}</text></view><image src="/assets/icons/caret-right.png"/></button>
+      <view class="contact-row static"><image src="/assets/icons/clock.png"/><view><text>营业时间</text><text>{{school.openHours || '营业时间待维护'}}</text></view></view>
+      <view wx:if="{{school.facilities.length}}" class="facility-row"><text>服务设施</text><view><text wx:for="{{school.facilities}}" wx:key="*this">{{item}}</text></view></view>
+    </view>
+
+    <view class="bottom-safe"></view>
+    <view class="fixed-actions"><button class="phone-action {{school.hasPhone ? '' : 'disabled'}}" bindtap="callSchool"><image src="/assets/icons/phone.png"/>电话咨询</button><button class="inquiry-action {{school.inquiryAvailable ? '' : 'disabled'}}" bindtap="submitInquiry">提交咨询</button></view>
+  </block>
+</view>

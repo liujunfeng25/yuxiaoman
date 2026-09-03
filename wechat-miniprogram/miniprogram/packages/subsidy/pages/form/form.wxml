@@ -1,0 +1,199 @@
+<view class="consultation-page">
+  <view class="boundary-banner">
+    <image src="/assets/icons/shield-check.png" />
+    <view>
+      <text>补贴政策与材料咨询</text>
+      <text>{{config ? config.serviceBoundary.notice : '不代开发票、不代申报，不承诺补贴资格或结果'}}</text>
+    </view>
+  </view>
+
+  <view class="consultation-content">
+    <view wx:if="{{configLoading && !config}}" class="state-card">
+      <text>正在读取后台最新价格…</text>
+      <text>价格与信息使用说明均以当前生效配置为准</text>
+    </view>
+    <view wx:elif="{{configError && !config}}" class="state-card error-state">
+      <image src="/assets/icons/warning-circle.png" />
+      <text>{{configError}}</text>
+      <button bindtap="retryConfig">重新加载</button>
+    </view>
+
+    <view wx:if="{{config && !config.acceptsRealData}}" class="demo-notice">
+      <image src="/assets/icons/warning-circle.png" />
+      <view><text>当前为合成资料演示模式</text><text>{{config.disclosure.modeNotice}} 合成联系人由服务端提供并锁定。</text></view>
+    </view>
+
+    <view class="section-block">
+      <view class="section-heading"><view><text>1. 选择车辆</text><text>从您的车辆档案中选择</text></view><text class="required-tag">必填</text></view>
+      <view wx:if="{{vehicleLoading && !selectedVehicle}}" class="vehicle-card loading-card">
+        <view class="vehicle-icon"><image src="/assets/icons/car.png" /></view>
+        <view class="vehicle-copy"><text>正在读取车辆档案…</text><text>稍候即可继续</text></view>
+      </view>
+      <picker wx:elif="{{selectedVehicle}}" range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" bindchange="changeVehicle">
+        <view class="vehicle-card {{fieldErrors.vehicleId ? 'has-error' : ''}}">
+          <view class="vehicle-icon"><image src="/assets/icons/car.png" /></view>
+          <view class="vehicle-copy"><text>{{selectedVehicle.plateNumber}}</text><text>{{selectedVehicle.brand ? selectedVehicle.brand.name : ''}}{{selectedVehicle.model ? ' · ' + selectedVehicle.model.name : selectedVehicle.vehicleType}}</text></view>
+          <view class="vehicle-action"><text>更换</text><image src="/assets/icons/caret-right.png" /></view>
+        </view>
+      </picker>
+      <button wx:else class="vehicle-card add-vehicle" bindtap="addVehicle">
+        <view class="vehicle-icon"><image src="/assets/icons/plus.png" /></view>
+        <view class="vehicle-copy"><text>添加车辆后继续</text><text>估值不会写回车辆档案</text></view>
+        <view class="vehicle-action"><text>去添加</text><image src="/assets/icons/caret-right.png" /></view>
+      </button>
+      <text wx:if="{{fieldErrors.vehicleId}}" class="field-error">{{fieldErrors.vehicleId}}</text>
+    </view>
+
+    <view class="section-block pricing-section">
+      <view class="section-heading"><view><text>2. {{config ? config.serviceBoundary.declaredValueLabel : '车主自报车辆估值'}}</text><text>仅用于匹配{{config ? config.serviceBoundary.feeLabel : '咨询服务费'}}，不是专业评估</text></view><text class="required-tag">必填</text></view>
+      <view class="value-input {{fieldErrors.declaredValue ? 'has-error' : ''}}">
+        <input type="digit" value="{{declaredValueInput}}" maxlength="5" placeholder="例如 20" placeholder-class="input-placeholder" bindinput="inputDeclaredValue" bindblur="blurDeclaredValue" />
+        <text>万元</text>
+      </view>
+      <text class="field-help">可填写0–{{maxValueText}}，最多1位小数</text>
+      <text wx:if="{{fieldErrors.declaredValue}}" class="field-error">{{fieldErrors.declaredValue}}</text>
+
+      <view class="tier-card">
+        <view class="tier-card-title"><text>当前阶梯价格</text><text>后台生效版本 {{config ? config.feePlan.version : '--'}}</text></view>
+        <view wx:if="{{!tierDisplays.length}}" class="tier-empty">价格加载中…</view>
+        <view wx:for="{{tierDisplays}}" wx:key="id" class="tier-row {{item.selected ? 'selected' : ''}}">
+          <view class="tier-heading">
+            <view><text>{{item.label}}</text><text>{{item.rangeText}}</text></view>
+            <text>{{item.totalTransferCostText}}</text>
+          </view>
+          <view class="tier-breakdown">
+            <view><text>咨询服务费</text><text>{{item.consultationFeeText}}</text></view>
+            <view><text>牌照费（参考）</text><text>{{item.plateFeeText}}</text></view>
+            <view><text>邮寄费（参考）</text><text>{{item.mailingFeeText}}</text></view>
+            <view><text>制作工本费（参考）</text><text>{{item.productionFeeText}}</text></view>
+            <view class="administrative-subtotal"><text>行政收费参考小计</text><text>{{item.administrativeFeeText}}</text></view>
+            <view class="transfer-total"><text>过户费用合计（参考）</text><text>{{item.totalTransferCostText}}</text></view>
+          </view>
+          <image wx:if="{{item.selected}}" src="/assets/icons/check-circle.png" />
+        </view>
+        <view wx:if="{{tierDisplays.length}}" class="tier-reference-notice">实际费用以办理机构及所选服务为准；本页面不收款。</view>
+      </view>
+
+      <view wx:if="{{localTier && !quote}}" class="estimate-note">
+        <text>预计匹配 {{localTier.label}}</text>
+        <text>页面高亮仅作预览，请获取服务端咨询价后提交</text>
+      </view>
+      <button class="quote-button" loading="{{quoteLoading}}" disabled="{{quoteLoading || !config || !selectedVehicle || !declaredValueFen}}" bindtap="confirmQuote">
+        {{quoteLoading ? '正在获取后台价格' : quote ? '按当前估值重新获取' : '确认估值并锁定咨询价'}}
+      </button>
+      <view wx:if="{{quote}}" class="quote-result">
+        <view class="quote-total"><text>过户费用合计（参考）</text><text>{{quoteFeeBreakdown.totalTransferCostText}}</text></view>
+        <view><text>咨询服务费</text><text>{{quoteFeeBreakdown.consultationFeeText}}</text></view>
+        <view><text>牌照费（参考）</text><text>{{quoteFeeBreakdown.plateFeeText}}</text></view>
+        <view><text>邮寄费（参考）</text><text>{{quoteFeeBreakdown.mailingFeeText}}</text></view>
+        <view><text>制作工本费（参考）</text><text>{{quoteFeeBreakdown.productionFeeText}}</text></view>
+        <view class="quote-subtotal"><text>行政收费参考小计</text><text>{{quoteFeeBreakdown.administrativeFeeText}}</text></view>
+        <view><text>车主自报估值</text><text>{{quoteValueText}}</text></view>
+        <view><text>命中档位</text><text>{{quote.matchedTier.label}}</text></view>
+        <view><text>有效至</text><text>{{quoteExpiresText}}，过期需重取</text></view>
+        <text>{{quote.disclaimer}} 实际费用以办理机构及所选服务为准；本页面不收款。</text>
+      </view>
+      <text wx:if="{{quoteError || fieldErrors.quote}}" class="field-error">{{quoteError || fieldErrors.quote}}</text>
+    </view>
+
+    <view class="section-block">
+      <view class="section-heading"><view><text>3. 联系信息</text><text>用于服务人员联系确认咨询需求</text></view><text class="required-tag">必填</text></view>
+      <view wx:if="{{config && config.demoContact}}" class="demo-contact-lock"><image src="/assets/icons/shield-check.png" /><view><text>合成演示联系人</text><text>姓名与手机号由服务端提供并锁定，不代表任何真实个人。</text></view></view>
+      <view class="field-label"><text>姓名</text><text>最多30个字符</text></view>
+      <view class="text-input {{config && config.demoContact ? 'locked' : ''}} {{fieldErrors.contactName ? 'has-error' : ''}}"><input value="{{contactName}}" maxlength="30" disabled="{{config && config.demoContact}}" placeholder="请输入本人姓名" placeholder-class="input-placeholder" bindinput="inputName" /></view>
+      <text wx:if="{{fieldErrors.contactName}}" class="field-error">{{fieldErrors.contactName}}</text>
+      <view class="field-label phone-label"><text>手机号</text><text>仅用于本次咨询联系</text></view>
+      <view class="text-input {{config && config.demoContact ? 'locked' : ''}} {{fieldErrors.contactPhone ? 'has-error' : ''}}"><input type="number" value="{{contactPhone}}" maxlength="11" disabled="{{config && config.demoContact}}" placeholder="请输入11位手机号" placeholder-class="input-placeholder" bindinput="inputPhone" /></view>
+      <text wx:if="{{fieldErrors.contactPhone}}" class="field-error">{{fieldErrors.contactPhone}}</text>
+    </view>
+
+    <view class="section-block material-section">
+      <view class="section-heading"><view><text>4. 咨询资料</text><text>九项资料逐项上传，已完成 {{completedMaterialCount}}/9</text></view><text class="required-tag">必填</text></view>
+      <view class="privacy-note"><image src="/assets/icons/shield-check.png" /><text>{{config && config.materialUploadMode === 'server_generated_demo' ? '演示模式不打开相机或相册；点击各槽位将由服务端生成带 SYNTHETIC DEMO 标记的合成图片。' : '单张不超过5MB。成功上传的其他项目会保留；重选只替换当前一项。'}}</text></view>
+
+      <view wx:for="{{materialGroups}}" wx:key="id" wx:for-item="group" class="material-group">
+        <view class="material-group-heading"><text>{{group.label}}</text><text>{{group.description}}</text></view>
+        <view class="material-grid">
+          <view wx:for="{{group.items}}" wx:key="kind" wx:for-item="materialItem" class="material-card {{materialItem.material ? 'complete' : ''}} {{materialItem.error ? 'has-error' : ''}}">
+            <view wx:if="{{materialItem.localPath}}" class="material-preview" data-kind="{{materialItem.kind}}" bindtap="previewMaterial">
+              <image src="{{materialItem.localPath}}" mode="aspectFill" />
+              <view wx:if="{{materialItem.uploading}}" class="uploading-mask"><text>上传中</text></view>
+              <view wx:elif="{{materialItem.material}}" class="complete-badge"><image src="/assets/icons/check-white.png" /></view>
+            </view>
+            <view wx:elif="{{materialItem.material}}" class="synthetic-preview">
+              <image src="/assets/icons/shield-check.png" />
+              <text class="synthetic-mark">SYNTHETIC DEMO</text>
+              <text>服务端合成演示图</text>
+              <view wx:if="{{materialItem.uploading}}" class="uploading-mask"><text>重新生成中</text></view>
+              <view wx:else class="complete-badge"><image src="/assets/icons/check-white.png" /></view>
+            </view>
+            <button wx:else class="material-picker" data-kind="{{materialItem.kind}}" disabled="{{materialItem.uploading}}" bindtap="chooseMaterial">
+              <image src="/assets/icons/camera.png" />
+              <text>{{materialItem.uploading ? '正在生成…' : config && config.materialUploadMode === 'server_generated_demo' ? '使用合成演示资料' : '拍照/相册'}}</text>
+            </button>
+            <view class="material-card-copy"><text>{{materialItem.label}}</text><text>{{materialItem.material ? '已安全暂存' : materialItem.uploading ? '正在上传…' : '待上传'}}</text></view>
+            <view wx:if="{{materialItem.localPath || materialItem.material}}" class="material-actions">
+              <button data-kind="{{materialItem.kind}}" disabled="{{materialItem.uploading}}" bindtap="chooseMaterial">{{config && config.materialUploadMode === 'server_generated_demo' ? '重新生成' : '重选'}}</button>
+              <button data-kind="{{materialItem.kind}}" bindtap="removeMaterial">移除</button>
+            </view>
+            <text wx:if="{{materialItem.error}}" class="material-error">{{materialItem.error}}</text>
+          </view>
+        </view>
+      </view>
+      <text wx:if="{{fieldErrors.materials}}" class="field-error materials-error">{{fieldErrors.materials}}</text>
+    </view>
+
+    <view class="section-block consent-section">
+      <view class="section-heading"><view><text>5. 授权与确认</text><text>两项均需由您主动确认</text></view><text class="required-tag">必填</text></view>
+      <view class="consent-row">
+        <view class="consent-main" bindtap="toggleConsent">
+          <view class="checkbox {{consentAccepted ? 'checked' : ''}}"><image wx:if="{{consentAccepted}}" src="/assets/icons/check-white.png" /></view>
+          <text>{{config ? config.disclosure.consentText : '我已阅读并同意敏感信息使用说明'}}</text>
+        </view>
+        <button class="link-button" bindtap="showDisclosure">查看说明</button>
+      </view>
+      <text wx:if="{{fieldErrors.consentAccepted}}" class="field-error">{{fieldErrors.consentAccepted}}</text>
+
+      <view class="consent-row legal-row" bindtap="toggleLegalPurpose">
+        <view class="checkbox {{legalPurposeAccepted ? 'checked' : ''}}"><image wx:if="{{legalPurposeAccepted}}" src="/assets/icons/check-white.png" /></view>
+        <text>{{config ? config.disclosure.legalPurposeText : '我确认资料真实且仅用于合法的补贴政策与材料咨询；本服务不代开发票、不代申报，也不承诺补贴资格或结果。'}}</text>
+      </view>
+      <text wx:if="{{fieldErrors.legalPurposeAccepted}}" class="field-error">{{fieldErrors.legalPurposeAccepted}}</text>
+    </view>
+
+    <view wx:if="{{submitError}}" class="submit-error"><image src="/assets/icons/warning-circle.png" /><text>{{submitError}}</text></view>
+  </view>
+
+  <view class="submit-bar">
+    <view class="submit-fees">
+      <view><text>咨询服务费</text><text>{{quote ? quoteFeeBreakdown.consultationFeeText : '--'}}</text></view>
+      <view><text>牌照费（参考）</text><text>{{quote ? quoteFeeBreakdown.plateFeeText : '--'}}</text></view>
+      <view><text>邮寄费（参考）</text><text>{{quote ? quoteFeeBreakdown.mailingFeeText : '--'}}</text></view>
+      <view><text>制作工本费（参考）</text><text>{{quote ? quoteFeeBreakdown.productionFeeText : '--'}}</text></view>
+      <view class="submit-administrative"><text>行政收费参考小计</text><text>{{quote ? quoteFeeBreakdown.administrativeFeeText : '--'}}</text></view>
+      <view class="submit-total"><text>过户费用合计（参考）</text><text>{{quote ? quoteFeeBreakdown.totalTransferCostText : '待获取报价'}}</text></view>
+    </view>
+    <button loading="{{submitting}}" disabled="{{submitting || !config}}" bindtap="submit">{{submitting ? '正在提交' : '提交咨询'}}</button>
+    <text>本页面不收款 · 实际费用以办理机构及所选服务为准</text>
+  </view>
+
+  <view wx:if="{{disclosureOpen}}" class="sheet-mask" bindtap="closeDisclosure">
+    <view class="disclosure-sheet" catchtap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-header"><view><text>{{config ? config.disclosure.title : '敏感信息使用说明'}}</text><text>版本 {{config ? config.disclosure.version : '--'}}</text></view><button bindtap="closeDisclosure"><image src="/assets/icons/x.png" /></button></view>
+      <scroll-view scroll-y class="sheet-scroll">
+        <view wx:if="{{config}}" class="disclosure-content">
+          <view class="disclosure-warning"><image src="/assets/icons/shield-check.png" /><text>{{config.serviceBoundary.notice}}</text></view>
+          <view class="disclosure-facts">
+            <view><text>使用目的</text><text>{{config.disclosure.purpose}}</text></view>
+            <view><text>保存期限</text><text>{{config.disclosure.retention}}</text></view>
+            <view><text>预计联系</text><text>{{config.disclosure.contactEtaText}}</text></view>
+          </view>
+          <view class="scope-card"><text>资料范围</text><view wx:for="{{config.disclosure.dataScope}}" wx:key="*this"><image src="/assets/icons/check-circle.png" /><text>{{item}}</text></view></view>
+          <button wx:if="{{config.disclosure.officialSourceUrl}}" class="official-source" bindtap="copyOfficialSource">复制政府官方来源链接</button>
+          <button class="agree-button" bindtap="acceptDisclosure">同意本说明</button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

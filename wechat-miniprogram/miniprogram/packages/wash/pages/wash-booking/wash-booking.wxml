@@ -1,0 +1,180 @@
+<wxs module="fmt" src="../../../../utils/format.wxs" />
+<view class="wash-page">
+  <view wx:if="{{loading}}" class="wash-loading">
+    <view class="loading-card"></view>
+    <text>正在读取可预约洗车服务…</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="wash-error surface">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+    <text class="error-title">暂时无法进入洗车服务</text>
+    <text>{{error}}</text>
+    <button wx:if="{{!selectedVehicle}}" class="secondary-button" bindtap="addVehicle">添加车辆</button>
+    <button wx:else class="secondary-button" bindtap="retry">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <picker range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" bindchange="changeVehicle">
+      <view class="vehicle-card surface">
+        <view class="vehicle-icon"><image src="/assets/icons/car.png" mode="aspectFit" /></view>
+        <view class="vehicle-copy">
+          <text class="vehicle-label">服务车辆</text>
+          <view><text>{{selectedVehicle.plateNumber}}</text><text>· {{selectedVehicle.vehicleType}}</text></view>
+          <text>{{selectedVehicle.seats}} 座 · {{selectedVehicleCategoryLabel}}价类</text>
+        </view>
+        <image class="caret" src="/assets/icons/caret-right.png" mode="aspectFit" />
+      </view>
+    </picker>
+    <view wx:if="{{selectedVehicle.washVehicleCategoryLegacy}}" class="wash-category-warning"><image src="/assets/icons/warning-circle.png"/><text>历史 SUV/MPV 合并档已按 SUV 兼容，可到车辆管理确认独立价类。</text></view>
+
+    <view class="wash-intro">
+      <text>今天，把车洗干净</text>
+      <text>{{serviceMode === 'valet' ? '上门取送 · 往返已含 · 真实路线计价' : '自驾到店 · 透明价格 · 快速洁净'}}</text>
+    </view>
+
+    <view class="mode-panel surface">
+      <view class="mode-head"><text>服务方式</text><text>代驾按单程真实路线计价</text></view>
+      <view class="mode-switch" role="radiogroup" aria-label="选择洗车服务方式">
+        <button role="radio" aria-checked="{{serviceMode === 'self_drive'}}" class="mode-option {{serviceMode === 'self_drive' ? 'selected' : ''}}" data-mode="self_drive" bindtap="chooseMode">
+          <image src="/assets/icons/car.png" mode="aspectFit" />
+          <view><text>自驾到店</text><text>自行送车</text></view>
+          <image wx:if="{{serviceMode === 'self_drive'}}" class="mode-check" src="/assets/icons/check-circle.png" mode="aspectFit" />
+        </button>
+        <button role="radio" aria-checked="{{serviceMode === 'valet'}}" class="mode-option {{serviceMode === 'valet' ? 'selected' : ''}}" data-mode="valet" bindtap="chooseMode">
+          <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+          <view><text>代驾取送</text><text>往返已含</text></view>
+          <image wx:if="{{serviceMode === 'valet'}}" class="mode-check" src="/assets/icons/check-circle.png" mode="aspectFit" />
+        </button>
+      </view>
+    </view>
+
+    <view wx:if="{{serviceMode === 'valet'}}" class="wash-section pickup-section">
+      <view class="wash-section-head">
+        <view class="wash-section-title">取车地址</view>
+        <button class="map-action" loading="{{mapResolving}}" disabled="{{mapResolving}}" bindtap="chooseAddressOnMap"><image wx:if="{{!mapResolving}}" src="/assets/icons/map-pin.png" mode="aspectFit" /><text>{{mapResolving ? '校验选点中' : '地图选点'}}</text></button>
+      </view>
+      <view wx:if="{{pickupAddress}}" class="pickup-card surface">
+        <view class="pickup-icon"><image src="/assets/icons/map-pin.png" mode="aspectFit" /></view>
+        <view class="pickup-copy">
+          <view><text>{{pickupAddress.title}}</text><text>{{pickupAddress.locationProof ? '服务端已校验' : '需重新选择'}}</text></view>
+          <text>{{pickupAddress.address}}</text>
+        </view>
+        <button bindtap="chooseAddressOnMap">更换</button>
+      </view>
+      <view class="address-search surface">
+        <image src="/assets/icons/search.png" mode="aspectFit" />
+        <input value="{{addressQuery || ''}}" bindinput="onAddressInput" placeholder="搜索小区、停车场或取车地址" confirm-type="search" />
+        <text wx:if="{{addressLoading}}">查询中</text>
+      </view>
+      <view wx:if="{{suggestions.length}}" class="address-suggestions surface">
+        <view wx:for="{{suggestions}}" wx:key="poiId" data-index="{{index}}" bindtap="selectAddress" role="button" aria-label="选择{{item.title}}" class="address-suggestion">
+          <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+          <view><text>{{item.title}}</text><text>{{item.address}}</text></view>
+          <image class="suggestion-caret" src="/assets/icons/caret-right.png" mode="aspectFit" />
+        </view>
+      </view>
+      <view wx:if="{{pickupAddress}}" class="pickup-extra surface">
+        <view><text>详细位置</text><input value="{{pickupAddress.detail || ''}}" data-field="detail" bindinput="pickupInput" bindblur="pickupBlur" placeholder="楼栋、门牌或车位（选填）" /></view>
+        <view><text>交接备注</text><input value="{{pickupAddress.note || ''}}" data-field="note" bindinput="pickupInput" bindblur="pickupBlur" maxlength="80" placeholder="如从北门进入（选填）" /></view>
+      </view>
+      <view class="roundtrip-note"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>取车点到门店按单程路线计算费用，服务已包含洗车后送回原地址，不重复收取返程费。</text></view>
+      <view wx:if="{{quoteBlocked}}" class="quote-error blocked" role="alert">
+        <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+        <view><text>当前代驾方案不可预约</text><text>{{quoteError}}</text></view>
+        <button wx:if="{{selectedSlot}}" bindtap="retryQuote">重试</button>
+      </view>
+    </view>
+
+    <view class="wash-section">
+      <view class="wash-section-head package-section-head">
+        <view class="wash-section-title">选择洗车套餐</view>
+        <view class="package-pricing-context">
+          <text>{{selectedVehicle.plateNumber}}</text>
+          <text>{{selectedVehicleCategoryLabel}}计价</text>
+        </view>
+      </view>
+      <view wx:if="{{!packages.length}}" class="inline-empty">当前车型暂无可用套餐</view>
+      <view wx:for="{{packages}}" wx:key="id" data-id="{{item.id}}" bindtap="choosePackage" role="button" aria-label="选择{{item.name}}，当前车辆{{selectedVehicle.plateNumber}}，{{selectedVehicleCategoryLabel}}价格{{fmt.money(item.priceFen)}}元" class="package-card surface {{selectedPackageId === item.id ? 'selected' : ''}}">
+        <radio value="{{item.id}}" checked="{{selectedPackageId === item.id}}" color="#1768cf" />
+        <view class="package-copy">
+          <view><text>{{item.name}}</text><text wx:if="{{item.durationMinutes}}">约 {{item.durationMinutes}} 分钟</text></view>
+          <text>{{item.summary}}</text>
+        </view>
+        <view class="package-price">
+          <text class="package-price-category">{{selectedVehicleCategoryLabel}}价</text>
+          <text class="package-sale-price">¥{{fmt.money(item.priceFen)}}</text>
+          <text wx:if="{{item.listPriceFen && item.listPriceFen > item.priceFen}}" class="package-list-price">¥{{fmt.money(item.listPriceFen)}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="wash-section">
+      <view class="wash-section-head"><view class="wash-section-title">服务门店</view><text>可查看图片、营业与设施</text></view>
+      <view class="store-card surface" role="button" aria-label="更换洗车门店，当前为{{selectedStore.name}}" bindtap="chooseStore">
+        <image class="store-cover" src="{{selectedStoreCoverUrl}}" mode="aspectFill" webp="{{true}}" binderror="selectedStoreCoverError" />
+        <view class="store-copy">
+          <view><text>{{selectedStore.name}}</text><text>演示</text></view>
+          <text>{{selectedStore.distanceKm === null || selectedStore.distanceKm === undefined ? selectedStore.address : selectedStore.distanceKm + 'km · ' + selectedStore.address}}</text>
+          <text wx:if="{{selectedStore.openHours || selectedSlot}}">{{selectedStore.openHours || '营业时间请电话确认'}}{{selectedSlot ? ' · 当前 ' + selectedSlot.startTime : ''}}</text>
+        </view>
+        <view class="store-change"><text>更换门店</text><image src="/assets/icons/caret-right.png" mode="aspectFit" /></view>
+      </view>
+    </view>
+
+    <view class="wash-section time-section">
+      <view class="wash-section-head">
+        <view class="wash-section-title">洗车服务时段</view>
+        <text>{{quoteLoading ? '正在更新' : serviceMode === 'valet' ? '取车时间线下确认' : '到店即可服务'}}</text>
+      </view>
+      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="date-scroll">
+        <view class="date-row">
+          <view wx:for="{{dateOptions}}" wx:key="date" data-date="{{item.date}}" bindtap="chooseDate" role="button" aria-label="{{item.label}} {{item.caption}}" class="date-chip {{selectedDate === item.date ? 'selected' : ''}}"><text>{{item.label}}</text><text>{{item.caption}}</text></view>
+        </view>
+      </scroll-view>
+      <scroll-view wx:if="{{slots.length}}" scroll-x enhanced show-scrollbar="{{false}}" class="slot-scroll">
+        <view class="slot-row">
+          <view wx:for="{{slots}}" wx:key="id" data-id="{{item.id}}" bindtap="chooseSlot" role="button" aria-disabled="{{item.remaining <= 0}}" aria-label="{{item.startTime}} {{item.remaining <= 0 ? '已约满' : '剩余' + item.remaining + '位'}}" class="slot-chip {{selectedSlotId === item.id ? 'selected' : ''}} {{item.remaining <= 0 ? 'disabled' : ''}}"><text>{{item.startTime}}</text><text>{{item.remaining <= 0 ? '已约满' : item.remaining <= 2 ? '仅余 ' + item.remaining + ' 位' : item.startTime + '–' + item.endTime}}</text></view>
+        </view>
+      </scroll-view>
+      <view wx:else class="inline-empty">当天暂无可约时段，请选择其他日期</view>
+      <view wx:if="{{serviceMode === 'valet'}}" class="time-note">所选时段为门店洗车服务时段，具体上门取车时间由平台工作人员线下确认。</view>
+    </view>
+
+    <view wx:if="{{quote}}" class="wash-section fee-card surface">
+      <view class="fee-title"><text>费用明细</text><text>报价 10 分钟内有效</text></view>
+      <view class="fee-row"><text>洗车服务费（{{selectedVehicleCategoryLabel}}）</text><text>¥{{fmt.money(quote.washFeeFen)}}</text></view>
+      <view wx:if="{{serviceMode === 'valet'}}" class="fee-row"><text>代驾基础费</text><text>¥{{fmt.money(quote.breakdown.valetBaseFeeFen)}}</text></view>
+      <view wx:if="{{serviceMode === 'valet' && quote.breakdown.valetDistanceFeeFen > 0}}" class="fee-row"><text>超出里程加价（{{quote.extraKm}} km）</text><text>¥{{fmt.money(quote.breakdown.valetDistanceFeeFen)}}</text></view>
+      <view wx:if="{{serviceMode === 'valet'}}" class="fee-row valet-total-line"><text>代驾取送费</text><text>¥{{fmt.money(quote.valetFeeFen)}}</text></view>
+      <view wx:if="{{serviceMode === 'valet'}}" class="route-summary">
+        <image src="/assets/icons/map-pin.png" mode="aspectFit" />
+        <view><text>单程到店 {{quote.oneWayDistanceKm}} km{{quote.driveMinutes === null ? '' : ' · 约 ' + quote.driveMinutes + ' 分钟'}}</text><text>往返 {{quote.roundTripDistanceKm}} km 已含，费用按单程真实驾车路线计算</text><text wx:if="{{quote.valetRule}}">门店服务半径：{{quote.valetRule.maxRadiusKm === null ? '不限' : quote.valetRule.maxRadiusKm + ' km'}}</text></view>
+      </view>
+      <view class="fee-total"><view><text>合计费用</text><text>模拟支付不会真实扣款</text></view><text>¥{{fmt.money(quote.totalFeeFen)}}</text></view>
+    </view>
+
+    <view class="wash-section contact-section">
+      <view class="wash-section-head"><view class="wash-section-title">预约人</view><text>{{serviceMode === 'valet' ? '用于确认车辆交接' : '用于接收预约通知'}}</text></view>
+      <view class="contact-card surface">
+        <view><text>姓名</text><input value="{{contactName}}" data-field="contactName" bindinput="input" placeholder="请输入预约人姓名" /></view>
+        <view><text>手机</text><input value="{{contactPhone}}" data-field="contactPhone" bindinput="input" type="number" maxlength="11" placeholder="请输入 11 位手机号" /></view>
+        <view><text>备注</text><input value="{{notes}}" data-field="notes" bindinput="input" maxlength="100" placeholder="{{serviceMode === 'valet' ? '车辆交接或其他说明（选填）' : '车位或其他说明（选填）'}}" /></view>
+      </view>
+    </view>
+
+    <view wx:if="{{serviceMode === 'valet' && !pickupAddress}}" class="quote-prompt" role="alert"><image src="/assets/icons/map-pin.png" mode="aspectFit" /><text>选择取车地址后，系统会计算单程到店距离和完整代驾费用。</text></view>
+    <view wx:if="{{quoteError && !quoteBlocked}}" class="quote-error" role="alert">
+      <image src="/assets/icons/warning-circle.png" mode="aspectFit" />
+      <view><text>报价暂时未完成</text><text>{{quoteError}}</text></view>
+      <button wx:if="{{selectedSlot}}" bindtap="retryQuote">重试</button>
+    </view>
+  </block>
+
+  <view wx:if="{{!loading && !error}}" class="wash-submit-bar">
+    <view class="submit-main">
+      <view><text>{{quote ? '合计费用' : serviceMode === 'valet' ? '总价待计算' : '洗车费用'}}</text><text>{{quote ? '¥' + fmt.money(quote.totalFeeFen) : serviceMode === 'valet' ? '--' : '¥' + fmt.money(selectedPackage ? selectedPackage.priceFen : 0)}}</text></view>
+      <button disabled="{{!quote || quoteLoading || submitting || quoteBlocked}}" loading="{{submitting}}" bindtap="submit">{{submitting ? '提交中' : quoteLoading ? '正在确认价格' : quoteBlocked ? '当前代驾不可预约' : serviceMode === 'valet' && !pickupAddress ? '请选择取车地址' : quote ? '确认预约 ¥' + fmt.money(quote.totalFeeFen) : '请选择可约时间'}}</button>
+    </view>
+    <view class="submit-assurance"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{serviceMode === 'valet' ? '单程计价 · 往返已含 · 模拟支付不真实扣款' : '价格透明 · 无额外费用 · 模拟支付不真实扣款'}}</text></view>
+  </view>
+</view>

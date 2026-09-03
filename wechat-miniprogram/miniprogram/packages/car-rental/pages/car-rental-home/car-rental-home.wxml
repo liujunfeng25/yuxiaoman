@@ -1,0 +1,113 @@
+<view class="rental-home">
+  <view class="page-header">
+    <button class="header-back" bindtap="goBack" aria-label="返回上一页，无上一页时返回首页">
+      <image src="/assets/icons/arrow-left.png" mode="aspectFit"/>
+    </button>
+    <text class="page-title">汽车租赁</text>
+    <view class="header-actions">
+      <button class="header-action" open-type="contact" aria-label="联系统一客服">
+        <image src="/assets/icons/headset.png"/><text>客服</text>
+      </button>
+      <button class="header-action" bindtap="openOrders" aria-label="查看我的租车订单">
+        <image src="/assets/icons/receipt.png"/><text>订单</text>
+      </button>
+    </view>
+  </view>
+
+  <view class="search-card">
+    <view class="mode-tabs">
+      <button class="{{fulfillmentMode === 'store_pickup' ? 'active' : ''}}" data-mode="store_pickup" bindtap="setMode">
+        <image src="/assets/icons/storefront.png"/><text>门店取还</text>
+      </button>
+      <button class="{{fulfillmentMode === 'home_delivery' ? 'active' : ''}}" data-mode="home_delivery" bindtap="setMode">
+        <image src="/assets/icons/car.png"/><text>送车上门</text>
+      </button>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading-state">
+      <view class="skeleton"></view><view class="skeleton short"></view><text>正在读取租赁服务…</text>
+    </view>
+    <view wx:elif="{{error}}" class="error-card">
+      <image src="/assets/icons/warning-circle.png"/><text>{{error}}</text><button bindtap="retry">重新加载</button>
+    </view>
+    <block wx:else>
+      <picker wx:if="{{fulfillmentMode === 'store_pickup'}}" class="store-picker" mode="selector" range="{{stores}}" range-key="pickerLabel" value="{{storeIndex}}" bindchange="changeStore">
+        <view class="location-row">
+          <view class="field-icon"><image src="/assets/icons/map-pin.png"/></view>
+          <view class="field-copy">
+            <text class="store-name">{{selectedStore ? selectedStore.name : '选择取还门店'}}</text>
+            <text class="field-note">{{selectedStore ? '同店取还 · ' + selectedStore.address : '仅支持同店取还'}}</text>
+          </view>
+          <image class="row-caret" src="/assets/icons/caret-right.png"/>
+        </view>
+      </picker>
+
+      <view wx:else class="delivery-block">
+        <view class="location-row delivery-row">
+          <view class="field-icon"><image src="/assets/icons/map-pin.png"/></view>
+          <view class="field-copy">
+            <text class="field-label">送取车地址</text>
+            <view class="address-input">
+              <input value="{{addressQuery}}" placeholder="搜索天津小区、写字楼" confirm-type="search" bindinput="addressInput" bindconfirm="searchAddress"/>
+              <button loading="{{searchingAddress}}" bindtap="searchAddress">搜索</button>
+            </view>
+            <text class="field-note">送车与取车必须同址，按真实驾车路线计费</text>
+          </view>
+        </view>
+        <view wx:if="{{suggestions.length}}" class="suggestions">
+          <button wx:for="{{suggestions}}" wx:key="poiId" data-id="{{item.poiId}}" bindtap="chooseAddress"><text>{{item.title}}</text><text>{{item.address}}</text></button>
+        </view>
+        <view wx:if="{{deliveryAddress}}" class="verified-address"><image src="/assets/icons/check-circle.png"/><text>已选择可验证地址：{{deliveryAddress.title}}</text></view>
+      </view>
+
+      <view class="time-grid">
+        <view class="time-field">
+          <text class="field-label">取车时间</text>
+          <picker class="date-picker" mode="date" value="{{pickupDate}}" start="{{minDate}}" end="{{maxDate}}" data-field="pickupDate" bindchange="changeDate"><text class="date-value">{{pickupDateLabel}}</text></picker>
+          <picker class="time-picker" mode="time" value="{{pickupTime}}" data-field="pickupTime" bindchange="changeDate"><text>{{pickupTime}}</text></picker>
+        </view>
+        <view class="day-count"><text>{{billableDays > 0 ? billableDays : '--'}}</text><text>天</text></view>
+        <view class="time-field return-field">
+          <text class="field-label">还车时间</text>
+          <picker class="date-picker" mode="date" value="{{returnDate}}" start="{{minDate}}" end="{{maxDate}}" data-field="returnDate" bindchange="changeDate"><text class="date-value">{{returnDateLabel}}</text></picker>
+          <picker class="time-picker" mode="time" value="{{returnTime}}" data-field="returnTime" bindchange="changeDate"><text>{{returnTime}}</text></picker>
+        </view>
+      </view>
+
+      <view class="rules"><text>最少 1 天</text><text>最长 30 天</text><text>至少提前 2 小时</text></view>
+      <view class="search-action-row">
+        <button class="search-action" loading="{{submitting}}" bindtap="submit"><text>立即选车</text></button>
+      </view>
+    </block>
+  </view>
+
+  <view class="trust-row">
+    <view><image src="/assets/icons/shield-check.png"/><text>指定车型保障</text></view>
+    <view><image src="/assets/icons/receipt.png"/><text>费用透明</text></view>
+    <view><image src="/assets/icons/headset.png"/><text>统一客服</text></view>
+  </view>
+
+  <view wx:if="{{fulfillmentMode === 'store_pickup' && !loading && !error}}" class="hot-section">
+    <view class="section-head">
+      <text>热门车型</text>
+      <button bindtap="submit">查看全部 <image src="/assets/icons/caret-right.png"/></button>
+    </view>
+    <view wx:if="{{hotLoading}}" class="hot-grid">
+      <view wx:for="{{[1,2]}}" wx:key="*this" class="hot-card hot-skeleton"><view></view><text></text><text></text></view>
+    </view>
+    <view wx:elif="{{hotError}}" class="hot-error"><text>{{hotError}}</text><button bindtap="retryHot">重新加载</button></view>
+    <view wx:else class="hot-grid">
+      <button wx:for="{{hotOffers}}" wx:key="id" class="hot-card" data-id="{{item.id}}" bindtap="openHotDetail">
+        <view class="hot-image-shell"><image wx:if="{{!item.imageLoadFailed}}" src="{{item.model.imageUrl}}" mode="aspectFill" webp="{{true}}" data-index="{{index}}" binderror="hotImageError"/><view wx:else class="hot-image-unavailable"><image src="/assets/icons/car.png" mode="aspectFit"/><text>车型图片暂不可用</text></view><text>指定车型</text></view>
+        <view class="hot-copy">
+          <view class="hot-title"><text>{{item.model.name}}</text><text>{{item.model.bodyType}}</text></view>
+          <text class="hot-meta">{{item.energyLabel}} · {{item.meta}}</text>
+          <view class="hot-price"><text>日均</text><text>¥</text><text>{{item.dailyPrice}}</text><text>起</text></view>
+          <view class="hot-total"><text>总价 ¥{{item.totalPrice}}起</text><image src="/assets/icons/caret-right.png"/></view>
+        </view>
+      </button>
+    </view>
+  </view>
+
+  <view class="demo-notice"><image src="/assets/icons/warning-circle.png"/><text>车型、库存、价格、押金及订单均为合成演示数据，不发生真实支付或押金冻结。</text></view>
+</view>
