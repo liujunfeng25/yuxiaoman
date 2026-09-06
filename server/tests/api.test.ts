@@ -2011,7 +2011,7 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     const firstAssignment = await app.inject({
       method: "POST",
       url: `/api/admin/bookings/${bookingId}/driver-assignment`,
-      payload: { driverName: "王大海", driverPhone: "13900139000" },
+      payload: { receptionistName: "站务小刘", receptionistPhone: "13800138000" },
     });
     assert.equal(firstAssignment.statusCode, 201, firstAssignment.body);
     assert.equal(firstAssignment.json<Json>().data.taskCode, null);
@@ -2021,6 +2021,8 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     const revokedVerificationCode = firstAssignment.json<Json>().data.assignment.verificationCode;
     assert.match(revokedVerificationCode, /^\d{6}$/u);
     assert.equal(firstAssignment.json<Json>().data.verificationCode, revokedVerificationCode);
+    assert.equal(firstAssignment.json<Json>().data.assignment.receptionistName, "站务小刘");
+    assert.equal(firstAssignment.json<Json>().data.assignment.receptionistPhone, "13800138000");
     assert.equal(firstAssignment.json<Json>().data.assignment.verificationCodeStatus, "active");
     assert.equal(firstAssignment.json<Json>().data.driverEntryPath, "/packages/driver/pages/login/login");
     await database.prepare(`
@@ -2075,10 +2077,12 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     const assignment = await app.inject({
       method: "POST",
       url: `/api/admin/bookings/${bookingId}/driver-assignment`,
-      payload: { driverName: "王大海", driverPhone: "13900139000" },
+      payload: { receptionistName: "站务小刘", receptionistPhone: "13800138000" },
     });
     assert.equal(assignment.statusCode, 201, assignment.body);
     assert.equal(assignment.json<Json>().data.taskCode, null);
+    assert.equal(assignment.json<Json>().data.assignment.receptionistName, "站务小刘");
+    assert.equal(assignment.json<Json>().data.assignment.receptionistPhone, "13800138000");
     const taskCode = "vt_historical_bound_driver_task";
     const verificationCode = assignment.json<Json>().data.assignment.verificationCode;
     assert.match(verificationCode, /^\d{6}$/u);
@@ -2554,13 +2558,13 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     });
     assert.equal(ownerDetail.statusCode, 200, ownerDetail.body);
     const ownerData = ownerDetail.json<Json>().data;
-    assert.equal(ownerData.driverAssignment.driverName, "王师傅");
-    assert.equal(ownerData.driverAssignment.driverPhone, "139****9000");
+    assert.equal(ownerData.driverAssignment.receptionistName, "站师傅");
+    assert.equal(ownerData.driverAssignment.receptionistPhone, "138****8000");
     assert.equal("verificationCode" in ownerData.driverAssignment, false);
     assert.ok(ownerData.evidencePackages.every((item: Json) => item.status === "completed" && item.photos.length === 5));
     assert.ok(ownerData.events.some((event: Json) => event.actorType === "driver"));
     const pickupPackage = ownerData.evidencePackages.find((item: Json) => item.stage === "owner_pickup");
-    assert.equal(pickupPackage.capturedByLabel, "王师傅");
+    assert.equal(pickupPackage.capturedByLabel, "站师傅");
     const ownerMedia = await app.inject({
       method: "GET",
       url: pickupPackage.photos[0].url,
@@ -2571,7 +2575,8 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
 
     const adminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${bookingId}` });
     assert.equal(adminDetail.statusCode, 200, adminDetail.body);
-    assert.equal(adminDetail.json<Json>().data.driverAssignment.driverName, "王大海");
+    assert.equal(adminDetail.json<Json>().data.driverAssignment.receptionistName, "站务小刘");
+    assert.equal(adminDetail.json<Json>().data.driverAssignment.receptionistPhone, "13800138000");
     assert.equal(adminDetail.json<Json>().data.driverAssignment.verificationCode, null);
     assert.equal(adminDetail.json<Json>().data.driverAssignment.verificationCodeStatus, "completed");
     assert.ok(adminDetail.json<Json>().data.evidencePackages.every((item: Json) => item.photos.length === 5));
@@ -2666,7 +2671,7 @@ test("新版代驾预约取消会原子撤销任务码与已签发司机会话",
     const assignment = await app.inject({
       method: "POST",
       url: `/api/admin/bookings/${bookingId}/driver-assignment`,
-      payload: { driverName: "王大海", driverPhone: "13900139000" },
+      payload: { receptionistName: "站务小刘", receptionistPhone: "13800138000" },
     });
     assert.equal(assignment.statusCode, 201, assignment.body);
     assert.equal(assignment.json<Json>().data.taskCode, null);

@@ -194,6 +194,8 @@ type Media = { id: string; kind: string; url: string; width: number; height: num
 type DriverAssignment = {
   id: string;
   status: string;
+  receptionistName?: string;
+  receptionistPhone?: string;
   driverName: string;
   driverPhone: string;
   assignedAt?: string | null;
@@ -804,27 +806,29 @@ function groupedDriverVerificationCode(value: string) {
 function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking; refresh: () => void; onError: (message: string) => void }) {
   const assignment = booking.driverAssignment ?? null;
   const assignmentActive = Boolean(assignment && ["assigned", "bound", "in_progress"].includes(assignment.status));
-  const [driverName, setDriverName] = useState(assignment?.driverName || "");
-  const [driverPhone, setDriverPhone] = useState(assignment?.driverPhone || "");
+  const initialReceptionistName = assignment?.receptionistName || assignment?.driverName || "";
+  const initialReceptionistPhone = assignment?.receptionistPhone || assignment?.driverPhone || "";
+  const [receptionistName, setReceptionistName] = useState(initialReceptionistName);
+  const [receptionistPhone, setReceptionistPhone] = useState(initialReceptionistPhone);
   const [latestVerificationCode, setLatestVerificationCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setDriverName(assignment?.driverName || "");
-    setDriverPhone(assignment?.driverPhone || "");
+    setReceptionistName(assignment?.receptionistName || assignment?.driverName || "");
+    setReceptionistPhone(assignment?.receptionistPhone || assignment?.driverPhone || "");
     setLatestVerificationCode(driverVerificationCode(assignment?.verificationCode));
-  }, [booking.id, assignment?.id, assignment?.driverName, assignment?.driverPhone, assignment?.verificationCode]);
+  }, [booking.id, assignment?.id, assignment?.receptionistName, assignment?.receptionistPhone, assignment?.driverName, assignment?.driverPhone, assignment?.verificationCode]);
 
   const generate = async () => {
-    const normalizedName = driverName.trim();
-    const normalizedPhone = driverPhone.replace(/\s+/g, "");
+    const normalizedName = receptionistName.trim();
+    const normalizedPhone = receptionistPhone.replace(/\s+/g, "");
     if (normalizedName.length < 2) {
-      onError("请填写至少两个字的司机姓名");
+      onError("请填写至少两个字的接待人员姓名");
       return;
     }
     if (!/^1\d{10}$/.test(normalizedPhone)) {
-      onError("请填写有效的11位司机手机号");
+      onError("请填写有效的11位接待人员手机号");
       return;
     }
     setBusy(true);
@@ -832,13 +836,13 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     try {
       const result = await api<DriverAssignmentMutation>(`/admin/bookings/${booking.id}/driver-assignment`, {
         method: "POST",
-        body: JSON.stringify({ driverName: normalizedName, driverPhone: normalizedPhone }),
+        body: JSON.stringify({ receptionistName: normalizedName, receptionistPhone: normalizedPhone }),
       });
       setLatestVerificationCode(driverVerificationCode(result.assignment.verificationCode));
-      setMessage(assignmentActive ? "司机任务验证码已重新生成，旧验证码已失效" : "司机已安排，验证码已生成并进入司机履约阶段");
+      setMessage(assignmentActive ? "取车任务验证码已重新生成，旧验证码已失效" : "接待人已安排，取车任务验证码已生成（可发群抢单）");
       refresh();
     } catch (error) {
-      onError(operatorErrorMessage(error, "司机任务创建失败，请稍后重试"));
+      onError(operatorErrorMessage(error, "接待人安排失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -851,10 +855,10 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     try {
       await api(`/admin/bookings/${booking.id}/driver-assignment`, { method: "DELETE" });
       setLatestVerificationCode(null);
-      setMessage("司机任务验证码已失效，订单已恢复为等待安排司机");
+      setMessage("取车任务验证码已失效，订单已恢复为等待安排接待人");
       refresh();
     } catch (error) {
-      onError(operatorErrorMessage(error, "司机任务撤销失败，请稍后重试"));
+      onError(operatorErrorMessage(error, "接待人安排撤销失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -864,16 +868,16 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-      setMessage("6位任务验证码已复制");
+      setMessage("6位取车任务验证码已复制");
     } catch {
       onError("浏览器未允许复制，请手动记录6位验证码");
     }
   };
 
   if (booking.evidencePolicyVersion === "legacy") {
-    return <section className="detail-section driver-assignment-panel legacy-evidence-notice" aria-label="代驾司机安排">
+    return <section className="detail-section driver-assignment-panel legacy-evidence-notice" aria-label="接待人安排">
       <header><div><small>历史订单</small><h3>历史代驾订单</h3></div><span className="assignment-status inactive">历史口径</span></header>
-      <p><WarningCircle weight="fill" />该订单创建于一单一司机任务验证码上线前，继续保留原线下安排记录，后台不会补发或伪造司机任务。</p>
+      <p><WarningCircle weight="fill" />该订单创建于取车任务验证码上线前，继续保留原线下安排记录，后台不会补发或伪造取车任务。</p>
     </section>;
   }
 
@@ -905,28 +909,30 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
       : codeStatus === "active"
         ? `24小时内首次领取${assignment?.verificationCodeExpiresAt ? ` · 有效至 ${shanghaiTime(assignment.verificationCodeExpiresAt) || "时间未记录"}` : ""}`
         : "验证码当前不可领取";
-  return <section className="detail-section driver-assignment-panel" aria-label="代驾司机安排">
-    <header><div><small>司机任务入口</small><h3>一单一司机任务验证码</h3></div><span className={`assignment-status ${codeStatus === "active" || codeStatus === "bound" ? "active" : "inactive"}`}>{assignmentStatusLabel}</span></header>
+  const shownReceptionistName = assignment?.receptionistName || assignment?.driverName || "";
+  const shownReceptionistPhone = assignment?.receptionistPhone || assignment?.driverPhone || "";
+  return <section className="detail-section driver-assignment-panel" aria-label="接待人安排">
+    <header><div><small>取车任务入口</small><h3>取车任务验证码（发群抢单）</h3></div><span className={`assignment-status ${codeStatus === "active" || codeStatus === "bound" ? "active" : "inactive"}`}>{assignmentStatusLabel}</span></header>
     <div className="driver-assignment-fields">
-      <label><span>司机姓名</span><input aria-label="司机姓名" value={driverName} maxLength={30} onChange={(event) => setDriverName(event.target.value)} placeholder="例如：王师傅" disabled={busy || !assignmentEditable} /></label>
-      <label><span>司机手机号</span><input aria-label="司机手机号" value={driverPhone} inputMode="numeric" maxLength={11} onChange={(event) => setDriverPhone(event.target.value)} placeholder="11位手机号" disabled={busy || !assignmentEditable} /></label>
+      <label><span>接待人员姓名</span><input aria-label="接待人员姓名" value={receptionistName} maxLength={30} onChange={(event) => setReceptionistName(event.target.value)} placeholder="例如：站务小刘" disabled={busy || !assignmentEditable} /></label>
+      <label><span>接待人员电话</span><input aria-label="接待人员电话" value={receptionistPhone} inputMode="numeric" maxLength={11} onChange={(event) => setReceptionistPhone(event.target.value)} placeholder="11位手机号" disabled={busy || !assignmentEditable} /></label>
     </div>
     {assignment ? <div className="assignment-snapshot">
-      <span><UserCircle weight="duotone" /><small>当前司机</small><strong>{assignment.driverName} · {assignment.driverPhone}</strong></span>
+      <span><UserCircle weight="duotone" /><small>当前接待人</small><strong>{shownReceptionistName} · {shownReceptionistPhone}</strong></span>
       <span><CalendarCheck weight="duotone" /><small>安排时间</small><strong>{shanghaiTime(assignment.assignedAt) || "时间未记录"}</strong></span>
-      <span><ShieldCheck weight="duotone" /><small>任务领取</small><strong>{assignment.boundAt ? `已绑定 · ${shanghaiTime(assignment.boundAt)}` : codeStatus === "expired" ? "验证码已过期" : "等待司机输入验证码"}</strong></span>
+      <span><ShieldCheck weight="duotone" /><small>任务领取</small><strong>{assignment.boundAt ? `已绑定 · ${shanghaiTime(assignment.boundAt)}` : codeStatus === "expired" ? "验证码已过期" : "等待代驾输入验证码抢单"}</strong></span>
     </div> : null}
-    {verificationCode ? <div className={`driver-verification-panel ${codeStatus || "unavailable"}`} aria-label="司机任务验证码">
-      <div className="driver-verification-copy"><small>司机进入小程序代驾端后输入</small><strong aria-label={`司机任务验证码 ${verificationCode}`}>{groupedDriverVerificationCode(verificationCode)}</strong><em>{codeUsageText}</em></div>
-      <button type="button" aria-label="复制司机任务验证码" onClick={() => void copyVerificationCode(verificationCode)}><ClipboardText />复制验证码</button>
+    {verificationCode ? <div className={`driver-verification-panel ${codeStatus || "unavailable"}`} aria-label="取车任务验证码">
+      <div className="driver-verification-copy"><small>代驾进入小程序代驾端后输入</small><strong aria-label={`取车任务验证码 ${verificationCode}`}>{groupedDriverVerificationCode(verificationCode)}</strong><em>{codeUsageText}</em></div>
+      <button type="button" aria-label="复制取车任务验证码" onClick={() => void copyVerificationCode(verificationCode)}><ClipboardText />复制验证码</button>
     </div> : assignmentActive && !taskEnded ? <p className="assignment-security-note">验证码暂不可用，请刷新详情；如已过期，可重新生成，旧验证码会立即失效。</p> : null}
     <div className="driver-assignment-actions">
-      <button type="button" className="primary" disabled={busy || !assignmentEditable} onClick={() => void generate()}><SteeringWheel />{busy ? "处理中…" : assignmentActive ? "重新生成验证码" : "安排司机并生成验证码"}</button>
+      <button type="button" className="primary" disabled={busy || !assignmentEditable} onClick={() => void generate()}><SteeringWheel />{busy ? "处理中…" : assignmentActive ? "重新生成验证码" : "安排接待人并生成验证码"}</button>
       {assignmentActive ? <button type="button" className="revoke" disabled={busy || !assignmentEditable} onClick={() => void revoke()}><Trash />使当前验证码失效</button> : null}
     </div>
-    {!assignmentEditable && !taskEnded ? <p className="assignment-security-note">车辆已进入现场履约，司机身份和验证码绑定已锁定，后台不能中途换人或撤销。</p> : null}
+    {!assignmentEditable && !taskEnded ? <p className="assignment-security-note">车辆已进入现场履约，接待人安排和验证码绑定已锁定，后台不能中途换人或撤销。</p> : null}
     {message ? <p className="assignment-success" role="status"><CheckCircle weight="fill" />{message}</p> : null}
-    <p className="assignment-boundary"><ShieldCheck />生成验证码会自动推进到“司机已安排”；验证码首次领取后绑定司机微信，取车、到站和送回必须由对应端完成留证，后台不能代替推进。</p>
+    <p className="assignment-boundary"><ShieldCheck />生成验证码会自动推进到“司机已安排”；验证码首次领取后绑定代驾微信，取车、到站和送回必须由对应端完成留证，后台不能代替推进。</p>
   </section>;
 }
 

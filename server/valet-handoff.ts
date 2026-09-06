@@ -54,8 +54,8 @@ type EvidenceAudience = "owner" | "admin" | "operator" | "driver";
 
 const evidenceKindSchema = z.enum(valetEvidenceKinds);
 const assignmentSchema = z.object({
-  driverName: z.string().trim().min(2).max(40),
-  driverPhone: z.string().trim().regex(/^1\d{10}$/u, "请输入有效的 11 位手机号"),
+  receptionistName: z.string().trim().min(2).max(40),
+  receptionistPhone: z.string().trim().regex(/^1\d{10}$/u, "请输入有效的 11 位手机号"),
 });
 const taskExchangeSchema = z.object({
   taskCode: z.string().trim().min(20).max(240).optional(),
@@ -333,11 +333,16 @@ function verificationCodeView(row: Row): {
 
 function assignmentDto(row: Row, audience: EvidenceAudience, revealVerificationCode = false) {
   const full = audience !== "owner";
-  const driverName = String(row.driver_name);
-  const driverPhone = String(row.driver_phone);
+  const receptionistName = String(row.receptionist_name ?? row.driver_name ?? "");
+  const receptionistPhone = String(row.receptionist_phone ?? row.driver_phone ?? "");
+  // Compatibility: keep driverName/Phone aliases until pickup/return executors ship.
+  const driverName = receptionistName;
+  const driverPhone = receptionistPhone;
   return {
     id: String(row.id),
     status: String(row.status),
+    receptionistName: full ? receptionistName : ownerDriverName(receptionistName),
+    receptionistPhone: full ? receptionistPhone : maskPhone(receptionistPhone),
     driverName: full ? driverName : ownerDriverName(driverName),
     driverPhone: full ? driverPhone : maskPhone(driverPhone),
     assignedAt: String(row.assigned_at),
@@ -1243,29 +1248,33 @@ export async function registerValetHandoffRoutes(
         Date.parse(now) + verificationCodeFirstClaimTtlMs,
       ).toISOString();
       const persistedAccountId = await persistedBackofficeAccountId(tx, principal.account.id);
-      const sameDriver = current
-        && String(current.driver_name) === input.driverName
-        && String(current.driver_phone) === input.driverPhone;
       if (current) {
+        // Re-arrange regenerates pickup code: clear bound/pickup/return/handoff executors.
         await tx.prepare(`
-          UPDATE valet_driver_assignments SET driver_name = ?, driver_phone = ?, status = ?,
+          UPDATE valet_driver_assignments SET
+            receptionist_name = ?, receptionist_phone = ?,
+            driver_name = ?, driver_phone = ?, status = 'assigned',
             task_code_hash = NULL, task_code_expires_at = NULL, task_code_consumed_at = NULL,
             verification_code_hmac = ?, verification_code_ciphertext = ?,
             verification_code_expires_at = ?, verification_code_created_at = ?,
-            bound_user_id = ?, assigned_by_account_id = ?, assigned_at = ?, bound_at = ?,
+            bound_user_id = NULL, bound_at = NULL,
+            pickup_driver_phone = NULL, pickup_bound_user_id = NULL, pickup_bound_at = NULL,
+            return_driver_phone = NULL, return_bound_user_id = NULL, return_bound_at = NULL,
+            handoff_verification_code_hmac = NULL, handoff_verification_code_ciphertext = NULL,
+            handoff_verification_code_expires_at = NULL, handoff_verification_code_created_at = NULL,
+            assigned_by_account_id = ?, assigned_at = ?,
             completed_at = NULL, cancelled_at = NULL, updated_at = ? WHERE id = ?
         `).run(
-          input.driverName,
-          input.driverPhone,
-          sameDriver && current.bound_user_id != null ? "bound" : "assigned",
+          input.receptionistName,
+          input.receptionistPhone,
+          input.receptionistName,
+          input.receptionistPhone,
           generatedCode.hmac,
           generatedCode.ciphertext,
           verificationCodeExpiresAt,
           now,
-          sameDriver && current.bound_user_id != null ? String(current.bound_user_id) : null,
           persistedAccountId,
           now,
-          sameDriver && current.bound_at != null ? String(current.bound_at) : null,
           now,
           assignmentId,
         );
@@ -1274,16 +1283,19 @@ export async function registerValetHandoffRoutes(
       } else {
         await tx.prepare(`
           INSERT INTO valet_driver_assignments (
-            id, booking_id, driver_name, driver_phone, status,
+            id, booking_id, receptionist_name, receptionist_phone,
+            driver_name, driver_phone, status,
             verification_code_hmac, verification_code_ciphertext,
             verification_code_expires_at, verification_code_created_at,
             assigned_by_account_id, assigned_at, updated_at
-          ) VALUES (?, ?, ?, ?, 'assigned', ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?, ?, ?, ?, ?, ?)
         `).run(
           assignmentId,
           request.params.id,
-          input.driverName,
-          input.driverPhone,
+          input.receptionistName,
+          input.receptionistPhone,
+          input.receptionistName,
+          input.receptionistPhone,
           generatedCode.hmac,
           generatedCode.ciphertext,
           verificationCodeExpiresAt,
@@ -1300,10 +1312,14 @@ export async function registerValetHandoffRoutes(
         tx,
         request.params.id,
         "driver_arranged",
-        "代驾司机已安排",
-        `${ownerDriverName(input.driverName)}已安排执行本次往返取送任务`,
+        "检测站接待人已安排",
+        `接待人${ownerDriverName(input.receptionistName)}已登记，取车任务验证码已生成`,
         "operator",
-        { assignmentId, driverLabel: ownerDriverName(input.driverName), driverPhoneMasked: maskPhone(input.driverPhone) },
+        {
+          assignmentId,
+          receptionistLabel: ownerDriverName(input.receptionistName),
+          receptionistPhoneMasked: maskPhone(input.receptionistPhone),
+        },
         now,
         { verificationCode, forceReopenNodeCodes: ["annual.driver.claim"] },
       );
@@ -1313,12 +1329,16 @@ export async function registerValetHandoffRoutes(
         outcome: "success",
         resource: { type: "booking", id: request.params.id },
         before: current ? assignmentDto(current, "admin") : null,
-        after: { assignmentId, driverName: input.driverName, driverPhoneMasked: maskPhone(input.driverPhone) },
+        after: {
+          assignmentId,
+          receptionistName: input.receptionistName,
+          receptionistPhoneMasked: maskPhone(input.receptionistPhone),
+        },
         presentation: {
           category: "inspection",
-          actionLabel: current ? "重发代驾任务" : "安排代驾司机",
-          summary: `预约已安排代驾司机 ${input.driverName}`,
-          changes: [{ field: "driverAssignment", label: "代驾司机", after: input.driverName }],
+          actionLabel: current ? "重发取车任务验证码" : "安排接待人",
+          summary: `预约已安排接待人 ${input.receptionistName}`,
+          changes: [{ field: "driverAssignment", label: "接待人", after: input.receptionistName }],
         },
       });
     });
