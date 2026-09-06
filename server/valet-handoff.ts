@@ -239,16 +239,17 @@ async function generateDriverVerificationCode(
   problem: ProblemFactory,
 ): Promise<{ code: string; hmac: string; ciphertext: string }> {
   // A six-digit namespace is intentionally small enough for a person to type.
-  // Serialize generation and enforce the unique HMAC index so two concurrent
-  // assignments can never issue the same active code.
+  // Serialize generation and enforce uniqueness across both pickup and handoff
+  // HMAC columns so exchange cannot collide on the shared code space.
   await database.prepare("SELECT pg_advisory_xact_lock(hashtext(?))")
     .get("valet-driver-verification-code-generation:v1");
   for (let attempt = 0; attempt < 32; attempt += 1) {
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const hmac = driverVerificationCodeHmac(code, problem)!;
     const existing = await database.prepare<Row>(`
-      SELECT id FROM valet_driver_assignments WHERE verification_code_hmac = ?
-    `).get(hmac);
+      SELECT id FROM valet_driver_assignments
+      WHERE verification_code_hmac = ? OR handoff_verification_code_hmac = ?
+    `).get(hmac, hmac);
     if (!existing) {
       return {
         code,
@@ -1108,6 +1109,75 @@ async function completeStationArrival(
   });
 }
 
+const handoffEligibleFulfillmentStatuses = new Set([
+  "checked_in",
+  "inspecting",
+  "result_received",
+]);
+
+async function mintHandoffVerificationCode(
+  database: AppDatabase,
+  principal: DriverPrincipal,
+  problem: ProblemFactory,
+): Promise<{ handoffVerificationCode: string; expiresAt: string }> {
+  return database.transaction(async (tx) => {
+    const booking = await requireTaskBooking(tx, principal.bookingId, problem, true);
+    const assignment = await tx.prepare<Row>(`
+      SELECT * FROM valet_driver_assignments WHERE id = ? AND booking_id = ? FOR UPDATE
+    `).get(principal.assignmentId, principal.bookingId);
+    if (!assignment) throw problem(404, "DRIVER_TASK_NOT_FOUND", "未找到可访问的代驾任务");
+
+    const pickupBoundUserId = assignment.pickup_bound_user_id == null
+      ? null
+      : String(assignment.pickup_bound_user_id);
+    const boundUserId = assignment.bound_user_id == null ? null : String(assignment.bound_user_id);
+    if (!pickupBoundUserId
+      || pickupBoundUserId !== principal.userId
+      || boundUserId !== pickupBoundUserId) {
+      throw problem(403, "HANDOFF_CODE_FORBIDDEN", "仅取车代驾可以生成换班码");
+    }
+    if (assignment.return_bound_user_id != null) {
+      throw problem(409, "HANDOFF_CODE_ALREADY_CLAIMED", "送车司机已绑定，不能再生成换班码");
+    }
+    if (!handoffEligibleFulfillmentStatuses.has(canonicalStatus(booking))) {
+      throw problem(409, "HANDOFF_CODE_NOT_ALLOWED", "仅车辆送达检测站后可以生成换班码");
+    }
+
+    // Void any unused handoff credential before regenerating so the old code
+    // cannot race an exchange while the new HMAC is being minted.
+    await tx.prepare(`
+      UPDATE valet_driver_assignments SET
+        handoff_verification_code_hmac = NULL,
+        handoff_verification_code_ciphertext = NULL,
+        handoff_verification_code_expires_at = NULL,
+        handoff_verification_code_created_at = NULL,
+        updated_at = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), String(assignment.id));
+
+    const now = new Date().toISOString();
+    const generated = await generateDriverVerificationCode(tx, String(assignment.id), problem);
+    const expiresAt = new Date(Date.parse(now) + verificationCodeFirstClaimTtlMs).toISOString();
+    await tx.prepare(`
+      UPDATE valet_driver_assignments SET
+        handoff_verification_code_hmac = ?,
+        handoff_verification_code_ciphertext = ?,
+        handoff_verification_code_expires_at = ?,
+        handoff_verification_code_created_at = ?,
+        updated_at = ?
+      WHERE id = ?
+    `).run(
+      generated.hmac,
+      generated.ciphertext,
+      expiresAt,
+      now,
+      now,
+      String(assignment.id),
+    );
+    return { handoffVerificationCode: generated.code, expiresAt };
+  });
+}
+
 async function startReturn(
   database: AppDatabase,
   principal: DriverPrincipal,
@@ -1699,6 +1769,17 @@ export async function registerValetHandoffRoutes(
     const principal = await requireDriverPrincipal(request, database, options.problem, request.params.id);
     await startReturn(database, principal, input.idempotencyKey, options.problem);
     return { data: await driverTaskDto(database, request.params.id) };
+  });
+
+  app.post<{ Params: { id: string } }>("/api/driver/tasks/:id/handoff-code", async (request) => {
+    const principal = await requireDriverPrincipal(request, database, options.problem, request.params.id);
+    const minted = await mintHandoffVerificationCode(database, principal, options.problem);
+    return {
+      data: {
+        handoffVerificationCode: minted.handoffVerificationCode,
+        expiresAt: minted.expiresAt,
+      },
+    };
   });
 
   app.post<{ Params: { id: string } }>(

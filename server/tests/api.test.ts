@@ -2927,6 +2927,186 @@ test("代驾换班码兑换会绑定送车司机、打标并吊销旧会话", as
   }
 });
 
+test("取车代驾送达站后可生成换班码，重发会使旧码失效", async () => {
+  const { app, database, close } = await fixture();
+  const originalKey = process.env.TENCENT_MAP_KEY;
+  const originalFetch = globalThis.fetch;
+  try {
+    process.env.TENCENT_MAP_KEY = "test-key";
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      status: 0,
+      result: { rows: [{ elements: [{ distance: 7_800, duration: 1_200 }] }] },
+    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+
+    const { vehicle, station, slots } = await seedContext(app);
+    const pickupAddress = {
+      poiId: "valet-handoff-mint-pickup",
+      title: "天津文化中心地下停车场",
+      address: "天津市河西区平江道 58 号",
+      district: "河西区",
+      latitude: 39.0837,
+      longitude: 117.2197,
+      source: "tencent",
+    };
+    const quote = await app.inject({
+      method: "POST",
+      url: "/api/bookings/quote",
+      payload: { vehicleId: vehicle.id, stationId: station.id, serviceMode: "valet", pickupAddress },
+    });
+    assert.equal(quote.statusCode, 200, quote.body);
+    const bookingMedia = await uploadAnnualBookingMedia(app, "valet");
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        vehicleId: vehicle.id,
+        stationId: station.id,
+        slotId: slots[0].id,
+        contactName: "张女士",
+        contactPhone: "13800138000",
+        serviceMode: "valet",
+        pickupAddress,
+        quoteSnapshotId: quote.json<Json>().data.quoteSnapshotId,
+        mediaIds: bookingMedia.map((item) => item.id),
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const booking = created.json<Json>().data;
+    const bookingId = booking.id;
+    const paid = await app.inject({
+      method: "POST",
+      url: `/api/bookings/${bookingId}/payments`,
+      payload: {
+        provider: "mock",
+        idempotencyKey: "valet-handoff-mint-payment",
+        quoteSnapshotId: booking.quoteSnapshotId,
+      },
+    });
+    assert.equal(paid.statusCode, 201, paid.body);
+    const approved = await approvePrecheck(app, bookingId);
+    assert.equal(approved.fulfillmentStatus, "confirmed");
+    const assignment = await app.inject({
+      method: "POST",
+      url: `/api/admin/bookings/${bookingId}/driver-assignment`,
+      payload: { receptionistName: "站务小刘", receptionistPhone: "13800138000" },
+    });
+    assert.equal(assignment.statusCode, 201, assignment.body);
+    const verificationCode = assignment.json<Json>().data.assignment.verificationCode;
+    const pickupDriver = await createDevelopmentSession(database, { userId: "valet-handoff-mint-driver" });
+    const pickupExchange = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${pickupDriver.token}` },
+      payload: { verificationCode, driverPhone: "13900139111" },
+    });
+    assert.equal(pickupExchange.statusCode, 201, pickupExchange.body);
+    const pickupToken = pickupExchange.json<Json>().data.token;
+
+    const beforeArrival = await app.inject({
+      method: "POST",
+      url: `/api/driver/tasks/${bookingId}/handoff-code`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+    });
+    assert.equal(beforeArrival.statusCode, 409, beforeArrival.body);
+    assert.equal(beforeArrival.json<Json>().error.code, "HANDOFF_CODE_NOT_ALLOWED");
+
+    const pickupMediaUrl = `/api/driver/tasks/${bookingId}/evidence/owner_pickup/media`;
+    for (const kind of ["front_left", "front_right", "rear_left", "rear_right", "dashboard_started"]) {
+      const uploaded = await requestValetEvidenceMedia(app, pickupMediaUrl, kind, { token: pickupToken });
+      assert.equal(uploaded.statusCode, 201, uploaded.body);
+    }
+    const pickupComplete = await app.inject({
+      method: "POST",
+      url: `/api/driver/tasks/${bookingId}/evidence/owner_pickup/complete`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+      payload: { idempotencyKey: "handoff-mint-pickup-complete" },
+    });
+    assert.equal(pickupComplete.statusCode, 200, pickupComplete.body);
+    assert.equal(pickupComplete.json<Json>().data.status, "picked_up");
+
+    const whilePickedUp = await app.inject({
+      method: "POST",
+      url: `/api/driver/tasks/${bookingId}/handoff-code`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+    });
+    assert.equal(whilePickedUp.statusCode, 409, whilePickedUp.body);
+    assert.equal(whilePickedUp.json<Json>().error.code, "HANDOFF_CODE_NOT_ALLOWED");
+
+    const arrivalMediaUrl = `/api/operator/bookings/${bookingId}/evidence/station_arrival/media`;
+    for (const kind of ["front_left", "front_right", "rear_left", "rear_right", "dashboard_started"]) {
+      const uploaded = await requestValetEvidenceMedia(app, arrivalMediaUrl, kind);
+      assert.equal(uploaded.statusCode, 201, uploaded.body);
+    }
+    const arrivalComplete = await app.inject({
+      method: "POST",
+      url: `/api/operator/bookings/${bookingId}/evidence/station_arrival/complete`,
+      payload: {
+        idempotencyKey: "handoff-mint-arrival-complete",
+        verification: {
+          plateMatched: true,
+          materialsReady: true,
+          exteriorRecorded: true,
+          vehicleConditionConfirmed: true,
+        },
+      },
+    });
+    assert.equal(arrivalComplete.statusCode, 200, arrivalComplete.body);
+    assert.equal(arrivalComplete.json<Json>().data.fulfillmentStatus, "checked_in");
+
+    const firstMint = await app.inject({
+      method: "POST",
+      url: `/api/driver/tasks/${bookingId}/handoff-code`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+    });
+    assert.equal(firstMint.statusCode, 200, firstMint.body);
+    const firstCode = firstMint.json<Json>().data.handoffVerificationCode;
+    const firstExpiresAt = firstMint.json<Json>().data.expiresAt;
+    assert.match(String(firstCode), /^\d{6}$/u);
+    assert.ok(firstExpiresAt);
+    assert.deepEqual(Object.keys(firstMint.json<Json>().data).sort(), [
+      "expiresAt",
+      "handoffVerificationCode",
+    ]);
+
+    const adminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${bookingId}` });
+    assert.equal(adminDetail.statusCode, 200, adminDetail.body);
+    assert.equal("handoffVerificationCode" in adminDetail.json<Json>().data.driverAssignment, false);
+
+    const secondMint = await app.inject({
+      method: "POST",
+      url: `/api/driver/tasks/${bookingId}/handoff-code`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+    });
+    assert.equal(secondMint.statusCode, 200, secondMint.body);
+    const secondCode = secondMint.json<Json>().data.handoffVerificationCode;
+    assert.match(String(secondCode), /^\d{6}$/u);
+    assert.notEqual(secondCode, firstCode);
+
+    const returnDriver = await createDevelopmentSession(database, { userId: "valet-handoff-mint-return" });
+    const oldCodeExchange = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${returnDriver.token}` },
+      payload: { verificationCode: firstCode, driverPhone: "13900139222" },
+    });
+    assert.equal(oldCodeExchange.statusCode, 404, oldCodeExchange.body);
+    assert.equal(oldCodeExchange.json<Json>().error.code, "DRIVER_TASK_CODE_INVALID");
+
+    const newCodeExchange = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${returnDriver.token}` },
+      payload: { verificationCode: secondCode, driverPhone: "13900139222" },
+    });
+    assert.equal(newCodeExchange.statusCode, 201, newCodeExchange.body);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.TENCENT_MAP_KEY;
+    else process.env.TENCENT_MAP_KEY = originalKey;
+    await close();
+  }
+});
+
 test("代驾六位验证码失败尝试分别按微信用户和来源 IP 限流", async () => {
   const userFixture = await fixture();
   try {
