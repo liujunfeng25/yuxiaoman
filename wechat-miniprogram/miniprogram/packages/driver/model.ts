@@ -55,9 +55,14 @@ export type DriverTask = {
   endTime: string;
   driverAssignment: {
     id: string;
+    receptionistName: string;
+    receptionistPhone: string;
     driverName: string;
     driverPhoneMasked: string;
+    pickupDriverPhone: string;
+    returnDriverPhone: string;
     status: string;
+    handoffCodePending: boolean;
   } | null;
   vehicle: {
     plateNumber: string;
@@ -231,13 +236,27 @@ export function normalizeDriverTask(value: unknown): DriverTask {
     endTime: stringValue(source.endTime, booking.endTime),
     driverAssignment: Object.keys(assignmentSource).length ? {
       id: stringValue(assignmentSource.id),
-      driverName: stringValue(assignmentSource.driverName, assignmentSource.name),
+      receptionistName: stringValue(
+        assignmentSource.receptionistName,
+        assignmentSource.driverName,
+        assignmentSource.name,
+      ),
+      receptionistPhone: stringValue(
+        assignmentSource.receptionistPhone,
+        assignmentSource.driverPhone,
+        assignmentSource.phone,
+      ),
+      driverName: stringValue(assignmentSource.driverName, assignmentSource.receptionistName, assignmentSource.name),
       driverPhoneMasked: stringValue(
         assignmentSource.driverPhoneMasked,
         assignmentSource.phoneMasked,
         assignmentSource.driverPhone,
+        assignmentSource.receptionistPhone,
       ),
+      pickupDriverPhone: stringValue(assignmentSource.pickupDriverPhone),
+      returnDriverPhone: stringValue(assignmentSource.returnDriverPhone),
       status: stringValue(assignmentSource.status),
+      handoffCodePending: Boolean(assignmentSource.handoffCodePending),
     } : null,
     vehicle: {
       plateNumber: stringValue(vehicleSource.plateNumber, source.plateNumber) || "车牌待同步",

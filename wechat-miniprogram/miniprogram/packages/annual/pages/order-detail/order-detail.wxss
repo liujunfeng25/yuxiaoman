@@ -325,6 +325,79 @@
   height: 28rpx;
 }
 
+.valet-driver-contacts-card {
+  margin-top: 16rpx;
+  padding: 24rpx;
+  border: 1rpx solid #e1e7ee;
+  border-radius: 20rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(25, 57, 94, .05);
+}
+
+.valet-driver-contacts-head {
+  display: grid;
+  grid-template-columns: 56rpx minmax(0, 1fr);
+  align-items: start;
+  gap: 13rpx;
+}
+
+.valet-driver-contacts-icon {
+  display: flex;
+  width: 54rpx;
+  height: 54rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  background: #eaf3ff;
+}
+
+.valet-driver-contacts-icon image {
+  width: 30rpx;
+  height: 30rpx;
+}
+
+.valet-driver-contacts-head > view:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.valet-driver-contacts-head > view:last-child text:first-child {
+  color: #1d3b58;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.valet-driver-contacts-head > view:last-child text:last-child {
+  color: #708697;
+  font-size: 20rpx;
+  line-height: 1.45;
+}
+
+.valet-driver-contact-row {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid #edf2f6;
+}
+
+.valet-driver-contact-row > view {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.valet-driver-contact-row text:first-child {
+  color: #8290a0;
+  font-size: 18rpx;
+}
+
+.valet-driver-contact-row text:last-child {
+  color: #30465d;
+  font-size: 26rpx;
+  font-weight: 750;
+}
+
 .payment-card,
 .pickup-card,
 .timeline-card,

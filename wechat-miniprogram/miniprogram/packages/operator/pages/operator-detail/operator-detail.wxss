@@ -48,6 +48,11 @@
 .service-location { display: flex; margin: 19rpx 0 5rpx; padding: 17rpx 18rpx; border-radius: 17rpx; background: #f5f8fb; flex-direction: column; }
 .service-location text:first-child { color: #30445c; font-size: 21rpx; font-weight: 700; }
 .service-location text:not(:first-child) { margin-top: 5rpx; color: #748296; font-size: 18rpx; line-height: 1.45; }
+.valet-driver-contacts { display: flex; margin: 12rpx 0 8rpx; padding: 16rpx 18rpx; flex-direction: column; gap: 12rpx; border-radius: 17rpx; background: #f5f8fb; }
+.valet-driver-contact-row { display: flex; flex-direction: column; gap: 4rpx; }
+.valet-driver-contact-row + .valet-driver-contact-row { padding-top: 12rpx; border-top: 1rpx solid #e6ebf1; }
+.valet-driver-contact-row text:first-child { color: #748296; font-size: 18rpx; }
+.valet-driver-contact-row text:last-child { color: #30445c; font-size: 22rpx; font-weight: 750; }
 .navigate-button { display: grid; width: 100%; min-height: 88rpx; margin-top: 3rpx; grid-template-columns: auto 1fr auto; align-items: center; gap: 9rpx; color: #1768cf; border-top: 1rpx solid #e8edf2; text-align: left; font-size: 21rpx; font-weight: 700; }
 .navigate-button image:first-child { width: 31rpx; height: 31rpx; }
 .navigate-button image:last-child { width: 26rpx; height: 26rpx; }

@@ -2205,6 +2205,29 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     const boundAdminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${bookingId}` });
     assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCode, null);
     assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCodeStatus, "unavailable");
+    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "13900139001");
+    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.returnDriverPhone, null);
+    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.handoffCodePending, false);
+    const boundOwnerDetail = await app.inject({
+      method: "GET",
+      url: `/api/bookings/${bookingId}`,
+      headers: { authorization: `Bearer ${ownerSession.token}` },
+    });
+    assert.equal(boundOwnerDetail.statusCode, 200, boundOwnerDetail.body);
+    assert.equal(boundOwnerDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "139****9001");
+    assert.equal(boundOwnerDetail.json<Json>().data.driverAssignment.returnDriverPhone, null);
+    assert.equal(boundOwnerDetail.json<Json>().data.driverAssignment.verificationCodeStatus, "unavailable");
+    assert.equal(boundOwnerDetail.json<Json>().data.driverAssignment.handoffCodePending, false);
+    assert.equal("verificationCode" in boundOwnerDetail.json<Json>().data.driverAssignment, false);
+    const boundDriverTask = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}`,
+      headers: { authorization: `Bearer ${driverToken}` },
+    });
+    assert.equal(boundDriverTask.statusCode, 200, boundDriverTask.body);
+    assert.equal(boundDriverTask.json<Json>().data.driverAssignment.receptionistName, "站务小刘");
+    assert.equal(boundDriverTask.json<Json>().data.driverAssignment.receptionistPhone, "13800138000");
+    assert.equal(boundDriverTask.json<Json>().data.driverAssignment.pickupDriverPhone, "13900139001");
     const otherOwner = await createDevelopmentSession(database, { userId: "valet-forwarded-link-owner" });
     const forwarded = await app.inject({
       method: "POST",
@@ -2919,6 +2942,25 @@ test("代驾换班码兑换会绑定送车司机、打标并吊销旧会话", as
       headers: { authorization: `Bearer ${returnToken}` },
     });
     assert.equal(newSessionRead.statusCode, 200, newSessionRead.body);
+    assert.equal(newSessionRead.json<Json>().data.driverAssignment.returnDriverPhone, "13900139222");
+    assert.equal(newSessionRead.json<Json>().data.driverAssignment.handoffCodePending, false);
+
+    const ownerSession = await createDevelopmentSession(database, { userId: "demo-user" });
+    const ownerDetail = await app.inject({
+      method: "GET",
+      url: `/api/bookings/${bookingId}`,
+      headers: { authorization: `Bearer ${ownerSession.token}` },
+    });
+    assert.equal(ownerDetail.statusCode, 200, ownerDetail.body);
+    assert.equal(ownerDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "139****9111");
+    assert.equal(ownerDetail.json<Json>().data.driverAssignment.returnDriverPhone, "139****9222");
+    assert.equal(ownerDetail.json<Json>().data.driverAssignment.handoffCodePending, false);
+
+    const operatorDetail = await app.inject({ method: "GET", url: `/api/operator/bookings/${bookingId}` });
+    assert.equal(operatorDetail.statusCode, 200, operatorDetail.body);
+    assert.equal(operatorDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "139****9111");
+    assert.equal(operatorDetail.json<Json>().data.driverAssignment.returnDriverPhone, "139****9222");
+    assert.equal(operatorDetail.json<Json>().data.driverAssignment.receptionistPhone, "13800138000");
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.TENCENT_MAP_KEY;
@@ -3071,6 +3113,19 @@ test("取车代驾送达站后可生成换班码，重发会使旧码失效", as
     const adminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${bookingId}` });
     assert.equal(adminDetail.statusCode, 200, adminDetail.body);
     assert.equal("handoffVerificationCode" in adminDetail.json<Json>().data.driverAssignment, false);
+    assert.equal(adminDetail.json<Json>().data.driverAssignment.handoffCodePending, true);
+    assert.equal(adminDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "13900139111");
+
+    const ownerSession = await createDevelopmentSession(database, { userId: "demo-user" });
+    const ownerDetail = await app.inject({
+      method: "GET",
+      url: `/api/bookings/${bookingId}`,
+      headers: { authorization: `Bearer ${ownerSession.token}` },
+    });
+    assert.equal(ownerDetail.statusCode, 200, ownerDetail.body);
+    assert.equal(ownerDetail.json<Json>().data.driverAssignment.handoffCodePending, true);
+    assert.equal("handoffVerificationCode" in ownerDetail.json<Json>().data.driverAssignment, false);
+    assert.equal(ownerDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "139****9111");
 
     const secondMint = await app.inject({
       method: "POST",

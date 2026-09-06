@@ -20,6 +20,16 @@
       <view class="mock-payment-note"><image src="/assets/icons/shield-check.png"/><text>本地 mock 支付金额；不拉起真实 SDK，金额参与后台应收、已收与统计。</text></view>
       <view wx:if="{{booking.pickupAddress}}" class="service-location"><text>{{booking.pickupAddress.title}}{{booking.pickupAddress.detail ? ' · ' + booking.pickupAddress.detail : ''}}</text><text>{{booking.pickupAddress.address}}</text><text wx:if="{{booking.pickupAddress.note}}">备注：{{booking.pickupAddress.note}}</text></view>
       <view wx:else class="service-location"><text>{{booking.station ? booking.station.name : '预约检测站'}}</text><text>{{booking.station ? booking.station.address : '车主按预约时段自驾到站'}}</text></view>
+      <view wx:if="{{booking.serviceMode === 'valet' && booking.driverAssignment && (booking.driverAssignment.pickupDriverPhone || booking.driverAssignment.returnDriverPhone)}}" class="valet-driver-contacts">
+        <view wx:if="{{booking.driverAssignment.pickupDriverPhone}}" class="valet-driver-contact-row">
+          <text>取车代驾联系方式</text>
+          <text>{{booking.driverAssignment.pickupDriverPhone}}</text>
+        </view>
+        <view wx:if="{{booking.driverAssignment.returnDriverPhone}}" class="valet-driver-contact-row">
+          <text>送车司机联系方式</text>
+          <text>{{booking.driverAssignment.returnDriverPhone}}</text>
+        </view>
+      </view>
       <button class="navigate-button" bindtap="navigate"><image src="/assets/icons/map-pin.png"/><text>{{booking.navigationLabel}}</text><image src="/assets/icons/caret-right.png"/></button>
     </view>
 

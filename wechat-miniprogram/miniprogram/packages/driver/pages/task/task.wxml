@@ -54,6 +54,7 @@
         <button data-target="station" bindtap="navigate" disabled="{{!task.station}}"><image src="/assets/icons/map-pin.png"/><text>导航</text></button>
       </view>
       <view class="contact-row"><view><image src="/assets/icons/user-circle.png"/><view><text>车主联系人</text><text>{{task.owner.contactName || '联系人待同步'}} · {{task.ownerPhoneDisplay}}</text></view></view><button bindtap="callOwner" disabled="{{!task.owner.contactPhone}}"><image src="/assets/icons/phone.png"/><text>拨打</text></button></view>
+      <view class="contact-row"><view><image src="/assets/icons/storefront.png"/><view><text>检测站接待</text><text>{{task.receptionistDisplay}}</text></view></view><button bindtap="callReceptionist" disabled="{{!task.receptionistPhone}}"><image src="/assets/icons/phone.png"/><text>拨打</text></button></view>
     </view>
 
     <block wx:if="{{activeStage}}">

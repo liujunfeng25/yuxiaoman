@@ -54,6 +54,28 @@
       </view>
     </view>
 
+    <view wx:if="{{booking.serviceMode === 'valet' && booking.driverAssignment && (booking.driverAssignment.pickupDriverPhone || booking.driverAssignment.returnDriverPhone)}}" class="valet-driver-contacts-card">
+      <view class="valet-driver-contacts-head">
+        <view class="valet-driver-contacts-icon"><image src="/assets/icons/car.png" mode="aspectFit" /></view>
+        <view>
+          <text>代驾联系方式</text>
+          <text>取送车司机绑定后展示，便于你联系履约人员</text>
+        </view>
+      </view>
+      <view wx:if="{{booking.driverAssignment.pickupDriverPhone}}" class="valet-driver-contact-row">
+        <view>
+          <text>取车代驾联系方式</text>
+          <text>{{booking.driverAssignment.pickupDriverPhone}}</text>
+        </view>
+      </view>
+      <view wx:if="{{booking.driverAssignment.returnDriverPhone}}" class="valet-driver-contact-row">
+        <view>
+          <text>送车司机联系方式</text>
+          <text>{{booking.driverAssignment.returnDriverPhone}}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="payment-card payment-{{paymentStateTone}}">
       <view class="payment-head">
         <view class="payment-icon"><image src="/assets/icons/receipt.png" mode="aspectFit" /></view>

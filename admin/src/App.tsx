@@ -198,11 +198,14 @@ type DriverAssignment = {
   receptionistPhone?: string;
   driverName: string;
   driverPhone: string;
+  pickupDriverPhone?: string | null;
+  returnDriverPhone?: string | null;
   assignedAt?: string | null;
   boundAt?: string | null;
   verificationCode?: string | null;
   verificationCodeExpiresAt?: string | null;
   verificationCodeStatus?: "active" | "bound" | "expired" | "completed" | "cancelled" | "unavailable";
+  handoffCodePending?: boolean;
 };
 type EvidenceStage = "owner_pickup" | "station_arrival" | "inspection_complete" | "owner_return";
 type EvidencePhoto = {
@@ -712,12 +715,20 @@ function metadataText(events: BookingEvent[] | undefined, keys: string[]) {
 }
 
 function ServiceFulfillmentSnapshot({ booking }: { booking: Booking }) {
-  const driverName = booking.driverAssignment?.driverName || metadataText(booking.events, ["driverName", "driver_name"]);
-  const driverPhone = booking.driverAssignment?.driverPhone || metadataText(booking.events, ["driverPhone", "driver_phone"]);
+  const assignment = booking.driverAssignment;
+  const receptionistName = assignment?.receptionistName
+    || assignment?.driverName
+    || metadataText(booking.events, ["receptionistName", "receptionist_name", "driverName", "driver_name"]);
+  const receptionistPhone = assignment?.receptionistPhone
+    || assignment?.driverPhone
+    || metadataText(booking.events, ["receptionistPhone", "receptionist_phone", "driverPhone", "driver_phone"]);
+  const pickupDriverPhone = assignment?.pickupDriverPhone || "";
+  const returnDriverPhone = assignment?.returnDriverPhone || "";
   const dispatcherName = metadataText(booking.events, ["dispatcherName", "dispatcher_name", "coordinatorName"]);
   const dispatcherPhone = metadataText(booking.events, ["dispatcherPhone", "dispatcher_phone", "coordinatorPhone"]);
-  const driverHasBeenArranged = valetJourney.findIndex((step) => step.status === normalizedJourneyStatus(booking)) >= valetJourney.findIndex((step) => step.status === "driver_arranged")
-    || Boolean(booking.events?.some((event) => event.status === "driver_arranged"));
+  const receptionistHasBeenArranged = valetJourney.findIndex((step) => step.status === normalizedJourneyStatus(booking)) >= valetJourney.findIndex((step) => step.status === "driver_arranged")
+    || Boolean(booking.events?.some((event) => event.status === "driver_arranged"))
+    || Boolean(assignment);
   if (booking.serviceMode === "self_drive") {
     return <section className="detail-section service-fulfillment-snapshot self-drive-snapshot" aria-label="自驾到站服务信息">
       <header><div><small>服务方式</small><h3>自驾到站信息</h3></div><span className="service-mode-tag self_drive"><Car weight="fill" />车主自驾</span></header>
@@ -729,7 +740,14 @@ function ServiceFulfillmentSnapshot({ booking }: { booking: Booking }) {
   return <section className="detail-section service-fulfillment-snapshot valet-snapshot" aria-label="代驾取送服务信息">
     <header><div><small>代驾履约</small><h3>代驾取送履约信息</h3></div><span className="service-mode-tag valet"><SteeringWheel weight="fill" />往返取送</span></header>
     <div className="service-snapshot-address"><MapPin weight="duotone" /><span><small>取车并送回同一地址</small><strong>{pickup ? `${pickup.title}${pickup.detail ? ` · ${pickup.detail}` : ""}` : "取送地址未回传"}</strong><em>{pickup?.address || "请核对原始订单地址快照"}</em>{pickup?.note ? <b>备注：{pickup.note}</b> : null}</span></div>
-    <div className="valet-people-grid"><article><small>车主联系人</small><strong>{booking.contactName}</strong><span>{booking.contactPhone}</span></article><article><small>执行司机</small><strong>{driverName || (driverHasBeenArranged ? "司机信息未回传" : "司机尚未安排")}</strong><span>{driverPhone || (driverHasBeenArranged ? "请向调度核实联系方式" : "待调度安排")}</span></article><article><small>调度人员</small><strong>{dispatcherName || "调度人员未记录"}</strong><span>{dispatcherPhone || "联系电话未记录"}</span></article><article><small>送检站点</small><strong>{booking.station?.name || "检测站未回传"}</strong><span>{booking.station?.address || booking.station?.district || "站点地址未回传"}</span></article></div>
+    <div className="valet-people-grid">
+      <article><small>车主联系人</small><strong>{booking.contactName}</strong><span>{booking.contactPhone}</span></article>
+      <article><small>接待人</small><strong>{receptionistName || (receptionistHasBeenArranged ? "接待人信息未回传" : "接待人尚未安排")}</strong><span>{receptionistPhone || (receptionistHasBeenArranged ? "请向调度核实联系方式" : "待调度安排")}</span></article>
+      {pickupDriverPhone ? <article><small>取车代驾</small><strong>已绑定</strong><span>{pickupDriverPhone}</span></article> : null}
+      {returnDriverPhone ? <article><small>送车司机</small><strong>已绑定</strong><span>{returnDriverPhone}</span></article> : null}
+      <article><small>调度人员</small><strong>{dispatcherName || "调度人员未记录"}</strong><span>{dispatcherPhone || "联系电话未记录"}</span></article>
+      <article><small>送检站点</small><strong>{booking.station?.name || "检测站未回传"}</strong><span>{booking.station?.address || booking.station?.district || "站点地址未回传"}</span></article>
+    </div>
     <div className="dispatch-note"><SteeringWheel /><span><small>司机 / 调度备注</small><strong>{booking.internalDriverNote || "暂无司机与调度备注"}</strong></span></div>
   </section>;
 }

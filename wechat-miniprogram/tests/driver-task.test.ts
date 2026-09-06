@@ -28,7 +28,14 @@ function serverTask(status: string, completedStages: string[] = []) {
     owner: { contactName: "孙先生", contactPhone: "13800001006" },
     pickupAddress: { title: "取车点", address: "天津市河西区测试路 1 号", latitude: 39.1, longitude: 117.2 },
     station: { id: "station-1", name: "河西机动车检测站", address: "天津市河西区检测路 8 号", latitude: 39.2, longitude: 117.3 },
-    driverAssignment: { id: "assignment-1", driverName: "王师傅", driverPhone: "13800138000", status: "bound" },
+    driverAssignment: {
+      id: "assignment-1",
+      receptionistName: "王师傅",
+      receptionistPhone: "13800138000",
+      driverName: "王师傅",
+      driverPhone: "13800138000",
+      status: "bound",
+    },
     evidencePackages: ["owner_pickup", "station_arrival", "inspection_complete", "owner_return"].map((stage) => ({
       id: `package-${stage}`,
       stage,

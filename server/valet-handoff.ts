@@ -334,24 +334,48 @@ function verificationCodeView(row: Row): {
   return { verificationCode: code, verificationCodeExpiresAt: expiresAt, verificationCodeStatus: "active" };
 }
 
+function audiencePhone(value: string | null, revealFull: boolean): string | null {
+  if (!value) return null;
+  return revealFull ? value : maskPhone(value);
+}
+
 function assignmentDto(row: Row, audience: EvidenceAudience, revealVerificationCode = false) {
-  const full = audience !== "owner";
+  const revealReceptionist = audience !== "owner";
+  const revealExecutorPhones = audience === "admin" || audience === "driver";
   const receptionistName = String(row.receptionist_name ?? row.driver_name ?? "");
   const receptionistPhone = String(row.receptionist_phone ?? row.driver_phone ?? "");
-  // Compatibility: keep driverName/Phone aliases until pickup/return executors ship.
+  const pickupDriverPhoneRaw = row.pickup_driver_phone == null || String(row.pickup_driver_phone).trim() === ""
+    ? null
+    : String(row.pickup_driver_phone);
+  const returnDriverPhoneRaw = row.return_driver_phone == null || String(row.return_driver_phone).trim() === ""
+    ? null
+    : String(row.return_driver_phone);
+  // Compatibility: keep driverName/Phone aliases pointing at receptionist until UIs finish migrating.
   const driverName = receptionistName;
   const driverPhone = receptionistPhone;
+  const codeView = verificationCodeView(row);
+  const handoffCodePending = row.handoff_verification_code_hmac != null
+    && row.return_bound_user_id == null;
   return {
     id: String(row.id),
     status: String(row.status),
-    receptionistName: full ? receptionistName : ownerDriverName(receptionistName),
-    receptionistPhone: full ? receptionistPhone : maskPhone(receptionistPhone),
-    driverName: full ? driverName : ownerDriverName(driverName),
-    driverPhone: full ? driverPhone : maskPhone(driverPhone),
+    receptionistName: revealReceptionist ? receptionistName : ownerDriverName(receptionistName),
+    receptionistPhone: revealReceptionist ? receptionistPhone : maskPhone(receptionistPhone),
+    driverName: revealReceptionist ? driverName : ownerDriverName(driverName),
+    driverPhone: revealReceptionist ? driverPhone : maskPhone(driverPhone),
+    pickupDriverPhone: audiencePhone(pickupDriverPhoneRaw, revealExecutorPhones),
+    returnDriverPhone: audiencePhone(returnDriverPhoneRaw, revealExecutorPhones),
+    verificationCodeStatus: codeView.verificationCodeStatus,
+    handoffCodePending,
     assignedAt: String(row.assigned_at),
     boundAt: row.bound_at == null ? null : String(row.bound_at),
     completedAt: row.completed_at == null ? null : String(row.completed_at),
-    ...(audience === "admin" && revealVerificationCode ? verificationCodeView(row) : {}),
+    ...(audience === "admin" && revealVerificationCode
+      ? {
+          verificationCode: codeView.verificationCode,
+          verificationCodeExpiresAt: codeView.verificationCodeExpiresAt,
+        }
+      : {}),
   };
 }
 

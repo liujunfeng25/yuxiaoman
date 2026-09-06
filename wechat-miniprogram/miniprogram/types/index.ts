@@ -485,12 +485,18 @@ export type ValetEvidencePackage = {
 };
 export type ValetDriverAssignment = {
   id: string;
+  receptionistName?: string;
+  receptionistPhone?: string;
   driverName: string;
   driverPhone: string;
+  pickupDriverPhone?: string | null;
+  returnDriverPhone?: string | null;
   status: "assigned" | "bound" | "in_progress" | "completed";
   assignedAt: string;
   boundAt: string | null;
   completedAt: string | null;
+  verificationCodeStatus?: "active" | "bound" | "expired" | "completed" | "cancelled" | "unavailable";
+  handoffCodePending?: boolean;
 };
 export type CheckupViewId = "top" | "left" | "right";
 export type CheckupMediaKind = "front_left" | "front_right" | "rear_left" | "rear_right" | "dashboard_started" | "safety_inspection_report" | "emissions_inspection_report" | "annual_inspection_mark" | "fault_closeup";

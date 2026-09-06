@@ -41,6 +41,8 @@ type TaskView = DriverTask & {
   statusTone: string;
   scheduleLabel: string;
   ownerPhoneDisplay: string;
+  receptionistDisplay: string;
+  receptionistPhone: string;
   currentTitle: string;
   currentHint: string;
   currentStep: number;
@@ -135,6 +137,8 @@ function currentCopy(task: DriverTask): { title: string; hint: string; step: num
 function taskView(task: DriverTask): TaskView {
   const status = taskStatus(task);
   const copy = currentCopy(task);
+  const receptionistName = task.driverAssignment?.receptionistName || "";
+  const receptionistPhone = task.driverAssignment?.receptionistPhone || "";
   return {
     ...task,
     events: task.events.map((event) => ({ ...event, createdAt: formatShanghaiDateTime(event.createdAt) })),
@@ -142,6 +146,10 @@ function taskView(task: DriverTask): TaskView {
     statusTone: ["completed"].includes(status) ? "success" : ["cancelled", "no_show", "on_hold"].includes(status) ? "warning" : "active",
     scheduleLabel: scheduleLabel(task),
     ownerPhoneDisplay: task.owner.contactPhone || task.owner.contactPhoneMasked || "联系电话待同步",
+    receptionistDisplay: receptionistName && receptionistPhone
+      ? `${receptionistName} · ${receptionistPhone}`
+      : receptionistName || receptionistPhone || "接待人待同步",
+    receptionistPhone,
     currentTitle: copy.title,
     currentHint: copy.hint,
     currentStep: copy.step,
@@ -474,6 +482,15 @@ Page<Data>({
     const phone = this.data.task?.owner.contactPhone || "";
     if (!phone) {
       wx.showToast({ title: "当前任务未提供可拨打电话", icon: "none" });
+      return;
+    }
+    wx.makePhoneCall({ phoneNumber: phone });
+  },
+
+  callReceptionist() {
+    const phone = this.data.task?.receptionistPhone || "";
+    if (!phone) {
+      wx.showToast({ title: "当前任务未提供接待人电话", icon: "none" });
       return;
     }
     wx.makePhoneCall({ phoneNumber: phone });

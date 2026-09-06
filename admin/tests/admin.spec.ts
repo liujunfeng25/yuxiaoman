@@ -1119,7 +1119,7 @@ test("代驾详情按真实事件展示全链路、取送地址与司机调度�
   await page.getByText("津B·U2608", { exact: true }).click();
   drawer = page.getByLabel("预约与账务详情");
   const unassignedInfo = drawer.getByLabel("代驾取送服务信息");
-  await expect(unassignedInfo).toContainText("司机尚未安排");
+  await expect(unassignedInfo).toContainText("接待人尚未安排");
   await expect(unassignedInfo).toContainText("调度人员未记录");
   await expect(unassignedInfo).toContainText("暂无司机与调度备注");
   await expect(drawer.getByLabel("接待人安排").getByRole("button", { name: "安排接待人并生成验证码" })).toBeVisible();
