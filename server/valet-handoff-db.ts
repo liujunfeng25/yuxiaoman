@@ -171,5 +171,14 @@ export async function migrateValetHandoffDatabase(database: AppDatabase): Promis
     SET receptionist_name = COALESCE(receptionist_name, driver_name),
         receptionist_phone = COALESCE(receptionist_phone, driver_phone)
     WHERE receptionist_name IS NULL;
+
+    -- Historical rows bound before pickup_* columns existed: mint auth keys off
+    -- pickup_bound_user_id, so backfill binding identity from legacy bound_*.
+    -- Do not copy driver_phone into pickup_driver_phone (may be receptionist).
+    UPDATE valet_driver_assignments
+    SET pickup_bound_user_id = COALESCE(pickup_bound_user_id, bound_user_id),
+        pickup_bound_at = COALESCE(pickup_bound_at, bound_at)
+    WHERE bound_user_id IS NOT NULL
+      AND pickup_bound_user_id IS NULL;
   `);
 }

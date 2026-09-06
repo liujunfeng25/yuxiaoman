@@ -341,7 +341,7 @@ function audiencePhone(value: string | null, revealFull: boolean): string | null
 
 function assignmentDto(row: Row, audience: EvidenceAudience, revealVerificationCode = false) {
   const revealReceptionist = audience !== "owner";
-  const revealExecutorPhones = audience === "admin" || audience === "driver";
+  const revealExecutorPhones = audience === "admin" || audience === "driver" || audience === "operator";
   const receptionistName = String(row.receptionist_name ?? row.driver_name ?? "");
   const receptionistPhone = String(row.receptionist_phone ?? row.driver_phone ?? "");
   const pickupDriverPhoneRaw = row.pickup_driver_phone == null || String(row.pickup_driver_phone).trim() === ""

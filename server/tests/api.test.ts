@@ -2958,8 +2958,8 @@ test("代驾换班码兑换会绑定送车司机、打标并吊销旧会话", as
 
     const operatorDetail = await app.inject({ method: "GET", url: `/api/operator/bookings/${bookingId}` });
     assert.equal(operatorDetail.statusCode, 200, operatorDetail.body);
-    assert.equal(operatorDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "139****9111");
-    assert.equal(operatorDetail.json<Json>().data.driverAssignment.returnDriverPhone, "139****9222");
+    assert.equal(operatorDetail.json<Json>().data.driverAssignment.pickupDriverPhone, "13900139111");
+    assert.equal(operatorDetail.json<Json>().data.driverAssignment.returnDriverPhone, "13900139222");
     assert.equal(operatorDetail.json<Json>().data.driverAssignment.receptionistPhone, "13800138000");
   } finally {
     globalThis.fetch = originalFetch;
