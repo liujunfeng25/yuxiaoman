@@ -1,6 +1,8 @@
 import {
+  driverPhoneReady,
   driverVerificationCodeGroups,
   driverVerificationCodeReady,
+  normalizeDriverPhone,
   normalizeDriverVerificationCode,
 } from "../../login-model";
 import type { DriverTask } from "../../model";
@@ -15,16 +17,22 @@ type CachedTaskView = {
   statusLabel: string;
 };
 
+type LoginStep = "code" | "phone";
+
 type Data = {
   checkingSession: boolean;
   cachedTask: CachedTaskView | null;
   sessionError: string;
   notice: string;
+  step: LoginStep;
   verificationCode: string;
   codeLeftDisplay: string;
   codeRightDisplay: string;
   codeFocused: boolean;
   codeReady: boolean;
+  driverPhone: string;
+  phoneFocused: boolean;
+  phoneReady: boolean;
   submitting: boolean;
   error: string;
 };
@@ -59,11 +67,15 @@ Page<Data>({
     cachedTask: null,
     sessionError: "",
     notice: "",
+    step: "code",
     verificationCode: "",
     codeLeftDisplay: "· · ·",
     codeRightDisplay: "· · ·",
     codeFocused: false,
     codeReady: false,
+    driverPhone: "",
+    phoneFocused: false,
+    phoneReady: false,
     submitting: false,
     error: "",
   },
@@ -121,15 +133,51 @@ Page<Data>({
   focusCode() { this.setData({ codeFocused: true }); },
   blurCode() { this.setData({ codeFocused: false }); },
 
-  async submit() {
-    if (this.data.submitting) return;
+  goPhoneStep() {
     if (!driverVerificationCodeReady(this.data.verificationCode)) {
       this.setData({ error: "请输入后台生成的 6 位数字验证码" });
       return;
     }
+    this.setData({ step: "phone", error: "" });
+  },
+
+  backToCodeStep() {
+    this.setData({ step: "code", error: "" });
+  },
+
+  inputPhone(event) {
+    const driverPhone = normalizeDriverPhone(event.detail.value);
+    this.setData({
+      driverPhone,
+      phoneReady: driverPhoneReady(driverPhone),
+      error: "",
+    });
+    return driverPhone;
+  },
+
+  focusPhone() { this.setData({ phoneFocused: true }); },
+  blurPhone() { this.setData({ phoneFocused: false }); },
+
+  async submit() {
+    if (this.data.submitting) return;
+    if (this.data.step !== "phone") {
+      this.goPhoneStep();
+      return;
+    }
+    if (!driverVerificationCodeReady(this.data.verificationCode)) {
+      this.setData({ step: "code", error: "请输入后台生成的 6 位数字验证码" });
+      return;
+    }
+    if (!driverPhoneReady(this.data.driverPhone)) {
+      this.setData({ error: "请输入有效的 11 位手机号" });
+      return;
+    }
     this.setData({ submitting: true, error: "", sessionError: "" });
     try {
-      const session = await driverApi.exchangeVerificationCode(this.data.verificationCode);
+      const session = await driverApi.exchangeVerificationCode(
+        this.data.verificationCode,
+        this.data.driverPhone,
+      );
       wx.redirectTo({ url: `/packages/driver/pages/task/task?bookingId=${encodeURIComponent(session.bookingId)}` });
     } catch (error) {
       this.setData({ error: error instanceof Error ? error.message : "验证码校验失败，请稍后重试" });
@@ -151,10 +199,13 @@ Page<Data>({
       cachedTask: null,
       sessionError: "",
       notice: "请输入后台为新订单生成的验证码。",
+      step: "code",
       verificationCode: "",
       codeLeftDisplay,
       codeRightDisplay,
       codeReady: false,
+      driverPhone: "",
+      phoneReady: false,
       error: "",
     });
   },

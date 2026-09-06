@@ -3,7 +3,7 @@
     <view class="hero-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view>
     <text>VALET TASK ACCESS</text>
     <text>代驾任务</text>
-    <text>输入后台针对本笔订单生成的验证码，只领取分配给你的取送任务。</text>
+    <text>输入后台针对本笔订单生成的验证码，并确认代驾手机号后领取任务。</text>
   </view>
 
   <view wx:if="{{notice}}" class="notice-bar"><image src="/assets/icons/warning-circle.png"/><text>{{notice}}</text></view>
@@ -23,23 +23,46 @@
   </view>
 
   <view wx:else class="login-card code-card">
-    <view class="card-heading"><view><text>领取代驾任务</text><text>验证码为 6 位数字，按 3–3 分组显示</text></view></view>
-
-    <text class="field-label">任务验证码</text>
-    <view class="verification-code-shell {{codeFocused ? 'focused' : ''}} {{error ? 'invalid' : ''}}">
-      <input class="code-native" value="{{verificationCode}}" type="number" maxlength="6" confirm-type="done" bindinput="inputCode" bindfocus="focusCode" bindblur="blurCode" bindconfirm="submit" aria-label="6位代驾任务验证码"/>
-      <view class="code-display" aria-hidden="true">
-        <text class="code-group {{verificationCode.length ? 'filled' : ''}}">{{codeLeftDisplay}}</text>
-        <view class="code-divider"></view>
-        <text class="code-group {{verificationCode.length > 3 ? 'filled' : ''}}">{{codeRightDisplay}}</text>
+    <view class="card-heading">
+      <view>
+        <text>{{step === 'phone' ? '确认代驾手机号' : '领取代驾任务'}}</text>
+        <text>{{step === 'phone' ? '请填写接单代驾本人 11 位手机号' : '验证码为 6 位数字，按 3–3 分组显示'}}</text>
       </view>
+      <text wx:if="{{step === 'phone'}}">第 2 步</text>
     </view>
-    <text class="code-hint">验证码由运营后台生成；失效后请联系后台重新生成。</text>
+
+    <block wx:if="{{step === 'code'}}">
+      <text class="field-label">任务验证码</text>
+      <view class="verification-code-shell {{codeFocused ? 'focused' : ''}} {{error ? 'invalid' : ''}}">
+        <input class="code-native" value="{{verificationCode}}" type="number" maxlength="6" confirm-type="next" bindinput="inputCode" bindfocus="focusCode" bindblur="blurCode" bindconfirm="goPhoneStep" aria-label="6位代驾任务验证码"/>
+        <view class="code-display" aria-hidden="true">
+          <text class="code-group {{verificationCode.length ? 'filled' : ''}}">{{codeLeftDisplay}}</text>
+          <view class="code-divider"></view>
+          <text class="code-group {{verificationCode.length > 3 ? 'filled' : ''}}">{{codeRightDisplay}}</text>
+        </view>
+      </view>
+      <text class="code-hint">验证码由运营后台生成；失效后请联系后台重新生成。</text>
+    </block>
+
+    <block wx:else>
+      <view class="code-summary">
+        <text>已输入验证码</text>
+        <text>{{codeLeftDisplay}} · {{codeRightDisplay}}</text>
+        <button class="edit-code" bindtap="backToCodeStep">修改验证码</button>
+      </view>
+
+      <text class="field-label">代驾手机号</text>
+      <view class="phone-shell {{phoneFocused ? 'focused' : ''}} {{error ? 'invalid' : ''}}">
+        <input class="phone-native" value="{{driverPhone}}" type="number" maxlength="11" confirm-type="done" bindinput="inputPhone" bindfocus="focusPhone" bindblur="blurPhone" bindconfirm="submit" placeholder="请输入 11 位手机号" aria-label="代驾手机号"/>
+      </view>
+      <text class="code-hint">手机号将绑定本笔代驾任务，请使用本人号码。</text>
+    </block>
 
     <view wx:if="{{sessionError}}" class="login-error"><image src="/assets/icons/warning-circle.png"/><view><text>上次任务核验失败</text><text>{{sessionError}}</text></view><button bindtap="retrySession">重试</button></view>
     <view wx:if="{{error}}" class="login-error"><image src="/assets/icons/warning-circle.png"/><view><text>暂时无法领取任务</text><text>{{error}}</text></view></view>
 
-    <button class="primary-action" bindtap="submit" loading="{{submitting}}" disabled="{{!codeReady || submitting}}">验证并进入任务</button>
+    <button wx:if="{{step === 'code'}}" class="primary-action" bindtap="goPhoneStep" disabled="{{!codeReady}}">下一步</button>
+    <button wx:else class="primary-action" bindtap="submit" loading="{{submitting}}" disabled="{{!phoneReady || submitting}}">确认手机号</button>
   </view>
 
   <view class="security-note"><image src="/assets/icons/shield-check.png"/><text>代驾端仅能查看当前验证码对应的一笔订单，不能访问车主其他订单或检测站后台。</text></view>

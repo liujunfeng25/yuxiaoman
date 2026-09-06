@@ -32,6 +32,14 @@
 .code-group.filled { color: #173b5d; }
 .code-divider { width: 24rpx; height: 3rpx; border-radius: 999rpx; background: #9db3c7; }
 .code-hint { display: block; margin-top: 12rpx; color: #8998a8; font-size: 18rpx; line-height: 1.45; }
+.code-summary { display: flex; margin-top: 28rpx; padding: 18rpx 20rpx; align-items: center; gap: 12rpx; border-radius: 18rpx; background: #f3f8fd; }
+.code-summary > text:first-child { flex: none; color: #6d8095; font-size: 18rpx; }
+.code-summary > text:nth-child(2) { min-width: 0; flex: 1; color: #173b5d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 24rpx; font-weight: 800; letter-spacing: 1rpx; }
+.edit-code { min-width: 0; min-height: 64rpx; margin: 0; padding: 0 16rpx; color: #1768cf; border-radius: 12rpx; background: #eaf4ff; font-size: 18rpx; font-weight: 750; line-height: 64rpx; }
+.phone-shell { overflow: hidden; height: 104rpx; border: 2rpx solid #cdddea; border-radius: 20rpx; background: #f8fbfe; transition: border-color .16s ease, box-shadow .16s ease; }
+.phone-shell.focused { border-color: #2d83dc; box-shadow: 0 0 0 6rpx rgba(45, 131, 220, .1); }
+.phone-shell.invalid { border-color: #d96861; }
+.phone-native { width: 100%; height: 100%; padding: 0 28rpx; box-sizing: border-box; color: #173b5d; border: 0; background: transparent; font-size: 34rpx; font-weight: 800; letter-spacing: 2rpx; }
 .login-error { display: grid; margin-top: 18rpx; padding: 15rpx 16rpx; grid-template-columns: auto minmax(0, 1fr) auto; align-items: flex-start; gap: 10rpx; border-radius: 15rpx; color: #b5443c; background: #fff3f1; }
 .login-error > image { width: 25rpx; height: 25rpx; }
 .login-error > view { display: flex; min-width: 0; flex-direction: column; gap: 3rpx; font-size: 18rpx; line-height: 1.45; }

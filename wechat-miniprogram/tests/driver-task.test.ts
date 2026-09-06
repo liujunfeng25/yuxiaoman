@@ -10,8 +10,10 @@ import {
   normalizeDriverTask,
 } from "../miniprogram/packages/driver/model";
 import {
+  driverPhoneReady,
   driverVerificationCodeGroups,
   driverVerificationCodeReady,
+  normalizeDriverPhone,
   normalizeDriverVerificationCode,
 } from "../miniprogram/packages/driver/login-model";
 
@@ -113,6 +115,13 @@ test("代驾验证码严格清洗为六位数字并按 3-3 分组显示", () => 
   assert.deepEqual(driverVerificationCodeGroups("123456"), ["1 2 3", "4 5 6"]);
 });
 
+test("代驾手机号清洗为 11 位并校验大陆号段", () => {
+  assert.equal(normalizeDriverPhone(" 138-0013-8000x "), "13800138000");
+  assert.equal(driverPhoneReady("1380013800"), false);
+  assert.equal(driverPhoneReady("23800138000"), false);
+  assert.equal(driverPhoneReady("13800138000"), true);
+});
+
 test("我的页面固定工作人员入口并分流到检测站、维修门店与代驾端", () => {
   const manifest = readFileSync(new URL("../miniprogram/app.json", import.meta.url), "utf8");
   const profilePage = readFileSync(new URL("../miniprogram/pages/profile/profile.ts", import.meta.url), "utf8");
@@ -130,19 +139,23 @@ test("我的页面固定工作人员入口并分流到检测站、维修门店�
   assert.match(staffMarkup, /检测站端[\s\S]*账号登录[\s\S]*维修门店端[\s\S]*账号登录[\s\S]*代驾端[\s\S]*6 位验证码/u);
 });
 
-test("代驾验证码使用单一数字输入框兑换并支持继续或切换缓存任务", () => {
+test("代驾登录先验码再手填手机后兑换，并支持继续或切换缓存任务", () => {
   const api = readFileSync(new URL("../miniprogram/packages/driver/services/driver-api.ts", import.meta.url), "utf8");
   const loginPage = readFileSync(new URL("../miniprogram/packages/driver/pages/login/login.ts", import.meta.url), "utf8");
   const loginMarkup = readFileSync(new URL("../miniprogram/packages/driver/pages/login/login.wxml", import.meta.url), "utf8");
   const taskPage = readFileSync(new URL("../miniprogram/packages/driver/pages/task/task.ts", import.meta.url), "utf8");
 
-  assert.match(api, /exchangeVerificationCode\(verificationCode:[\s\S]*ownerExchange\(\{ verificationCode: code \}\)/u);
+  assert.match(api, /exchangeVerificationCode\(verificationCode:\s*string,\s*driverPhone:\s*string\)[\s\S]*ownerExchange\(\{\s*verificationCode:\s*code,\s*driverPhone:\s*phone\s*\}\)/u);
   assert.match(loginPage, /readDriverTaskSession\(\)[\s\S]*driverApi\.taskSummary\(session\.bookingId\)/u);
+  assert.match(loginPage, /goPhoneStep\(\)[\s\S]*step:\s*"phone"/u);
+  assert.match(loginPage, /exchangeVerificationCode\(\s*this\.data\.verificationCode,\s*this\.data\.driverPhone,/u);
   assert.match(loginPage, /continueTask\(\)[\s\S]*switchTask\(\)[\s\S]*clearDriverTaskSession\(\)/u);
   assert.match(loginPage, /isDriverSessionAccessError\(error\)[\s\S]*clearDriverTaskSession\(\)/u);
-  assert.equal((loginMarkup.match(/<input\b/gu) || []).length, 1, "验证码页只能有一个输入字段");
+  assert.equal((loginMarkup.match(/<input\b/gu) || []).length, 2, "登录页应包含验证码与手机号两个输入字段");
   assert.match(loginMarkup, /type="number"[^>]*maxlength="6"/u);
+  assert.match(loginMarkup, /type="number"[^>]*maxlength="11"/u);
   assert.match(loginMarkup, /code-group[\s\S]*code-divider[\s\S]*code-group/u);
+  assert.match(loginMarkup, /下一步[\s\S]*确认手机号/u);
   assert.match(loginMarkup, /继续处理此任务[\s\S]*输入新验证码切换任务/u);
   assert.match(taskPage, /taskCodeFromQuery[\s\S]*query\.taskCode[\s\S]*query\.scene/u, "旧 taskCode 与 scene 深链继续兼容");
   assert.match(taskPage, /isDriverSessionAccessError\(error\)[\s\S]*packages\/driver\/pages\/login\/login\?reason=session/u);

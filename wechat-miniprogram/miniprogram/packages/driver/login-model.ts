@@ -16,3 +16,11 @@ export function driverVerificationCodeGroups(value: unknown): [string, string] {
 export function driverVerificationCodeReady(value: unknown): boolean {
   return /^\d{6}$/u.test(normalizeDriverVerificationCode(value));
 }
+
+export function normalizeDriverPhone(value: unknown): string {
+  return String(value || "").replace(/\D/gu, "").slice(0, 11);
+}
+
+export function driverPhoneReady(value: unknown): boolean {
+  return /^1\d{10}$/u.test(normalizeDriverPhone(value));
+}

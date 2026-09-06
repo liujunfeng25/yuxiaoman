@@ -40,7 +40,9 @@ function apiError(payload: unknown, statusCode: number, fallback: string): Drive
   return error;
 }
 
-type DriverExchangePayload = { taskCode: string } | { verificationCode: string };
+type DriverExchangePayload =
+  | { taskCode: string; driverPhone?: string }
+  | { verificationCode: string; driverPhone: string };
 
 function ownerExchange(data: DriverExchangePayload): Promise<unknown> {
   assertApiConfigured();
@@ -191,10 +193,12 @@ export const driverApi = {
     return session;
   },
 
-  async exchangeVerificationCode(verificationCode: string): Promise<DriverTaskSession> {
+  async exchangeVerificationCode(verificationCode: string, driverPhone: string): Promise<DriverTaskSession> {
     const code = verificationCode.replace(/\D/gu, "").slice(0, 6);
     if (!/^\d{6}$/u.test(code)) throw new Error("请输入后台生成的 6 位验证码");
-    const payload = await ownerExchange({ verificationCode: code });
+    const phone = driverPhone.replace(/\D/gu, "").slice(0, 11);
+    if (!/^1\d{10}$/u.test(phone)) throw new Error("请输入有效的 11 位手机号");
+    const payload = await ownerExchange({ verificationCode: code, driverPhone: phone });
     const session = normalizeDriverSession(payload);
     if (!session) throw new Error("验证码返回的代驾凭证无效");
     evidenceMediaDownloads.clear();
