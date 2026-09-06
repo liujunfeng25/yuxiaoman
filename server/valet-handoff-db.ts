@@ -146,5 +146,30 @@ export async function migrateValetHandoffDatabase(database: AppDatabase): Promis
 
     CREATE INDEX IF NOT EXISTS valet_evidence_media_package_index
       ON valet_evidence_media(package_id, kind);
+
+    ALTER TABLE valet_driver_assignments
+      ADD COLUMN IF NOT EXISTS receptionist_name TEXT,
+      ADD COLUMN IF NOT EXISTS receptionist_phone TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_driver_phone TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_bound_user_id TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_bound_at TEXT,
+      ADD COLUMN IF NOT EXISTS return_driver_phone TEXT,
+      ADD COLUMN IF NOT EXISTS return_bound_user_id TEXT,
+      ADD COLUMN IF NOT EXISTS return_bound_at TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_hmac TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_ciphertext TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_expires_at TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_created_at TEXT;
+
+    ALTER TABLE valet_driver_assignments
+      ALTER COLUMN pickup_bound_at TYPE TEXT USING pickup_bound_at::text,
+      ALTER COLUMN return_bound_at TYPE TEXT USING return_bound_at::text,
+      ALTER COLUMN handoff_verification_code_expires_at TYPE TEXT USING handoff_verification_code_expires_at::text,
+      ALTER COLUMN handoff_verification_code_created_at TYPE TEXT USING handoff_verification_code_created_at::text;
+
+    UPDATE valet_driver_assignments
+    SET receptionist_name = COALESCE(receptionist_name, driver_name),
+        receptionist_phone = COALESCE(receptionist_phone, driver_phone)
+    WHERE receptionist_name IS NULL;
   `);
 }
