@@ -16,6 +16,7 @@ import { z } from "zod";
 import { requireCurrentUser } from "./auth.js";
 import { assertAnnualBookingFinancialClosureReady } from "./annual-booking-finance.js";
 import { auditBackofficeEvent, backofficeForRequest } from "./backoffice.js";
+import { ensureCustomerTag } from "./customer-center.js";
 import type { AppDatabase } from "./database.js";
 import {
   acknowledgeAnnualDriverClaim,
@@ -60,6 +61,7 @@ const assignmentSchema = z.object({
 const taskExchangeSchema = z.object({
   taskCode: z.string().trim().min(20).max(240).optional(),
   verificationCode: z.string().trim().regex(/^\d{6}$/u, "请输入 6 位数字验证码").optional(),
+  driverPhone: z.string().trim().regex(/^1\d{10}$/u, "请输入有效的 11 位手机号").optional(),
 }).superRefine((value, context) => {
   if (Boolean(value.taskCode) === Boolean(value.verificationCode)) {
     context.addIssue({
@@ -1430,16 +1432,37 @@ export async function registerValetHandoffRoutes(
         }
       }
 
-      const credentialHash = input.verificationCode
-        ? driverVerificationCodeHmac(input.verificationCode, options.problem)!
-        : sha256(input.taskCode!);
-      const credentialColumn = input.verificationCode
-        ? "verification_code_hmac"
-        : "task_code_hash";
-      const candidate = await tx.prepare<Row>(`
-        SELECT booking_id FROM valet_driver_assignments WHERE ${credentialColumn} = ?
-      `).get(credentialHash);
-      if (!candidate) {
+      type ExchangePath = "pickup" | "handoff" | "task_code";
+      let exchangePath: ExchangePath | null = null;
+      let candidate: Row | undefined;
+      let credentialHash = "";
+
+      if (input.verificationCode) {
+        credentialHash = driverVerificationCodeHmac(input.verificationCode, options.problem)!;
+        const pickupCandidate = await tx.prepare<Row>(`
+          SELECT booking_id FROM valet_driver_assignments WHERE verification_code_hmac = ?
+        `).get(credentialHash);
+        if (pickupCandidate) {
+          exchangePath = "pickup";
+          candidate = pickupCandidate;
+        } else {
+          const handoffCandidate = await tx.prepare<Row>(`
+            SELECT booking_id FROM valet_driver_assignments WHERE handoff_verification_code_hmac = ?
+          `).get(credentialHash);
+          if (handoffCandidate) {
+            exchangePath = "handoff";
+            candidate = handoffCandidate;
+          }
+        }
+      } else {
+        exchangePath = "task_code";
+        credentialHash = sha256(input.taskCode!);
+        candidate = await tx.prepare<Row>(`
+          SELECT booking_id FROM valet_driver_assignments WHERE task_code_hash = ?
+        `).get(credentialHash);
+      }
+
+      if (!candidate || !exchangePath) {
         if (input.verificationCode && ipHash) {
           await recordDriverCodeAttempt(tx, userId, ipHash, false, now);
           exchangeFailure = "invalid";
@@ -1447,38 +1470,56 @@ export async function registerValetHandoffRoutes(
         }
         throw options.problem(404, "DRIVER_TASK_CODE_INVALID", "任务入口无效、已过期或已撤销");
       }
+
       // Match the booking -> assignment lock order used by cancellation, so a
       // simultaneous cancel/exchange cannot deadlock or mint a post-cancel token.
       const booking = await tx.prepare<Row>(`
         SELECT status, fulfillment_status, service_mode, evidence_policy_version
         FROM bookings WHERE id = ? FOR UPDATE
       `).get(String(candidate.booking_id));
-      assignment = await tx.prepare<Row>(`
-        SELECT * FROM valet_driver_assignments WHERE ${credentialColumn} = ? FOR UPDATE
-      `).get(credentialHash);
+      if (exchangePath === "pickup") {
+        assignment = await tx.prepare<Row>(`
+          SELECT * FROM valet_driver_assignments WHERE verification_code_hmac = ? FOR UPDATE
+        `).get(credentialHash);
+      } else if (exchangePath === "handoff") {
+        assignment = await tx.prepare<Row>(`
+          SELECT * FROM valet_driver_assignments WHERE handoff_verification_code_hmac = ? FOR UPDATE
+        `).get(credentialHash);
+      } else {
+        assignment = await tx.prepare<Row>(`
+          SELECT * FROM valet_driver_assignments WHERE task_code_hash = ? FOR UPDATE
+        `).get(credentialHash);
+      }
+
       const invalidBooking = !assignment
         || !booking
         || String(assignment.booking_id) !== String(candidate.booking_id)
         || !isEvidencePolicyBooking(booking)
         || ["completed", "cancelled", "no_show"].includes(String(booking.status))
         || ["completed", "cancelled", "no_show"].includes(String(booking.fulfillment_status));
-      const boundToAnotherUser = assignment?.bound_user_id != null
-        && String(assignment.bound_user_id) !== userId;
-      const credentialInvalid = input.verificationCode
-        ? !assignment
-          || ["completed", "cancelled"].includes(String(assignment.status))
-          || invalidBooking
-          || boundToAnotherUser
-          || (assignment.bound_user_id == null && (
-            !assignment.verification_code_expires_at
-            || String(assignment.verification_code_expires_at) <= now
-          ))
-        : !assignment
-          || ["completed", "cancelled"].includes(String(assignment.status))
-          || !assignment.task_code_expires_at
-          || String(assignment.task_code_expires_at) <= now
-          || invalidBooking
-          || boundToAnotherUser;
+      const assignmentClosed = !assignment
+        || ["completed", "cancelled"].includes(String(assignment.status));
+
+      let credentialInvalid = assignmentClosed || invalidBooking;
+      if (!credentialInvalid && assignment) {
+        if (exchangePath === "pickup") {
+          credentialInvalid = assignment.pickup_bound_user_id != null
+            || !assignment.verification_code_expires_at
+            || String(assignment.verification_code_expires_at) <= now;
+        } else if (exchangePath === "handoff") {
+          credentialInvalid = assignment.pickup_bound_user_id == null
+            || assignment.return_bound_user_id != null
+            || !assignment.handoff_verification_code_expires_at
+            || String(assignment.handoff_verification_code_expires_at) <= now;
+        } else {
+          // Legacy task-code path behaves as first pickup claim.
+          credentialInvalid = assignment.pickup_bound_user_id != null
+            || assignment.bound_user_id != null
+            || !assignment.task_code_expires_at
+            || String(assignment.task_code_expires_at) <= now;
+        }
+      }
+
       if (credentialInvalid) {
         if (input.verificationCode && ipHash) {
           await recordDriverCodeAttempt(tx, userId, ipHash, false, now);
@@ -1487,34 +1528,66 @@ export async function registerValetHandoffRoutes(
         }
         throw options.problem(404, "DRIVER_TASK_CODE_INVALID", "任务入口无效、已过期或已撤销");
       }
+      if (!input.driverPhone) {
+        throw options.problem(400, "DRIVER_PHONE_REQUIRED", "请填写代驾手机号");
+      }
       if (input.verificationCode && ipHash) {
         await recordDriverCodeAttempt(tx, userId, ipHash, true, now);
       }
-      if (!assignment) {
+      if (!assignment || !exchangePath) {
         throw options.problem(404, "DRIVER_TASK_CODE_INVALID", "任务入口无效、已过期或已撤销");
       }
       const matchedAssignment = assignment;
-      const firstBinding = matchedAssignment.bound_user_id == null;
-      if (firstBinding) {
+      const driverPhone = input.driverPhone;
+
+      if (exchangePath === "handoff") {
         await tx.prepare(`
-          UPDATE valet_driver_assignments SET bound_user_id = ?, bound_at = ?,
+          UPDATE valet_driver_sessions SET revoked_at = COALESCE(revoked_at, ?)
+          WHERE assignment_id = ? AND revoked_at IS NULL
+        `).run(now, String(matchedAssignment.id));
+        await tx.prepare(`
+          UPDATE valet_driver_assignments SET
+            bound_user_id = ?, bound_at = ?,
+            return_bound_user_id = ?, return_driver_phone = ?, return_bound_at = ?,
+            handoff_verification_code_hmac = NULL,
+            handoff_verification_code_ciphertext = NULL,
+            handoff_verification_code_expires_at = NULL,
+            handoff_verification_code_created_at = NULL,
+            updated_at = ?
+          WHERE id = ?
+        `).run(
+          userId,
+          now,
+          userId,
+          driverPhone,
+          now,
+          now,
+          String(matchedAssignment.id),
+        );
+      } else {
+        await tx.prepare(`
+          UPDATE valet_driver_assignments SET
+            bound_user_id = ?, bound_at = ?,
+            pickup_bound_user_id = ?, pickup_driver_phone = ?, pickup_bound_at = ?,
             task_code_consumed_at = ?,
             status = CASE WHEN status = 'assigned' THEN 'bound' ELSE status END,
             task_code_hash = NULL, task_code_expires_at = NULL,
             verification_code_hmac = NULL, verification_code_ciphertext = NULL,
             verification_code_expires_at = NULL,
-            updated_at = ? WHERE id = ?
-        `).run(userId, now, now, now, String(matchedAssignment.id));
-      } else {
-        await tx.prepare(`
-          UPDATE valet_driver_assignments SET
-            task_code_consumed_at = COALESCE(task_code_consumed_at, ?),
-            task_code_hash = NULL, task_code_expires_at = NULL,
-            verification_code_hmac = NULL, verification_code_ciphertext = NULL,
-            verification_code_expires_at = NULL, updated_at = ?
+            updated_at = ?
           WHERE id = ?
-        `).run(now, now, String(matchedAssignment.id));
+        `).run(
+          userId,
+          now,
+          userId,
+          driverPhone,
+          now,
+          now,
+          now,
+          String(matchedAssignment.id),
+        );
       }
+
       const sessionId = randomUUID();
       const expiresAt = new Date(Date.parse(now) + driverSessionTtlMs).toISOString();
       await tx.prepare(`
@@ -1522,12 +1595,19 @@ export async function registerValetHandoffRoutes(
           id, assignment_id, user_id, token_hash, expires_at, last_seen_at, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(sessionId, String(matchedAssignment.id), userId, sha256(token), expiresAt, now, now);
-      assignment = await tx.prepare<Row>("SELECT * FROM valet_driver_assignments WHERE id = ?").get(String(matchedAssignment.id));
-      await acknowledgeAnnualDriverClaim(tx, String(matchedAssignment.booking_id), {
-        now: new Date(now),
-        actorType: "driver",
-        actorId: userId,
+      await ensureCustomerTag(tx, userId, "代驾", {
+        actorDisplayName: "代驾认领",
+        now,
       });
+      assignment = await tx.prepare<Row>("SELECT * FROM valet_driver_assignments WHERE id = ?")
+        .get(String(matchedAssignment.id));
+      if (exchangePath !== "handoff") {
+        await acknowledgeAnnualDriverClaim(tx, String(matchedAssignment.booking_id), {
+          now: new Date(now),
+          actorType: "driver",
+          actorId: userId,
+        });
+      }
     });
     if (exchangeFailure === "limited") {
       throw options.problem(429, "DRIVER_TASK_CODE_RATE_LIMITED", "验证码尝试过多，请稍后再试");

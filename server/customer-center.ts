@@ -572,6 +572,27 @@ async function requireCustomer(database: AppDatabase, userId: string): Promise<R
   return row;
 }
 
+/**
+ * Ensure the WeChat user appears in the customer center with the given admin tag.
+ * Idempotent: existing (user_id, tag) rows are left untouched.
+ */
+export async function ensureCustomerTag(
+  database: AppDatabase,
+  userId: string,
+  tag: typeof CUSTOMER_TAGS[number],
+  options: { actorDisplayName?: string; now?: string } = {},
+): Promise<void> {
+  await requireCustomer(database, userId);
+  const createdAt = options.now ?? new Date().toISOString();
+  const actorDisplayName = options.actorDisplayName?.trim() || "系统";
+  await database.prepare(`
+    INSERT INTO customer_admin_tags (
+      user_id, tag, actor_account_id, actor_display_name, created_at
+    ) VALUES (?, ?, NULL, ?, ?::timestamptz)
+    ON CONFLICT (user_id, tag) DO NOTHING
+  `).run(userId, tag, actorDisplayName, createdAt);
+}
+
 function maskSubject(value: unknown): string | null {
   if (value == null) return null;
   const text = String(value);

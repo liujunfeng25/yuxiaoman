@@ -1706,6 +1706,26 @@ test("预检待处理可补拍复核，时段和款项不重复占用，原照�
     assert.ok(next.media.some((item: Json) => item.id === replacement.id));
     assert.equal((await database.prepare<Json>("SELECT is_current FROM booking_media WHERE id = ?").get(oldPhoto.id))?.is_current, 0);
     assert.equal((await app.inject({ method: "GET", url: `/api/media/${oldPhoto.id}` })).statusCode, 200);
+    const adminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${booking.id}` });
+    assert.equal(adminDetail.statusCode, 200, adminDetail.body);
+    const archived = adminDetail.json<Json>().data.precheck.history
+      .flatMap((entry: Json) => entry.issueMedia || [])
+      .find((item: Json) => item.id === oldPhoto.id);
+    assert.ok(archived, "后台应能看到车主更新前的问题照片留档");
+    assert.equal(archived.kind, "license_back");
+    assert.match(String(archived.url), new RegExp(`/api/admin/bookings/${booking.id}/media/${oldPhoto.id}`));
+    assert.equal(archived.isCurrent, false);
+    assert.ok(
+      (adminDetail.json<Json>().data.precheck.priorIssueMedia || []).some((item: Json) => item.id === oldPhoto.id),
+      "priorIssueMedia 应汇总更新前问题照片",
+    );
+    const ownerDetail = await app.inject({ method: "GET", url: `/api/bookings/${booking.id}` });
+    assert.equal(ownerDetail.statusCode, 200, ownerDetail.body);
+    assert.equal(
+      (ownerDetail.json<Json>().data.precheck.history || []).some((entry: Json) => Array.isArray(entry.issueMedia)),
+      false,
+      "车主端不应附带后台问题照片留档字段",
+    );
     const repeated = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: body });
     assert.equal(repeated.statusCode, 200, repeated.body);
     const changedRetry = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: { ...body, resolutionNote: "不同内容不能复用同一个幂等键" } });
@@ -2090,15 +2110,34 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
       UPDATE valet_driver_assignments SET task_code_hash = ?, task_code_expires_at = ?
       WHERE booking_id = ?
     `).run(createHash("sha256").update(taskCode).digest("hex"), "2099-01-01T00:00:00.000Z", bookingId);
-    const exchanged = await app.inject({
+    const missingPhone = await app.inject({
       method: "POST",
       url: "/api/driver/task-sessions/exchange",
       headers: { authorization: `Bearer ${ownerSession.token}` },
       payload: { verificationCode },
     });
+    assert.equal(missingPhone.statusCode, 400, missingPhone.body);
+    assert.equal(missingPhone.json<Json>().error.code, "DRIVER_PHONE_REQUIRED");
+    const exchanged = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${ownerSession.token}` },
+      payload: { verificationCode, driverPhone: "13900139001" },
+    });
     assert.equal(exchanged.statusCode, 201, exchanged.body);
     const driverToken = exchanged.json<Json>().data.token;
     assert.match(driverToken, /^yxm_drv_/u);
+    const driverTag = await database.prepare<Json>(`
+      SELECT tag FROM customer_admin_tags WHERE user_id = ? AND tag = ?
+    `).get("demo-user", "代驾");
+    assert.equal(driverTag?.tag, "代驾");
+    const pickupBinding = await database.prepare<Json>(`
+      SELECT pickup_bound_user_id, pickup_driver_phone, pickup_bound_at
+      FROM valet_driver_assignments WHERE booking_id = ?
+    `).get(bookingId);
+    assert.equal(pickupBinding?.pickup_bound_user_id, "demo-user");
+    assert.equal(pickupBinding?.pickup_driver_phone, "13900139001");
+    assert.ok(pickupBinding?.pickup_bound_at);
     const workflowAfterExchange = await database.prepare<Json>(`
       SELECT
         COUNT(*) FILTER (WHERE node_code = 'annual.driver.claim' AND status = 'open') AS open_claims,
@@ -2686,7 +2725,7 @@ test("新版代驾预约取消会原子撤销任务码与已签发司机会话",
       method: "POST",
       url: "/api/driver/task-sessions/exchange",
       headers: { authorization: `Bearer ${ownerSession.token}` },
-      payload: { taskCode },
+      payload: { taskCode, driverPhone: "13900139002" },
     });
     assert.equal(exchange.statusCode, 201, exchange.body);
     const driverToken = exchange.json<Json>().data.token;
@@ -2737,6 +2776,149 @@ test("新版代驾预约取消会原子撤销任务码与已签发司机会话",
       headers: { authorization: `Bearer ${driverToken}` },
     });
     assert.equal(cancelledSessionRead.statusCode, 404, cancelledSessionRead.body);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.TENCENT_MAP_KEY;
+    else process.env.TENCENT_MAP_KEY = originalKey;
+    await close();
+  }
+});
+
+test("代驾换班码兑换会绑定送车司机、打标并吊销旧会话", async () => {
+  const { app, database, close } = await fixture();
+  const originalKey = process.env.TENCENT_MAP_KEY;
+  const originalFetch = globalThis.fetch;
+  try {
+    process.env.TENCENT_MAP_KEY = "test-key";
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      status: 0,
+      result: { rows: [{ elements: [{ distance: 7_800, duration: 1_200 }] }] },
+    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+
+    const { vehicle, station, slots } = await seedContext(app);
+    const pickupAddress = {
+      poiId: "valet-handoff-exchange-pickup",
+      title: "天津文化中心地下停车场",
+      address: "天津市河西区平江道 58 号",
+      district: "河西区",
+      latitude: 39.0837,
+      longitude: 117.2197,
+      source: "tencent",
+    };
+    const quote = await app.inject({
+      method: "POST",
+      url: "/api/bookings/quote",
+      payload: { vehicleId: vehicle.id, stationId: station.id, serviceMode: "valet", pickupAddress },
+    });
+    assert.equal(quote.statusCode, 200, quote.body);
+    const bookingMedia = await uploadAnnualBookingMedia(app, "valet");
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        vehicleId: vehicle.id,
+        stationId: station.id,
+        slotId: slots[0].id,
+        contactName: "张女士",
+        contactPhone: "13800138000",
+        serviceMode: "valet",
+        pickupAddress,
+        quoteSnapshotId: quote.json<Json>().data.quoteSnapshotId,
+        mediaIds: bookingMedia.map((item) => item.id),
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const booking = created.json<Json>().data;
+    const bookingId = booking.id;
+    const paid = await app.inject({
+      method: "POST",
+      url: `/api/bookings/${bookingId}/payments`,
+      payload: {
+        provider: "mock",
+        idempotencyKey: "valet-handoff-exchange-payment",
+        quoteSnapshotId: booking.quoteSnapshotId,
+      },
+    });
+    assert.equal(paid.statusCode, 201, paid.body);
+    const approved = await approvePrecheck(app, bookingId);
+    assert.equal(approved.fulfillmentStatus, "confirmed");
+    const assignment = await app.inject({
+      method: "POST",
+      url: `/api/admin/bookings/${bookingId}/driver-assignment`,
+      payload: { receptionistName: "站务小刘", receptionistPhone: "13800138000" },
+    });
+    assert.equal(assignment.statusCode, 201, assignment.body);
+    const verificationCode = assignment.json<Json>().data.assignment.verificationCode;
+    const pickupDriver = await createDevelopmentSession(database, { userId: "valet-pickup-driver" });
+    const pickupExchange = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${pickupDriver.token}` },
+      payload: { verificationCode, driverPhone: "13900139111" },
+    });
+    assert.equal(pickupExchange.statusCode, 201, pickupExchange.body);
+    const pickupToken = pickupExchange.json<Json>().data.token;
+
+    const handoffCode = "654321";
+    const handoffHmac = createHmac("sha256", "yuxiaoman-valet-driver-code-demo-hmac-key-v1")
+      .update(`verification-code:v1:${handoffCode}`)
+      .digest("hex");
+    await database.prepare(`
+      UPDATE valet_driver_assignments SET
+        handoff_verification_code_hmac = ?,
+        handoff_verification_code_ciphertext = ?,
+        handoff_verification_code_expires_at = ?,
+        handoff_verification_code_created_at = ?
+      WHERE booking_id = ?
+    `).run(handoffHmac, "test-ciphertext", "2099-01-01T00:00:00.000Z", new Date().toISOString(), bookingId);
+
+    const returnDriver = await createDevelopmentSession(database, { userId: "valet-return-driver" });
+    const missingPhone = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${returnDriver.token}` },
+      payload: { verificationCode: handoffCode },
+    });
+    assert.equal(missingPhone.statusCode, 400, missingPhone.body);
+    assert.equal(missingPhone.json<Json>().error.code, "DRIVER_PHONE_REQUIRED");
+
+    const handoffExchange = await app.inject({
+      method: "POST",
+      url: "/api/driver/task-sessions/exchange",
+      headers: { authorization: `Bearer ${returnDriver.token}` },
+      payload: { verificationCode: handoffCode, driverPhone: "13900139222" },
+    });
+    assert.equal(handoffExchange.statusCode, 201, handoffExchange.body);
+    const returnToken = handoffExchange.json<Json>().data.token;
+
+    const returnBinding = await database.prepare<Json>(`
+      SELECT bound_user_id, return_bound_user_id, return_driver_phone,
+        handoff_verification_code_hmac, pickup_bound_user_id
+      FROM valet_driver_assignments WHERE booking_id = ?
+    `).get(bookingId);
+    assert.equal(returnBinding?.pickup_bound_user_id, "valet-pickup-driver");
+    assert.equal(returnBinding?.return_bound_user_id, "valet-return-driver");
+    assert.equal(returnBinding?.return_driver_phone, "13900139222");
+    assert.equal(returnBinding?.bound_user_id, "valet-return-driver");
+    assert.equal(returnBinding?.handoff_verification_code_hmac, null);
+
+    const returnTag = await database.prepare<Json>(`
+      SELECT tag FROM customer_admin_tags WHERE user_id = ? AND tag = ?
+    `).get("valet-return-driver", "代驾");
+    assert.equal(returnTag?.tag, "代驾");
+
+    const oldSessionRead = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}`,
+      headers: { authorization: `Bearer ${pickupToken}` },
+    });
+    assert.equal(oldSessionRead.statusCode, 404, oldSessionRead.body);
+    const newSessionRead = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}`,
+      headers: { authorization: `Bearer ${returnToken}` },
+    });
+    assert.equal(newSessionRead.statusCode, 200, newSessionRead.body);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.TENCENT_MAP_KEY;
