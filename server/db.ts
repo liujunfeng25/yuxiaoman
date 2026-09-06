@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { migratePlateCategories, seedPlateCategoryPlans } from "./plate-category-db.js";
 import { DEVELOPMENT_USER_ID, migrateAuthDatabase, seedDevelopmentUser } from "./auth.js";
 import { migrateBackofficeDatabase } from "./backoffice.js";
 import {
@@ -25,6 +26,11 @@ import {
   seedDrivingSchoolDemoData,
 } from "./driving-school-db.js";
 import { clearRepairData, migrateRepairDatabase, seedRepairDemoData } from "./repair-db.js";
+import {
+  clearWorkflowRuntimeData,
+  migrateWorkflowDatabase,
+  seedDefaultWorkflowConfiguration,
+} from "./workflow-db.js";
 
 export const DEMO_USER_ID = DEVELOPMENT_USER_ID;
 export const DEMO_STATION_ID = "station-hexi-1";
@@ -110,7 +116,7 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       deleted_at TEXT
-    , powertrain_type TEXT, vehicle_class_code TEXT, is_van INTEGER, wash_vehicle_category TEXT, inspection_due_date_source TEXT NOT NULL DEFAULT 'legacy_unverified', inspection_due_date_confirmed_at TEXT, brand_id TEXT, brand_name TEXT, model_id TEXT, model_name TEXT);
+    , powertrain_type TEXT, vehicle_class_code TEXT, is_van INTEGER, wash_vehicle_category TEXT, inspection_due_date_source TEXT NOT NULL DEFAULT 'legacy_unverified', inspection_due_date_confirmed_at TEXT, brand_id TEXT, brand_name TEXT, model_id TEXT, model_name TEXT, exterior_color TEXT);
 
     CREATE TABLE IF NOT EXISTS stations (
       id TEXT PRIMARY KEY,
@@ -443,8 +449,10 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
     ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS brand_name TEXT;
     ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS model_id TEXT;
     ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS model_name TEXT;
+    ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS exterior_color TEXT;
   `);
   const autoConfirmMigrationAt = new Date().toISOString();
+  await migratePlateCategories(database);
   await database.prepare(`
     INSERT INTO booking_events (
       id, booking_id, status, title, description, actor_type, metadata_json, created_at
@@ -471,9 +479,25 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
       )
   `).run(autoConfirmMigrationAt);
   await migrateVehicleCheckupDatabase(database);
+  await database.execute(`
+    ALTER TABLE bookings ADD COLUMN IF NOT EXISTS precheck_slot_released INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE booking_media ADD COLUMN IF NOT EXISTS is_current INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS history_json TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resolution_note TEXT;
+    ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resubmission_key TEXT;
+    ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resubmission_hash TEXT;
+    ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS decision_hash TEXT;
+  `);
   await migrateRepairDatabase(database);
   await migrateWashDatabase(database);
+  await database.execute(`CREATE TABLE IF NOT EXISTS precheck_wash_links (
+    wash_order_id TEXT PRIMARY KEY REFERENCES wash_orders(id) ON DELETE CASCADE,
+    booking_id TEXT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL
+  )`);
   await migrateBackofficeDatabase(database);
+  await migrateWorkflowDatabase(database);
+  await seedDefaultWorkflowConfiguration(database);
   await migrateValetHandoffDatabase(database);
   await migrateInsuranceDatabase(database);
   await migrateSubsidyConsultationDatabase(database);
@@ -945,6 +969,7 @@ async function seedDemoDataInCurrentTransaction(database: AppDatabase, options: 
 
   if (options.force) {
     await assertForcedDemoSeedSafe(database);
+    await clearWorkflowRuntimeData(database);
     await clearRepairData(database);
     await clearDrivingSchoolData(database);
     await clearCarRentalData(database);
@@ -1075,6 +1100,7 @@ async function lockForcedDemoSeed(database: AppDatabase): Promise<void> {
 export async function seedDemoData(database: AppDatabase, options: SeedOptions = {}): Promise<void> {
   if (!options.force) {
     await seedDemoDataInCurrentTransaction(database, options);
+    await seedPlateCategoryPlans(database);
     return;
   }
 
@@ -1084,6 +1110,7 @@ export async function seedDemoData(database: AppDatabase, options: SeedOptions =
   await database.transaction(async (transaction) => {
     await lockForcedDemoSeed(transaction);
     await seedDemoDataInCurrentTransaction(transaction, options);
+    await seedPlateCategoryPlans(transaction, true);
   });
 }
 
@@ -1111,6 +1138,7 @@ export async function createDatabase(options: CreateDatabaseOptions = {}): Promi
         } else if (shouldSeed) {
           await seedDemoDataInCurrentTransaction(transaction);
         }
+        if (shouldMigrate) await seedPlateCategoryPlans(transaction, options.forceSeed);
       });
     }
     return database;

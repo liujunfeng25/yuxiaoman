@@ -87,6 +87,7 @@ async function seedSourceReport(
     id: vehicleId,
     plateNumber: plate,
     vehicleType: "小型轿车",
+    exteriorColor: "星河银",
     brand: { name: "演示品牌" },
     model: { name: `演示车型${suffix}` },
   };
@@ -346,6 +347,7 @@ test("车主仅能从自己的已发布有故障报告创建唯一询价，并�
     const detail = created.json<Json>().data;
     assert.equal(detail.status, "open");
     assert.equal(detail.vehicle.plateNumber, published.plate);
+    assert.equal(detail.vehicle.exteriorColor, "星河银");
     assert.equal(detail.faults.length, 1);
     assert.equal(detail.media.length, 1);
     assert.deepEqual(detail.media.map((item: Json) => item.kind), ["fault_closeup"]);
@@ -385,6 +387,7 @@ test("车主仅能从自己的已发布有故障报告创建唯一询价，并�
     });
     assert.equal(frozen.statusCode, 200, frozen.body);
     assert.equal(frozen.json<Json>().data.vehicle.plateNumber, published.plate);
+    assert.equal(frozen.json<Json>().data.vehicle.exteriorColor, "星河银");
     assert.deepEqual(frozen.json<Json>().data.report.summary, { conclusionLabel: "检验合格" });
     assert.equal(frozen.json<Json>().data.faults[0].description, "冻结前故障描述 1");
     assert.equal(frozen.json<Json>().data.media[0].sizeBytes, 20);
@@ -440,6 +443,7 @@ test("三家维修账号只能以固定主体查看脱敏需求和维护自己�
     const lobbyItem = lobby.json<Json>().data.find((item: Json) => item.id === requestId);
     assert.ok(lobbyItem);
     assert.notEqual(lobbyItem.vehicle.plateNumberMasked, source.plate);
+    assert.equal(lobbyItem.vehicle.exteriorColor, "星河银");
     assert.equal(lobbyItem.ownerContact, null);
     assert.equal(lobbyItem.faultCount, 2);
     assert.deepEqual(lobbyItem.primaryFault, {
@@ -542,6 +546,7 @@ test("三家维修账号只能以固定主体查看脱敏需求和维护自己�
     });
     assert.equal(firstView.statusCode, 200, firstView.body);
     assert.equal(secondView.statusCode, 200, secondView.body);
+    assert.equal(firstView.json<Json>().data.vehicle.exteriorColor, "星河银");
     assert.equal(firstView.json<Json>().data.ownQuote.totalPriceFen, 169000);
     assert.equal(secondView.json<Json>().data.ownQuote.totalPriceFen, 198000);
     assert.equal(JSON.stringify(firstView.json<Json>().data).includes(DEMO_REPAIR_SHOPS[1].quoteNote), false);

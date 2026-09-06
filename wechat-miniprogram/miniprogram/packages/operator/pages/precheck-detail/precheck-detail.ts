@@ -15,6 +15,9 @@ const reasonDefinitions = [
   { code: "vehicle_information_mismatch", label: "车牌或车辆信息不一致" },
   { code: "booking_information_mismatch", label: "预约车型、动力或用途不一致" },
   { code: "materials_cannot_be_verified", label: "现有资料无法完成核对" },
+  { code: "body_dirty", label: "车身脏污，需清洁后核对" },
+  { code: "body_damage", label: "车损需要处理或核对" },
+  { code: "dashboard_warning", label: "仪表盘故障灯，需维修核对" },
   { code: "other", label: "其他" },
 ];
 type PhotoView = BookingMedia & { label: string; selected: boolean };
@@ -23,7 +26,8 @@ Page({
   data: {
     id: "", booking: null as Booking | null, photos: [] as PhotoView[], loading: true, loadError: "", deciding: false,
     submittedLabel: "", serviceModeLabel: "", appointmentLabel: "", paymentLabel: "", showReject: false,
-    reasons: reasonDefinitions.map((item) => ({ ...item, selected: false })), reasonText: "", selectedPhotoKinds: [] as string[],
+    requiredPhotoCount: 0, photoCount: 0, requiredPhotoDescription: "", vehiclePhotosRequired: true,
+    reasons: reasonDefinitions.map((item) => ({ ...item, selected: false, effect: "", action: "materials" })), reasonText: "", selectedPhotoKinds: [] as string[],
     approveIdempotencyKey: "", rejectIdempotencyKey: "",
   },
   onLoad(query) {
@@ -41,17 +45,26 @@ Page({
     try {
       const booking = await api.operatorPrecheck(this.data.id);
       const byKind = new Map((booking.media || []).map((item) => [item.kind, item]));
-      const selected = new Set(this.data.selectedPhotoKinds);
+      const requiredKinds = new Set(photoDefinitions.map((item) => item.kind));
+      const selected = new Set(this.data.selectedPhotoKinds.filter((kind) => requiredKinds.has(kind as MediaKind)));
       const photos = photoDefinitions.map((definition) => ({
         ...(byKind.get(definition.kind) || { id: definition.kind, kind: definition.kind, url: "", mimeType: "", sizeBytes: 0, width: 0, height: 0, createdAt: "" }),
         label: definition.label,
         selected: selected.has(definition.kind),
       }));
+      const guidance = booking.precheck?.guidance || reasonDefinitions.map((item) => ({ ...item, action: "materials" as const, effect: "补充资料后重新审核" }));
       this.setData({
-        booking, photos, submittedLabel: formatShanghaiDateTime(booking.precheck?.submittedAt),
+        booking, photos, selectedPhotoKinds: [...selected],
+        reasons: guidance.map((item) => ({ ...item, selected: this.data.reasons.some((old) => old.code === item.code && old.selected) })),
+        submittedLabel: formatShanghaiDateTime(booking.precheck?.submittedAt),
         serviceModeLabel: booking.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站",
         appointmentLabel: `${booking.appointmentDate} ${booking.startTime}–${booking.endTime}`,
-        paymentLabel: `¥${money(booking.paidFen || booking.serviceFeeFen)}`, loadError: "",
+        paymentLabel: `¥${money(booking.paidFen || booking.serviceFeeFen)}`,
+        requiredPhotoCount: photos.length,
+        photoCount: photos.filter((item) => Boolean(item.url)).length,
+        requiredPhotoDescription: "车身四角、启动后仪表盘和行驶证两页",
+        vehiclePhotosRequired: true,
+        loadError: "",
       });
     } catch (error) { this.setData({ loadError: error instanceof Error ? error.message : "预审资料读取失败" }); }
     finally { this.setData({ loading: false }); }
@@ -64,7 +77,7 @@ Page({
   async approve() {
     const booking = this.data.booking;
     if (!booking?.precheck || this.data.deciding) return;
-    if (this.data.photos.some((item) => !item.url)) { wx.showToast({ title: "7 张资料齐全后才能通过", icon: "none" }); return; }
+    if (this.data.photos.some((item) => !item.url)) { wx.showToast({ title: `${this.data.requiredPhotoCount} 张资料齐全后才能通过`, icon: "none" }); return; }
     wx.showModal({ title: "确认预审通过", content: booking.serviceMode === "valet" ? "通过后订单将进入代驾司机安排阶段。" : "通过即代表检测站接单，订单将进入等待到站。", confirmText: "确认通过", success: async ({ confirm }) => {
       if (!confirm) return;
       this.setData({ deciding: true });
@@ -96,14 +109,14 @@ Page({
     if (!booking?.precheck || this.data.deciding) return;
     if (!reasonCodes.length) { wx.showToast({ title: "请选择不通过原因", icon: "none" }); return; }
     if (reasonText.length < 5) { wx.showToast({ title: "请填写至少 5 个字的具体说明", icon: "none" }); return; }
-    wx.showModal({ title: "确认不通过并退款", content: `确认后将释放号源，并发起全额模拟退款 ${this.data.paymentLabel}。该决定不能由检测站撤销。`, confirmText: "确认退款", confirmColor: "#d44848", success: async ({ confirm }) => {
+    wx.showModal({ title: "确认发送问题处理清单", content: `订单与已付款 ${this.data.paymentLabel} 保留，原时段释放。车主可补充资料、选择洗车或维修后重新提交；是否退款由车主主动决定。`, confirmText: "发送给车主", confirmColor: "#1768cf", success: async ({ confirm }) => {
       if (!confirm) return;
       this.setData({ deciding: true });
       try {
         await api.rejectOperatorPrecheck(booking.id, { idempotencyKey: this.data.rejectIdempotencyKey, expectedVersion: booking.precheck!.version, reasonCodes, reasonText, issuePhotoKinds: this.data.selectedPhotoKinds });
-        wx.showToast({ title: "已驳回并退款", icon: "success" });
+        wx.showToast({ title: "已发送处理清单", icon: "success" });
         setTimeout(() => wx.navigateBack(), 600);
-      } catch (error) { wx.showToast({ title: error instanceof Error ? error.message : "驳回提交失败", icon: "none" }); await this.load(); }
+      } catch (error) { wx.showToast({ title: error instanceof Error ? error.message : "处理清单提交失败", icon: "none" }); await this.load(); }
       finally { this.setData({ deciding: false }); }
     } });
   },

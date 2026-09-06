@@ -1,1 +1,7 @@
-{ "navigationStyle": "custom", "navigationBarTextStyle": "black" }
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "workflow-bell": "/components/workflow-bell/workflow-bell"
+  }
+}

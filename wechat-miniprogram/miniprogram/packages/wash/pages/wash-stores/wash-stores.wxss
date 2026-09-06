@@ -113,13 +113,21 @@
 }
 
 .context-origin button {
-  min-height: 60rpx;
-  padding: 0 16rpx;
+  display: flex;
+  width: 184rpx;
+  min-width: 184rpx;
+  min-height: 72rpx;
+  margin: 0;
+  padding: 0 14rpx;
+  align-items: center;
+  justify-content: center;
   color: #1768cf;
   border-radius: 14rpx;
   background: #eaf3ff;
   font-size: 20rpx;
   font-weight: 750;
+  line-height: 1.25;
+  box-sizing: border-box;
 }
 
 .distance-notice {
@@ -671,3 +679,4 @@
   width: 28rpx;
   height: 28rpx;
 }
+.wash-stores-page .card-actions>button{width:100%;min-width:0;margin:0}

@@ -21,7 +21,7 @@ export function distanceLabel(distanceKm: number | null, driveMinutes: number | 
 }
 
 export function statusLabel(status: BookingStatus): string {
-  return ({ pending_payment: "待支付", paid_pending_confirmation: "历史待确认", pending_precheck: "待检测站预审", precheck_rejected: "预审未通过", confirmed: "预约已确认", driver_arranged: "司机已安排", picked_up: "司机已取车，前往检测站", awaiting_arrival: "等待到站", checked_in: "车辆已到检测站", inspecting: "检测中", result_received: "检测结果已回传", returning: "车辆送回中", completed: "服务已完成", on_hold: "异常挂起", cancelled: "已取消", no_show: "已爽约" })[status];
+  return ({ pending_payment: "待支付", paid_pending_confirmation: "历史待确认", pending_precheck: "待检测站预审", precheck_action_required: "预检待处理", precheck_rejected: "预审未通过", confirmed: "预约已确认", driver_arranged: "司机已安排", picked_up: "司机已取车，前往检测站", awaiting_arrival: "等待到站", checked_in: "车辆已到检测站", inspecting: "检测中", result_received: "检测结果已回传", returning: "车辆送回中", completed: "服务已完成", on_hold: "异常挂起", cancelled: "已取消", no_show: "已爽约" })[status];
 }
 
 export function washStatusLabel(status: WashOrderStatus): string {

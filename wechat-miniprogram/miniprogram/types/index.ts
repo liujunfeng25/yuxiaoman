@@ -1,3 +1,4 @@
+import type { PlateCategoryCode, PlateStyle } from "../utils/plate-categories";
 export type AppRole = "consumer" | "operator" | "repair_shop";
 
 export type UserProfile = {
@@ -6,7 +7,7 @@ export type UserProfile = {
   profileComplete: boolean;
 };
 export type ServiceMode = "self_drive" | "valet";
-export type BookingStatus = "pending_payment" | "paid_pending_confirmation" | "pending_precheck" | "precheck_rejected" | "confirmed" | "driver_arranged" | "picked_up" | "awaiting_arrival" | "checked_in" | "inspecting" | "result_received" | "returning" | "completed" | "on_hold" | "cancelled" | "no_show";
+export type BookingStatus = "pending_payment" | "paid_pending_confirmation" | "pending_precheck" | "precheck_action_required" | "precheck_rejected" | "confirmed" | "driver_arranged" | "picked_up" | "awaiting_arrival" | "checked_in" | "inspecting" | "result_received" | "returning" | "completed" | "on_hold" | "cancelled" | "no_show";
 export type ServiceType = "annual_inspection" | "car_wash";
 export type MediaKind = "vehicle_front_left" | "vehicle_front_right" | "vehicle_rear_left" | "vehicle_rear_right" | "dashboard_started" | "license_front" | "license_back";
 export type DistanceBasis = "driving_route" | "estimated_distance" | "no_origin";
@@ -122,6 +123,10 @@ export type WashVehicleCategory = "sedan" | "suv" | "mpv";
 
 export type Vehicle = {
   id: string;
+  plateCategory?: PlateCategoryCode | null;
+  plateCategoryLabel?: string;
+  plateKind?: PlateStyle | null;
+  vehicleClassCode?: string;
   washVehicleCategory?: WashVehicleCategory | "suv_mpv" | null;
   washVehicleCategoryLegacy?: boolean;
   plateNumber: string;
@@ -143,10 +148,12 @@ export type Vehicle = {
   isDefault: boolean;
   brand?: { id: string; name: string } | null;
   model?: { id: string; name: string } | null;
-  visual?: { imageUrl: string; kind: "synthetic_demo"; label: string } | null;
+  exteriorColor?: string | null;
+  visual?: { imageUrl: string; kind: "presentation_cutout" | "unavailable"; label: string } | null;
 };
 
 export type VehicleInput = {
+  plateCategory?: PlateCategoryCode;
   plateNumber: string;
   vehicleType: string;
   usageNature: string;
@@ -161,6 +168,7 @@ export type VehicleInput = {
   washVehicleCategory?: WashVehicleCategory;
   brandId?: string | null;
   modelId?: string | null;
+  exteriorColor?: string | null;
 };
 
 export type VehicleCatalogModel = {
@@ -168,19 +176,22 @@ export type VehicleCatalogModel = {
   brandId: string;
   name: string;
   imageUrl: string;
+  imageKind: "presentation_cutout" | "unavailable";
+  vehicleClassCodes: string[];
 };
 
 export type VehicleCatalogBrand = {
   id: string;
   name: string;
   logoUrl: string;
+  searchKeywords?: string[];
   models: VehicleCatalogModel[];
 };
 
 export type VehicleCatalog = {
   brands: VehicleCatalogBrand[];
   disclosure: {
-    kind: "synthetic_demo";
+    kind: "model_reference";
     label: string;
     message: string;
   };
@@ -225,6 +236,7 @@ export type InsuranceLeadReceipt = {
     id?: string;
     plateNumber: string;
     modelName: string;
+    exteriorColor?: string | null;
   };
   maskedPhone: string;
   contactEtaText: string;
@@ -482,7 +494,7 @@ export type ValetDriverAssignment = {
 };
 export type CheckupViewId = "top" | "left" | "right";
 export type CheckupMediaKind = "front_left" | "front_right" | "rear_left" | "rear_right" | "dashboard_started" | "safety_inspection_report" | "emissions_inspection_report" | "annual_inspection_mark" | "fault_closeup";
-export type CheckupFaultType = "scratch" | "dent" | "paint_damage" | "crack" | "broken" | "rust" | "other";
+export type CheckupFaultType = "scratch" | "dent" | "paint_damage" | "crack" | "broken" | "rust" | "warning_light" | "malfunction" | "abnormal_noise" | "leakage" | "wear" | "other";
 export type CheckupFaultSeverity = "minor" | "moderate" | "severe";
 export type CheckupObservationMode = "no_visible_faults" | "faults_recorded";
 export type CheckupConclusion = "passed" | "failed";
@@ -661,6 +673,7 @@ export type RepairVehicleSnapshot = {
   id: string;
   plateNumber: string;
   vehicleType: string;
+  exteriorColor?: string | null;
   brandName: string | null;
   modelName: string | null;
   displayName: string;
@@ -700,7 +713,7 @@ export type RepairRequestFault = {
   viewId: CheckupViewId;
   regionCode: string;
   faultType: CheckupFaultType;
-  severity: CheckupFaultSeverity;
+  severity: CheckupFaultSeverity | "unassessed";
   description: string | null;
   photos: RepairRequestMedia[];
 };
@@ -748,6 +761,8 @@ export type RepairOrder = {
 };
 
 export type RepairRequest = {
+  sourceType?: "report" | "precheck";
+  sourceBookingId?: string;
   id: string;
   requestNo: string;
   status: RepairRequestStatus;
@@ -794,6 +809,9 @@ export type BookingEvent = { id: string; status: BookingStatus; title: string; d
 export type Verification = { plateMatched: boolean; materialsReady: boolean; exteriorRecorded: boolean; vehicleConditionConfirmed: boolean; notes: string | null; verifiedAt: string | null };
 export type InspectionResult = { externalResultId: string; conclusion: CheckupConclusion | null; conclusionStatus?: CheckupConclusionStatus; failureDetails?: CheckupFailureDetails | null; failureDetailsStatus?: CheckupFailureDetailsStatus; summary: Record<string, unknown>; source: string; receivedAt: string };
 export type BookingPrecheck = {
+  guidance?: Array<{ code: string; label: string; action: "materials" | "wash" | "repair"; effect: string }>;
+  history?: Array<{ version: number; reasonText: string; reviewerName: string; reviewedAt: string }>;
+  resolutionNote?: string | null;
   id: string;
   bookingId: string;
   stationId: string;
@@ -812,9 +830,26 @@ export type BookingPrecheck = {
   version: number;
   reminderDue: boolean;
   overdue: boolean;
+  supervision: null | {
+    taskId: string;
+    status: string;
+    policyVersion: number;
+    firstReminderAt: string | null;
+    dueAt: string | null;
+    escalateAt: string | null;
+    lastRemindedAt: string | null;
+    reminderCount: number;
+    escalatedAt: string | null;
+    inAppCreatedAt: string | null;
+    externalDeliveryStatus: string | null;
+    externalAcceptedAt: string | null;
+    externalLastErrorCode: string | null;
+  };
 };
 
 export type Booking = {
+  precheckSlotReleased?: boolean;
+  precheckServices?: Array<{ id: string; type: "repair" | "wash"; label: string; status: string }>;
   id: string;
   bookingNumber: string;
   vehicleId: string;
@@ -1073,6 +1108,7 @@ export type WashOrder = {
 };
 
 export type WashDraft = {
+  precheckBookingId?: string;
   serviceMode?: ServiceMode;
   pickupAddress?: PickupAddress;
   selfDriveOrigin?: { latitude: number; longitude: number; type: "self_drive" };

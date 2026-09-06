@@ -56,26 +56,37 @@ browser session does not keep displaying an older, cache-fresh demo image. Bump
 `USED_CAR_ASSET_VERSION` in `server/used-car-db.ts` whenever these public pixels
 are replaced again.
 
-## Owner vehicle identity illustrations
+## Owner vehicle catalog photos
 
-`owner-models/*.webp` is the server-hosted 12-model presentation library. The
-native WeChat mini-program carries its own `720 x 405` transparent PNG copies
-under `miniprogram/assets/vehicles/` so real-device rendering does not depend
-on a LAN HTTP image request or transparent-WebP decoding. Six catalog logos
-are packaged locally as PNG as well. These three-quarter-view illustrations
-were generated as synthetic demonstration assets on 2026-08-20. They are not
-official manufacturer photography and do not promise a specific model year,
-trim, plate, or configuration.
+The owner-facing picker is a separate presentation system from the used-car
+photo catalog. It exposes all 1,581 reviewed series cutouts across 148 brands
+and vehicle forms: 12 approved original cutouts under `owner-models/` and 1,569
+additions under `owner-presentation-v2/`. Every card uses a white vehicle, front-left
+three-quarter view, consistent scale, transparent 1120 x 630 canvas and a
+restrained studio shadow. Road, showroom, rear-view and differently cropped
+photos are not used by the owner picker.
 
-The lossless generation sources are retained under
-`source-assets/owner-vehicles/`. Rebuild the transparent WebP derivatives and
-the split Tianjin hero background with:
+The explicit model bindings live in `server/vehicle-catalog-images.ts` and the
+generated-asset record, exact-model references and prompt specification live in
+`references/owner-vehicle-presentation-v2.json`. Every catalog series has its
+own reviewed image binding; the UI does not create an empty image card and no
+model receives another model's image. Passenger vehicles, buses, tractors,
+trucks and trailers are all covered. The approval state is tracked in
+`references/owner-vehicle-presentation-inventory.json`: 1,581 approved and zero
+awaiting source material.
+
+The native mini-program keeps only six small catalog logos locally. Model
+photos are served by the API, cached, and lazy-loaded only for the active brand;
+they are not included in the mini-program main package.
+
+Rebuild the v2 alpha assets and verify the full presentation set with:
 
 ```text
-node scripts/build-owner-vehicle-assets.mjs
-node scripts/check-owner-vehicle-assets.mjs
+node scripts/build-owner-presentation-assets.mjs
+npm run check:owner-vehicle-assets
 ```
 
-The API exposes the visible `车型示意图` disclosure together with this catalog.
-These assets are used only for identity and UI display; inspection facts and
-rules continue to come from the user-confirmed vehicle profile fields.
+The API labels visible assets `车型展示图`. They identify a catalog series and
+support UI presentation; they do not represent the owner's year, trim, chosen
+exterior color or physical vehicle. Inspection facts and rules continue to come
+from the user-confirmed vehicle profile fields.

@@ -1,5 +1,6 @@
 import { api } from "../../services/api";
 import { ensureSession } from "../../services/session";
+import { refreshOwnerWorkflowUnreadBadge } from "../../services/workflow";
 import {
   canUseGetUserProfile,
   isPlaceholderWechatProfile,
@@ -43,6 +44,7 @@ type Data = {
   profileNickname: string;
   profileAvatarPreview: string;
   profileAvatarTempPath: string;
+  unreadCount: number;
 };
 
 const TERMINAL_BOOKING_STATUSES = new Set<BookingStatus>(["completed", "cancelled", "no_show"]);
@@ -82,8 +84,8 @@ function confirmationDetail(validity: Extract<NonNullable<Vehicle["inspectionVal
 function inspectionHero(vehicle: Vehicle, status: InspectionStatus | null): InspectionHero {
   const validity = vehicle.inspectionValidity;
   const vehicleCopy = vehicle.brand && vehicle.model ? `${vehicle.brand.name} ${vehicle.model.name}` : vehicle.vehicleType;
-  const vehicleDetail = `${vehicle.vehicleType} · ${vehicle.seats} 座`;
-  const vehicleImage = vehicle.visual?.imageUrl || "/assets/brand/hero-car-generic.png";
+  const vehicleDetail = `${vehicle.vehicleType} · ${vehicle.seats} 座${vehicle.exteriorColor ? ` · ${vehicle.exteriorColor}` : ""}`;
+  const vehicleImage = vehicle.visual?.imageUrl || "";
   const identity = { vehicleId: vehicle.id, vehicleCopy, vehicleDetail, vehicleImage };
   const confirmed = validity?.mode === "confirmed";
   const comparison = status?.dateEvidence?.comparison;
@@ -200,6 +202,7 @@ Page<Data>({
     profileNickname: "",
     profileAvatarPreview: "",
     profileAvatarTempPath: "",
+    unreadCount: 0,
   },
   onShow() {
     this.setData({ entryTarget: "" });
@@ -208,7 +211,15 @@ Page<Data>({
   async bootstrap() {
     await ensureSession().catch(() => null);
     void this.load();
+    void this.loadWorkflowSummary();
     void this.prepareProfileGate();
+  },
+  async loadWorkflowSummary() {
+    const summary = await refreshOwnerWorkflowUnreadBadge();
+    if (summary) this.setData({ unreadCount: summary.unreadCount });
+  },
+  openMessages() {
+    wx.navigateTo({ url: "/packages/notifications/pages/messages/messages" });
   },
   async prepareProfileGate() {
     try {
@@ -300,10 +311,13 @@ Page<Data>({
   navigateEntry(url: string, target: ServiceMode | "report") {
     if (this.data.entryTarget) return;
     this.setData({ entryTarget: target });
-    wx.navigateTo({ url });
-    setTimeout(() => {
-      if (this.data.entryTarget === target) this.setData({ entryTarget: "" });
-    }, 1500);
+    wx.navigateTo({
+      url,
+      fail: () => {
+        if (this.data.entryTarget === target) this.setData({ entryTarget: "" });
+        wx.showToast({ title: "页面打开失败，请重试", icon: "none" });
+      },
+    });
   },
   go(event) {
     const url = String(event.currentTarget.dataset.url || "");
@@ -360,8 +374,8 @@ Page<Data>({
     wx.navigateTo({ url: `/packages/vehicle/pages/vehicle-form/vehicle-form?id=${encodeURIComponent(this.data.vehicle.id)}` });
   },
   vehicleImageError() {
-    if (this.data.hero?.vehicleImage !== "/assets/brand/hero-car-generic.png") {
-      this.setData({ "hero.vehicleImage": "/assets/brand/hero-car-generic.png" } as unknown as Partial<Data>);
+    if (this.data.hero?.vehicleImage) {
+      this.setData({ "hero.vehicleImage": "" } as unknown as Partial<Data>);
     }
   },
   showService(event) {

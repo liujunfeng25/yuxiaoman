@@ -30,6 +30,7 @@ import {
   type DrivingSchoolTrainingClass,
 } from "./adminApi";
 import { DrivingSchoolWorkbench, type DrivingSchoolWorkspaceSection } from "./DrivingSchoolWorkbench";
+import { operatorErrorMessage } from "./operatorError";
 
 type DrivingSchoolTab = "schools" | "inquiries";
 type SchoolDraft = DrivingSchool;
@@ -79,6 +80,19 @@ const inquiryStatusLabels: Record<DrivingSchoolInquiryStatus, string> = {
   withdrawn: "已撤回",
 };
 
+const inquiryContactWindowLabels: Record<string, string> = {
+  morning: "上午",
+  afternoon: "下午",
+  evening: "晚上",
+  anytime: "任意时间",
+};
+
+function inquiryContactWindowLabel(value?: string | null) {
+  if (!value) return "未指定";
+  if (/[\u3400-\u9fff]/u.test(value)) return value;
+  return inquiryContactWindowLabels[value] || "联系时段待核对";
+}
+
 const regulatoryStatusLabels: Record<DrivingSchoolRegulatoryStatus, string> = {
   pending: "待核验",
   verified: "已核验",
@@ -116,7 +130,7 @@ function emptySchool(): SchoolDraft {
     openHours: "08:00-18:00",
     regulatory: {
       type: "filing",
-      number: "DEMO-001",
+      number: "演示备案-001",
       authority: "演示主管机关",
       sourceUrl: "",
       sourceLabel: "演示备案资料（非真实核验）",
@@ -162,7 +176,7 @@ function splitItems(value: string) {
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "时间待核对";
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replaceAll("/", "-");
 }
 
@@ -197,13 +211,14 @@ function realPublishErrors(school: DrivingSchool) {
 function Drawer({ label, title, description, close, children, wide = false }: { label: string; title: string; description: string; close: () => void; children: ReactNode; wide?: boolean }) {
   return <div className="drawer-layer driving-school-drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <aside className={`detail-drawer driving-school-drawer${wide ? " wide" : ""}`} aria-label={label}>
-      <header><div><small>DRIVING SCHOOL OPERATIONS</small><h2>{title}</h2><p>{description}</p></div><button type="button" aria-label={`关闭${label}`} onClick={close}><X /></button></header>
+      <header><div><small>驾校运营</small><h2>{title}</h2><p>{description}</p></div><button type="button" aria-label={`关闭${label}`} onClick={close}><X /></button></header>
       <div className="drawer-scroll">{children}</div>
     </aside>
   </div>;
 }
 
-export function DrivingSchoolAdminPage({ onError }: { onError: (message: string) => void }) {
+export function DrivingSchoolAdminPage({ onError: reportError }: { onError: (message: string) => void }) {
+  const onError = useMemo(() => (reason: unknown) => reportError(operatorErrorMessage(reason, "驾校业务操作失败，请稍后重试")), [reportError]);
   const initialInquiryId = new URLSearchParams(window.location.search).get("inquiry") || "";
   const [tab, setTab] = useState<DrivingSchoolTab>(() => initialInquiryId ? "inquiries" : "schools");
   const [schools, setSchools] = useState<DrivingSchool[]>([]);
@@ -329,7 +344,7 @@ function SchoolsTab({ schools, loading, reload, configure, create, onError }: { 
     try { await drivingSchoolAdminApi.deleteSchool(school.id); await reload(filters); } catch (reason) { onError((reason as Error).message); }
   };
   return <section className="content-card driving-school-table-card">
-    <header className="driving-school-section-head"><div><small>SCHOOL DIRECTORY</small><h3>驾校主体与培训能力</h3><p>列表只展示公开电话；内部联系人仅在编辑抽屉可见。</p></div><button type="button" onClick={create}><Plus />新增驾校</button></header>
+    <header className="driving-school-section-head"><div><small>驾校目录</small><h3>驾校主体与培训能力</h3><p>列表只展示公开电话；内部联系人仅在编辑抽屉可见。</p></div><button type="button" onClick={create}><Plus />新增驾校</button></header>
     <form className="driving-school-filters" onSubmit={(event) => { event.preventDefault(); void reload(filters); }}>
       <span><MagnifyingGlass />筛选</span><input aria-label="搜索驾校" placeholder="驾校名称 / 主体 / 区域" value={filters.keyword} onChange={(event) => setFilters({ ...filters, keyword: event.target.value })} />
       <select aria-label="按数据类型筛选驾校" value={filters.dataKind} onChange={(event) => setFilters({ ...filters, dataKind: event.target.value })}><option value="">全部数据</option><option value="demo">演示</option><option value="real">真实</option></select>
@@ -479,7 +494,7 @@ function SchoolEditor({ draft, setDraft, close, refresh, onError }: { draft: Sch
         <div className="driving-school-location-search"><MagnifyingGlass /><input aria-label="搜索驾校位置" type="search" placeholder="输入驾校或道路名称，选择服务端候选" value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} />{locationState === "loading" ? <span>查询中…</span> : null}</div>
         {suggestions.length ? <div className="driving-school-location-options" role="listbox" aria-label="驾校位置候选">{suggestions.map((location) => <button key={location.poiId} type="button" role="option" aria-selected={draft.location.poiId === location.poiId} onClick={() => selectLocation(location)}><MapPin /><span><strong>{location.title}</strong><small>{location.address}</small></span><em>{location.district}{location.source === "demo" ? " · 演示" : ""}</em></button>)}</div> : null}
         {locationState === "empty" ? <p className="driving-school-location-state">没有匹配的位置候选，请换一个关键词。</p> : null}
-        {draft.location.poiId ? <div className="driving-school-location-selected"><MapPin weight="fill" /><span><small>{draft.location.locationProof ? "本次已选择签名候选" : "服务端已保存位置"}</small><strong>{draft.location.title || draft.name}</strong><p>{draft.district} · {draft.address}</p></span></div> : <div className="driving-school-location-empty"><MapPin /><span><strong>尚未选择位置</strong><small>新建记录必须选择包含 locationProof 的候选</small></span></div>}
+        {draft.location.poiId ? <div className="driving-school-location-selected"><MapPin weight="fill" /><span><small>{draft.location.locationProof ? "本次已选择签名候选" : "服务端已保存位置"}</small><strong>{draft.location.title || draft.name}</strong><p>{draft.district} · {draft.address}</p></span></div> : <div className="driving-school-location-empty"><MapPin /><span><strong>尚未选择位置</strong><small>新建记录必须选择包含位置凭证的候选</small></span></div>}
       </section>
 
       <section className="detail-section"><h3>备案 / 存量许可 <em>交通运输主管部门来源</em></h3>
@@ -609,8 +624,8 @@ function ImageManager({ schoolId, onChanged, onError }: { schoolId: string; onCh
     catch (reason) { onError((reason as Error).message); }
   };
   return <section className="detail-section driving-school-manager"><h3>学校图库 <em>封面用于公开列表</em></h3>
-    <div className="driving-school-inline-form image-form"><label className="wide"><span>图片 URL</span><input aria-label="驾校图片地址" type="url" value={url} onChange={(event) => setUrl(event.target.value)} /></label><label><span>图片说明</span><input aria-label="驾校图片说明" value={caption} onChange={(event) => setCaption(event.target.value)} /></label><label className="driving-school-mini-check"><input aria-label="设为驾校封面" type="checkbox" checked={isCover} onChange={(event) => setIsCover(event.target.checked)} />设为封面</label><button type="button" onClick={() => void add()}><Image />添加图片</button></div>
-    <div className="driving-school-image-grid">{items.map((item) => <article key={item.id}><img src={item.url} alt={item.caption || "驾校图片"} /><div><strong>{item.caption || "未填写说明"}</strong><small>{item.isCover ? "当前封面" : `排序 ${item.sortOrder}`}</small></div><span>{!item.isCover ? <button type="button" onClick={() => void makeCover(item)}>设为封面</button> : null}<button type="button" className="danger" aria-label={`删除图片 ${item.caption || item.id}`} onClick={() => void remove(item)}><Trash /></button></span></article>)}{!items.length ? <p className="driving-school-manager-empty">尚未上传图库图片</p> : null}</div>
+    <div className="driving-school-inline-form image-form"><label className="wide"><span>图片地址</span><input aria-label="驾校图片地址" type="url" value={url} onChange={(event) => setUrl(event.target.value)} /></label><label><span>图片说明</span><input aria-label="驾校图片说明" value={caption} onChange={(event) => setCaption(event.target.value)} /></label><label className="driving-school-mini-check"><input aria-label="设为驾校封面" type="checkbox" checked={isCover} onChange={(event) => setIsCover(event.target.checked)} />设为封面</label><button type="button" onClick={() => void add()}><Image />添加图片</button></div>
+    <div className="driving-school-image-grid">{items.map((item) => <article key={item.id}><img src={item.url} alt={item.caption || "驾校图片"} /><div><strong>{item.caption || "未填写说明"}</strong><small>{item.isCover ? "当前封面" : `排序 ${item.sortOrder}`}</small></div><span>{!item.isCover ? <button type="button" onClick={() => void makeCover(item)}>设为封面</button> : null}<button type="button" className="danger" aria-label={`删除图片 ${item.caption || "未命名图片"}`} onClick={() => void remove(item)}><Trash /></button></span></article>)}{!items.length ? <p className="driving-school-manager-empty">尚未上传图库图片</p> : null}</div>
   </section>;
 }
 
@@ -675,12 +690,12 @@ function InquiriesTab({ schools, initialInquiryId, onError }: { schools: Driving
   const clear = () => { const next = { status: "", schoolId: "", licenseClassCode: "", dateFrom: "", dateTo: "" }; setFilters(next); void load(next); };
 
   return <section className="content-card driving-school-table-card">
-    <header className="driving-school-section-head"><div><small>PRIVACY-SAFE INQUIRIES</small><h3>咨询线索</h3><p>列表默认脱敏；敏感详情需显式查看并由服务端记录审计。接收方固定为驭小满驾校服务团队。</p></div></header>
+    <header className="driving-school-section-head"><div><small>隐私保护咨询</small><h3>咨询线索</h3><p>列表默认脱敏；敏感详情需显式查看并由服务端记录审计。接收方固定为驭小满驾校服务团队。</p></div></header>
     <form className="driving-school-filters inquiry" onSubmit={(event) => { event.preventDefault(); void load(filters); }}>
       <span><MagnifyingGlass />筛选</span><select aria-label="按咨询状态筛选" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">全部状态</option>{Object.entries(inquiryStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="按驾校筛选咨询" value={filters.schoolId} onChange={(event) => setFilters({ ...filters, schoolId: event.target.value })}><option value="">全部驾校</option>{schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}</select><select aria-label="按车型筛选咨询" value={filters.licenseClassCode} onChange={(event) => setFilters({ ...filters, licenseClassCode: event.target.value })}><option value="">全部车型</option>{licenseClasses.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}</select><label><span>从</span><input aria-label="咨询开始日期" type="date" value={filters.dateFrom} onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} /></label><label><span>至</span><input aria-label="咨询结束日期" type="date" value={filters.dateTo} onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} /></label><button type="submit">应用筛选</button><button type="button" className="secondary" onClick={clear}>清空</button>
     </form>
     <div className="driving-school-privacy-note"><ShieldCheck /><span><strong>个人资料不转交、不导出</strong><small>只允许驭小满驾校服务团队在本后台按咨询目的联系与记录结果。</small></span></div>
-    <div className="table-wrap"><table><thead><tr><th>咨询编号</th><th>驾校 / 车型</th><th>脱敏联系人</th><th>期望联系</th><th>提交时间</th><th>状态</th><th>查看</th></tr></thead><tbody>{items.map((item) => { const withdrawn = item.status === "withdrawn"; return <tr key={item.id}><td><strong>{item.inquiryCode}</strong><small>{item.isSynthetic ? "演示线索" : "真实线索"}</small></td><td><strong>{item.school.name}</strong><small>{classLabel(item.licenseClassCode)} · {item.applicationMode === "initial" ? "初次申领" : "增驾"}</small></td><td><strong>{item.contactNameMasked || "已清除"}</strong><small>{item.maskedPhone || "已清除"}</small></td><td><strong>{withdrawn ? "已停止联系" : item.contactWindow || "未指定"}</strong><small>接收方：驭小满驾校服务团队</small></td><td><strong>{formatDateTime(item.submittedAt)}</strong><small>更新 {formatDateTime(item.updatedAt)}</small></td><td><span className={`status-pill driving-school-inquiry-${item.status}`}>{inquiryStatusLabels[item.status]}</span></td><td><button type="button" className="sensitive-button" aria-label={`${withdrawn ? "查看撤回记录" : "查看敏感详情"} ${item.inquiryCode}`} onClick={() => void openSensitive(item)} disabled={detailLoadingId === item.id}>{withdrawn ? <XCircle /> : <Eye />}{detailLoadingId === item.id ? "读取中…" : withdrawn ? "查看记录" : "显式查看"}</button></td></tr>; })}</tbody></table>{!items.length && !loading ? <div className="empty-table">当前筛选下暂无咨询线索</div> : null}{loading ? <div className="table-loading">正在加载脱敏线索…</div> : null}</div>
+    <div className="table-wrap"><table><thead><tr><th>咨询编号</th><th>驾校 / 车型</th><th>脱敏联系人</th><th>期望联系</th><th>提交时间</th><th>状态</th><th>查看</th></tr></thead><tbody>{items.map((item) => { const withdrawn = item.status === "withdrawn"; return <tr key={item.id}><td><strong>{item.inquiryCode}</strong><small>{item.isSynthetic ? "演示线索" : "真实线索"}</small></td><td><strong>{item.school.name}</strong><small>{classLabel(item.licenseClassCode)} · {item.applicationMode === "initial" ? "初次申领" : "增驾"}</small></td><td><strong>{item.contactNameMasked || "已清除"}</strong><small>{item.maskedPhone || "已清除"}</small></td><td><strong>{withdrawn ? "已停止联系" : inquiryContactWindowLabel(item.contactWindow)}</strong><small>接收方：驭小满驾校服务团队</small></td><td><strong>{formatDateTime(item.submittedAt)}</strong><small>更新 {formatDateTime(item.updatedAt)}</small></td><td><span className={`status-pill driving-school-inquiry-${item.status}`}>{inquiryStatusLabels[item.status]}</span></td><td><button type="button" className="sensitive-button" aria-label={`${withdrawn ? "查看撤回记录" : "查看敏感详情"} ${item.inquiryCode}`} onClick={() => void openSensitive(item)} disabled={detailLoadingId === item.id}>{withdrawn ? <XCircle /> : <Eye />}{detailLoadingId === item.id ? "读取中…" : withdrawn ? "查看记录" : "显式查看"}</button></td></tr>; })}</tbody></table>{!items.length && !loading ? <div className="empty-table">当前筛选下暂无咨询线索</div> : null}{loading ? <div className="table-loading">正在加载脱敏线索…</div> : null}</div>
     {detail ? <InquiryEditor detail={detail} close={closeDetail} changed={async (updated) => { setItems((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item)); const latest = await drivingSchoolAdminApi.getInquiry(updated.id); setDetail(latest); }} onError={onError} /> : null}
   </section>;
 }
@@ -702,7 +717,7 @@ function InquiryEditor({ detail, close, changed, onError }: { detail: DrivingSch
     <div className="driving-school-inquiry-detail"><section className="detail-section"><h3>接收与隐私 <em>只读</em></h3><dl><div><dt>接收方</dt><dd data-testid="fixed-inquiry-recipient">驭小满驾校服务团队</dd></div><div><dt>用途</dt><dd>{locked ? "咨询已撤回，禁止继续联系或跟进" : "仅用于本次驾校服务咨询联系与跟进"}</dd></div><div><dt>边界</dt><dd>不得向驾校或其他第三方转交，不提供导出</dd></div></dl></section>
       {locked ? <section className="detail-section"><h3>联系方式 <em>已停止使用</em></h3><div className="driving-school-locked"><XCircle /><span><strong>联系方式已在撤回时清除</strong><small>后台不能继续读取或恢复姓名、手机号和备注。</small></span></div></section> : <section className="detail-section"><h3>敏感联系方式 <em>显式读取</em></h3><div className="driving-school-sensitive-card"><ShieldCheck weight="fill" /><div><small>联系人</small><strong data-testid="sensitive-contact-name">{detail.contact?.name || "已清除"}</strong><small>联系电话</small><strong data-testid="sensitive-contact-phone">{detail.contact?.phone || "已清除"}</strong>{detail.contact?.message ? <p>{detail.contact.message}</p> : null}</div></div></section>}
       <section className="detail-section"><h3>跟进记录 <em>{locked ? "撤回后锁定" : "平台内部"}</em></h3>{locked ? <div className="driving-school-locked"><XCircle /><span><strong>用户已撤回咨询</strong><small>状态与内部备注均不可继续操作。</small></span></div> : null}<div className="driving-school-form-grid"><label><span>处理状态</span><select aria-label="咨询处理状态" value={status} disabled={locked} onChange={(event) => setStatus(event.target.value as DrivingSchoolInquiryStatus)}>{allowed.map((value) => <option key={value} value={value}>{inquiryStatusLabels[value]}</option>)}</select></label><label className="wide"><span>联系备注</span><textarea aria-label="咨询联系备注" value={note} disabled={locked} onChange={(event) => setNote(event.target.value)} placeholder="记录平台团队联系结果，不填写无关个人信息" /></label></div></section>
-      {detail.events?.length ? <section className="detail-section"><h3>审计轨迹</h3><div className="driving-school-events">{detail.events.map((event, index) => <div key={String(event.id || index)}><span>{String(event.action || "event")}</span><time>{formatDateTime(String(event.createdAt || ""))}</time></div>)}</div></section> : null}
+      {detail.events?.length ? <section className="detail-section"><h3>审计轨迹</h3><div className="driving-school-events">{detail.events.map((event, index) => <div key={String(event.id || index)}><span>系统操作</span><time>{formatDateTime(String(event.createdAt || ""))}</time></div>)}</div></section> : null}
       <footer className="driving-school-editor-footer"><span>{locked ? "撤回线索已冻结" : "保存仅更新平台内部状态与备注"}</span><button type="button" disabled={locked || saving} onClick={() => void save()}>{saving ? "保存中…" : "保存跟进"}</button></footer>
     </div>
   </Drawer>;

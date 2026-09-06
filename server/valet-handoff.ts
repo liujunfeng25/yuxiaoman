@@ -17,6 +17,11 @@ import { requireCurrentUser } from "./auth.js";
 import { assertAnnualBookingFinancialClosureReady } from "./annual-booking-finance.js";
 import { auditBackofficeEvent, backofficeForRequest } from "./backoffice.js";
 import type { AppDatabase } from "./database.js";
+import {
+  acknowledgeAnnualDriverClaim,
+  syncAnnualWorkflowForBooking,
+  type WorkflowSyncOptions,
+} from "./workflow-integration.js";
 
 type Row = Record<string, unknown>;
 type ProblemFactory = (
@@ -498,12 +503,18 @@ async function insertBookingEvent(
   actorType: "operator" | "driver",
   metadata: Record<string, unknown>,
   createdAt: string,
+  workflowOptions: Pick<WorkflowSyncOptions, "verificationCode" | "forceReopenNodeCodes" | "suppressNodeCodes"> = {},
 ): Promise<void> {
   await database.prepare(`
     INSERT INTO booking_events (
       id, booking_id, status, title, description, actor_type, metadata_json, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(randomUUID(), bookingId, status, title, description, actorType, JSON.stringify(metadata), createdAt);
+  await syncAnnualWorkflowForBooking(database, bookingId, {
+    ...workflowOptions,
+    now: new Date(createdAt),
+    actorType: actorType === "operator" ? "station" : "driver",
+  });
 }
 
 async function ensurePendingPackage(
@@ -784,6 +795,9 @@ async function driverTaskDto(
     WHERE b.id = ?
   `).get(bookingId);
   if (!booking) throw new Error("driver task booking disappeared");
+  const vehicleSnapshot = jsonObject(booking.vehicle_snapshot_json);
+  const snapshotBrand = jsonObject(vehicleSnapshot.brand);
+  const snapshotModel = jsonObject(vehicleSnapshot.model);
   const assignment = await assignmentForBooking(database, bookingId);
   if (!assignment) throw new Error("driver task assignment disappeared");
   const events = await database.prepare<Row>(`
@@ -800,10 +814,17 @@ async function driverTaskDto(
     endTime: String(booking.end_time),
     evidencePolicyVersion: handoff.evidencePolicyVersion,
     vehicle: {
-      plateNumber: String(booking.plate_number ?? ""),
-      brandName: booking.brand_name == null ? null : String(booking.brand_name),
-      modelName: booking.model_name == null ? null : String(booking.model_name),
-      vehicleType: booking.vehicle_type == null ? null : String(booking.vehicle_type),
+      plateNumber: String(vehicleSnapshot.plateNumber ?? booking.plate_number ?? ""),
+      brandName: snapshotBrand.name == null
+        ? (booking.brand_name == null ? null : String(booking.brand_name))
+        : String(snapshotBrand.name),
+      modelName: snapshotModel.name == null
+        ? (booking.model_name == null ? null : String(booking.model_name))
+        : String(snapshotModel.name),
+      vehicleType: vehicleSnapshot.vehicleType == null
+        ? (booking.vehicle_type == null ? null : String(booking.vehicle_type))
+        : String(vehicleSnapshot.vehicleType),
+      exteriorColor: vehicleSnapshot.exteriorColor == null ? null : String(vehicleSnapshot.exteriorColor),
     },
     owner: {
       contactName: String(booking.contact_name),
@@ -1284,6 +1305,7 @@ export async function registerValetHandoffRoutes(
         "operator",
         { assignmentId, driverLabel: ownerDriverName(input.driverName), driverPhoneMasked: maskPhone(input.driverPhone) },
         now,
+        { verificationCode, forceReopenNodeCodes: ["annual.driver.claim"] },
       );
       await auditBackofficeEvent(tx, {
         request,
@@ -1458,12 +1480,18 @@ export async function registerValetHandoffRoutes(
           UPDATE valet_driver_assignments SET bound_user_id = ?, bound_at = ?,
             task_code_consumed_at = ?,
             status = CASE WHEN status = 'assigned' THEN 'bound' ELSE status END,
+            task_code_hash = NULL, task_code_expires_at = NULL,
+            verification_code_hmac = NULL, verification_code_ciphertext = NULL,
+            verification_code_expires_at = NULL,
             updated_at = ? WHERE id = ?
         `).run(userId, now, now, now, String(matchedAssignment.id));
       } else {
         await tx.prepare(`
           UPDATE valet_driver_assignments SET
-            task_code_consumed_at = COALESCE(task_code_consumed_at, ?), updated_at = ?
+            task_code_consumed_at = COALESCE(task_code_consumed_at, ?),
+            task_code_hash = NULL, task_code_expires_at = NULL,
+            verification_code_hmac = NULL, verification_code_ciphertext = NULL,
+            verification_code_expires_at = NULL, updated_at = ?
           WHERE id = ?
         `).run(now, now, String(matchedAssignment.id));
       }
@@ -1475,6 +1503,11 @@ export async function registerValetHandoffRoutes(
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(sessionId, String(matchedAssignment.id), userId, sha256(token), expiresAt, now, now);
       assignment = await tx.prepare<Row>("SELECT * FROM valet_driver_assignments WHERE id = ?").get(String(matchedAssignment.id));
+      await acknowledgeAnnualDriverClaim(tx, String(matchedAssignment.booking_id), {
+        now: new Date(now),
+        actorType: "driver",
+        actorId: userId,
+      });
     });
     if (exchangeFailure === "limited") {
       throw options.problem(429, "DRIVER_TASK_CODE_RATE_LIMITED", "验证码尝试过多，请稍后再试");

@@ -48,7 +48,7 @@ Page<Data>({
     error: "",
   },
 
-  onLoad() { void this.load(); },
+  onLoad(query) { this.fromPrecheck = query.fromPrecheck === "1"; void this.load(); },
   onPullDownRefresh() { void this.load(true); },
   onUnload() { this.loadSequence = Number(this.loadSequence || 0) + 1; },
 
@@ -267,7 +267,8 @@ Page<Data>({
     const store = this.data.stores.find((item) => item.id === storeId);
     if (!store || store.priceError || store.priceLoading || !store.hasCurrentVehicleOffer) return;
     patchWashDraft({ storeId, packageId: undefined, slotId: undefined });
-    wx.navigateBack();
+    if (this.fromPrecheck) wx.redirectTo({ url: "/packages/wash/pages/wash-booking/wash-booking" });
+    else wx.navigateBack();
   },
 
   previewImage(event) {

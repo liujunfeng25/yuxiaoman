@@ -1536,7 +1536,7 @@ type Store = {
     notes?: string;
   }) => Promise<Booking>;
   fetchBooking: (id: string) => Promise<Booking>;
-  payBooking: (id: string, idempotencyKey: string) => Promise<Booking>;
+  payBooking: (id: string, idempotencyKey: string, quoteSnapshotId?: string | null) => Promise<Booking>;
   confirmLedgerEntry: (bookingId: string, entryId: string, idempotencyKey: string) => Promise<Booking>;
   cancelBooking: (id: string) => Promise<void>;
   rescheduleBooking: (id: string, slotId: string) => Promise<void>;
@@ -2563,11 +2563,15 @@ function MvpProvider({ children }: { children: ReactNode }) {
     return booking;
   };
 
-  const payBooking = async (id: string, idempotencyKey: string) => {
+  const payBooking = async (id: string, idempotencyKey: string, quoteSnapshotId?: string | null) => {
     if (apiOnline) {
       const result = await apiRequest<Booking | { booking?: Booking }>(`/bookings/${id}/payments`, {
         method: "POST",
-        body: JSON.stringify({ provider: "mock", idempotencyKey }),
+        body: JSON.stringify({
+          provider: "mock",
+          idempotencyKey,
+          ...(quoteSnapshotId ? { quoteSnapshotId } : {}),
+        }),
       });
       const returned = "booking" in result && result.booking ? result.booking : result as Booking;
       const updated = returned?.id ? normalizeBooking(returned) : await fetchBooking(id);
@@ -6404,7 +6408,7 @@ function BookingPaymentScreen({ bookingId }: { bookingId: string }) {
     setBusy(true);
     setError("");
     try {
-      const updated = await payBooking(booking.id, idempotencyKey);
+      const updated = await payBooking(booking.id, idempotencyKey, booking.quoteSnapshotId);
       setBooking(updated);
       showToast("模拟支付成功，预约已自动确认");
       flow.replace(orderDetailScreen(updated.id));

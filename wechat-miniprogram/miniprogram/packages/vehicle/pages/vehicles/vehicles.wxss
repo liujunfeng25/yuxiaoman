@@ -12,6 +12,7 @@
 .vehicle-main { display: grid; min-height: 164rpx; padding: 25rpx 26rpx 20rpx; grid-template-columns: 190rpx minmax(0, 1fr); align-items: center; gap: 22rpx; box-sizing: border-box; }
 .vehicle-avatar { position: relative; display: flex; width: 190rpx; height: 118rpx; align-items: center; justify-content: center; overflow: hidden; border-radius: 24rpx; background: linear-gradient(145deg, #edf6ff, #f8fbff); }
 .vehicle-avatar image { width: 176rpx; height: 100rpx; }
+.vehicle-avatar-missing { display: flex; width: 176rpx; height: 100rpx; align-items: center; justify-content: center; color: #8a9bad; border: 1rpx dashed #c5d1dc; border-radius: 16rpx; background: #f1f5f8; font-size: 18rpx; box-sizing: border-box; }
 .vehicle-avatar text { position: absolute; right: 9rpx; bottom: 7rpx; padding: 3rpx 8rpx; color: #6c7f96; border-radius: 8rpx; background: rgba(255,255,255,.88); font-size: 15rpx; }
 .vehicle-info { display: flex; min-width: 0; flex-direction: column; }
 .vehicle-kicker { color: #1768cf; font-size: 20rpx; font-weight: 700; }

@@ -1,4 +1,5 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { PLATE_CATEGORY_CODES, PLATE_CATEGORIES, plateCategory, legacyPlateCategory } from "../wechat-miniprogram/miniprogram/utils/plate-categories.js";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readdir, rm, unlink, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
@@ -19,7 +20,13 @@ import {
   type InspectionPowertrainType,
   type InspectionVehicleFacts,
 } from "../src/domain/inspection.js";
-import { normalizePlate, parsePlate, PROVINCE_ABBREVIATIONS, validatePlate } from "../src/domain/plate.js";
+import {
+  editablePlateValue,
+  normalizePlate,
+  parsePlate,
+  PROVINCE_ABBREVIATIONS,
+  validateEditablePlate,
+} from "../src/domain/plate.js";
 import { inferWashVehicleCategory, normalizeWashVehicleCategory } from "../src/domain/wash.js";
 import { AuthenticationError, registerAuthRoutes, requireCurrentUser } from "./auth.js";
 import { registerUserProfileRoutes } from "./user-profile.js";
@@ -83,6 +90,16 @@ import {
   vehicleCheckupReportDto,
 } from "./vehicle-checkup.js";
 import { registerRepairRoutes } from "./repair.js";
+import { registerWorkflowRoutes, WorkflowDomainError } from "./workflow.js";
+import {
+  enableAnnualWorkflowForBooking,
+  syncAnnualWorkflowForBooking,
+} from "./workflow-integration.js";
+import {
+  bookingPrecheckMediaKinds,
+  precheckAction,
+  precheckGuidance,
+} from "./precheck-policy.js";
 import { registerCustomerCenterRoutes } from "./customer-center.js";
 import {
   cancelValetDriverTaskForBooking,
@@ -358,10 +375,11 @@ const stationOriginQuerySchema = z.object({
 });
 
 const createVehicleSchema = z.object({
-  plateNumber: z.string().trim().min(1, "请输入车牌号").refine(validatePlate, "请输入有效的中国大陆车牌号"),
+  plateNumber: z.string().trim().min(1, "请输入车牌号").refine(validateEditablePlate, "车牌号包含不支持的字符或过长"),
+  plateCategory: z.enum(PLATE_CATEGORY_CODES).optional(),
   vehicleType: z.string().trim().min(1).max(40).default("小型轿车"),
   usageNature: z.string().trim().min(1).max(40).default("非营运"),
-  seats: z.coerce.number().int().min(1).max(99).default(5),
+  seats: z.coerce.number().int().min(0).max(99).default(5),
   registrationDate: isoDateSchema,
   inspectionDueDate: isoDateSchema.optional(),
   inspectionValidity: inspectionValiditySchema.optional(),
@@ -370,16 +388,18 @@ const createVehicleSchema = z.object({
   vehicleClassCode: z.string().trim().min(1).max(60).optional(),
   isVan: z.boolean().optional(),
   washVehicleCategory: washVehicleCategorySchema.optional(),
+  exteriorColor: z.string().trim().min(1).max(20).nullable().optional(),
   brandId: idSchema.nullable().optional(),
   modelId: idSchema.nullable().optional(),
 });
 
 const updateVehicleSchema = z
   .object({
-    plateNumber: z.string().trim().min(1).refine(validatePlate, "请输入有效的中国大陆车牌号").optional(),
+    plateNumber: z.string().trim().min(1).refine(validateEditablePlate, "车牌号包含不支持的字符或过长").optional(),
+    plateCategory: z.enum(PLATE_CATEGORY_CODES).optional(),
     vehicleType: z.string().trim().min(1).max(40).optional(),
     usageNature: z.string().trim().min(1).max(40).optional(),
-    seats: z.coerce.number().int().min(1).max(99).optional(),
+    seats: z.coerce.number().int().min(0).max(99).optional(),
     registrationDate: isoDateSchema.optional(),
     inspectionDueDate: isoDateSchema.optional(),
     inspectionValidity: inspectionValiditySchema.optional(),
@@ -388,6 +408,7 @@ const updateVehicleSchema = z
     vehicleClassCode: z.string().trim().min(1).max(60).optional(),
     isVan: z.boolean().optional(),
     washVehicleCategory: washVehicleCategorySchema.optional(),
+    exteriorColor: z.string().trim().min(1).max(20).nullable().optional(),
     brandId: idSchema.nullable().optional(),
     modelId: idSchema.nullable().optional(),
   })
@@ -430,6 +451,26 @@ function catalogSelectionFromInput(input: VehicleCatalogInput, current?: Row) {
     modelId: selection.model.id,
     modelName: selection.model.name,
   };
+}
+
+function isPassengerVehicleClass(value: unknown): boolean {
+  return value === "passenger_car" || value === "large_bus";
+}
+
+function exteriorColorForWrite(input: string | null | undefined, current: Row | undefined, vehicleClassCode: string | null): string | null {
+  if (!isPassengerVehicleClass(vehicleClassCode)) return null;
+  if (input !== undefined) return input;
+  return current?.exterior_color == null ? null : String(current.exterior_color);
+}
+
+function assertCatalogSelectionVehicleClass(modelId: string | null, vehicleClassCode: string | null): void {
+  if (!modelId || !vehicleClassCode) return;
+  const model = vehicleCatalogModel(modelId);
+  if (!model?.vehicleClassCodes.some((code) => code === vehicleClassCode)) {
+    throw new ApiProblem(400, "VEHICLE_CATALOG_CLASS_MISMATCH", "所选车型不适用于当前号牌类型", {
+      modelId: "请按当前号牌类型重新选择车型",
+    });
+  }
 }
 
 const inspectionDeclarationAnswerSchema = z.enum(["yes", "no", "unknown"]);
@@ -557,8 +598,9 @@ const inspectionPricePlanSchema = z.object({
   name: z.string().trim().min(2).max(100),
   description: z.string().trim().max(500).default(""),
   powertrainTypes: z.array(powertrainTypeSchema).min(1),
-  minSeats: z.number().int().min(1).max(99),
-  maxSeats: z.number().int().min(1).max(99),
+  plateCategories: z.array(z.enum(PLATE_CATEGORY_CODES)).min(1).optional(),
+  minSeats: z.number().int().min(0).max(99),
+  maxSeats: z.number().int().min(0).max(99),
   usageNatures: z.array(z.string().trim().min(1).max(60)).min(1),
   vehicleClassCodes: z.array(z.string().trim().min(1).max(60)).min(1),
   excludeVans: z.boolean().default(true),
@@ -596,6 +638,7 @@ const fulfillmentStatusSchema = z.enum([
   "pending_payment",
   "paid_pending_confirmation",
   "pending_precheck",
+  "precheck_action_required",
   "precheck_rejected",
   "confirmed",
   "driver_arranged",
@@ -617,6 +660,9 @@ const precheckReasonCodeSchema = z.enum([
   "vehicle_information_mismatch",
   "booking_information_mismatch",
   "materials_cannot_be_verified",
+  "body_dirty",
+  "body_damage",
+  "dashboard_warning",
   "other",
 ]);
 
@@ -638,7 +684,7 @@ const precheckApproveSchema = z.object({
 const precheckRejectSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(160),
   expectedVersion: z.number().int().min(1),
-  reasonCodes: z.array(precheckReasonCodeSchema).min(1).max(6),
+  reasonCodes: z.array(precheckReasonCodeSchema).min(1).max(9),
   reasonText: z.string().trim().min(5).max(300),
   issuePhotoKinds: z.array(precheckPhotoKindSchema).max(7).default([]),
 }).strict();
@@ -894,7 +940,7 @@ type VehiclePriceCategory = z.infer<typeof vehiclePriceCategorySchema>;
 
 type PowertrainType = InspectionPowertrainType;
 const QUOTE_SNAPSHOT_VERSION = "quote-v1";
-const VEHICLE_FACTS_VERSION = "vehicle-facts-v1";
+const VEHICLE_FACTS_VERSION = "vehicle-facts-v2-explicit-category";
 const INSPECTION_ITEM_PRICING_MODE = "allocated_from_bundle_not_standalone_price";
 
 const inspectionItemNames: Record<z.infer<typeof inspectionItemSchema>, string> = {
@@ -952,39 +998,28 @@ function jsonObjectArray(value: unknown): Array<Record<string, unknown>> {
   }
 }
 
+function vehiclePlateCategory(row: Row) {
+  return plateCategory(row.plate_category) ?? legacyPlateCategory(String(row.vehicle_type), String(row.plate_normalized), row.vehicle_class_code == null ? null : String(row.vehicle_class_code));
+}
+
+function assertVehicleSeatCount(seats: number, categoryCode: unknown) {
+  if (seats === 0 && plateCategory(categoryCode)?.vehicleClassCode !== "trailer") {
+    throw new ApiProblem(400, "VALIDATION_ERROR", "请填写实际核定座位数", { seats: "只有挂车可以填写 0 座" });
+  }
+}
+
 function deriveVehicleFacts(row: Row) {
   const parsed = parsePlate(String(row.plate_number));
   const configuredPowertrain = powertrainTypeSchema.safeParse(row.powertrain_type);
   const factsConsistencyFailures: string[] = [];
   let powertrainType: PowertrainType;
   let powertrainSource: InspectionFactSource;
-  if (parsed.valid && parsed.energyCategory === "pure_electric") {
-    powertrainType = "pure_electric";
-    if (configuredPowertrain.success && configuredPowertrain.data !== "pure_electric") {
-      factsConsistencyFailures.push("plate_powertrain_conflict");
-      powertrainSource = "conflict";
-    } else {
-      powertrainSource = configuredPowertrain.success ? "vehicle_profile" : "plate_inferred";
-    }
-  } else if (parsed.valid && parsed.energyCategory === "non_pure_electric") {
-    if (configuredPowertrain.success && ["phev", "erev"].includes(configuredPowertrain.data)) {
-      powertrainType = configuredPowertrain.data;
-      powertrainSource = "vehicle_profile";
-    } else {
-      // An F plate only proves that the vehicle is not pure electric. It does
-      // not distinguish PHEV from EREV (or other non-pure-electric types).
-      powertrainType = "unknown";
-      powertrainSource = configuredPowertrain.success
-        && !["other", "unknown"].includes(configuredPowertrain.data)
-        ? "conflict"
-        : "plate_inferred";
-    }
-    if (powertrainSource === "conflict") {
-      factsConsistencyFailures.push("plate_powertrain_conflict");
-    }
-  } else if (configuredPowertrain.success) {
+  if (configuredPowertrain.success) {
     powertrainType = configuredPowertrain.data;
     powertrainSource = "vehicle_profile";
+  } else if (plateCategory(row.plate_category) || (parsed.valid && parsed.normalized.length === 8)) {
+    powertrainType = "unknown";
+    powertrainSource = "unknown";
   } else if (String(row.vehicle_type).includes("柴油")) {
     powertrainType = "diesel";
     powertrainSource = "vehicle_profile";
@@ -995,6 +1030,8 @@ function deriveVehicleFacts(row: Row) {
     powertrainType = "gasoline";
     powertrainSource = "unknown";
   }
+  const category = vehiclePlateCategory(row);
+  const explicitCategory = plateCategory(row.plate_category);
   const vehicleType = String(row.vehicle_type);
   const vehicleTypeSaysVan = vehicleType.includes("面包");
   const configuredIsVan = row.is_van == null ? null : bool(row.is_van);
@@ -1004,16 +1041,17 @@ function deriveVehicleFacts(row: Row) {
   const isVan = vehicleTypeSaysVan || configuredIsVan === true;
   const vehicleTypeSaysCargo = /货车|货运|卡车/.test(vehicleType);
   const configuredVehicleClass = row.vehicle_class_code == null ? null : String(row.vehicle_class_code);
-  if (vehicleTypeSaysCargo && configuredVehicleClass === "passenger_car") {
+  if (!explicitCategory && vehicleTypeSaysCargo && configuredVehicleClass === "passenger_car") {
     factsConsistencyFailures.push("vehicle_type_class_conflict");
   }
-  const vehicleClassCode = vehicleTypeSaysCargo || isVan
+  const vehicleClassCode = explicitCategory?.vehicleClassCode ?? (vehicleTypeSaysCargo || isVan
     ? "other"
-    : configuredVehicleClass ?? "passenger_car";
+    : configuredVehicleClass ?? "passenger_car");
   return {
     vehicleId: String(row.id),
     plateNumber: String(row.plate_number),
     plateNormalized: String(row.plate_normalized),
+    plateCategory: category?.code ?? null,
     vehicleType,
     powertrainType,
     powertrainSource,
@@ -1118,6 +1156,12 @@ function inspectionItemsForPowertrain(items: string[], powertrainType: Powertrai
   return expectedOnsiteChecksForPowertrain(powertrainType, items);
 }
 
+function pricePlanCategories(row: Row): string[] {
+  if (row.plate_categories_json != null) return jsonArray(row.plate_categories_json);
+  return PLATE_CATEGORIES.filter((item) => item.vehicleClassCode === "passenger_car"
+    && jsonArray(row.vehicle_class_codes_json).includes("passenger_car")).map((item) => item.code);
+}
+
 function inspectionPricePlanFromRow(row: Row) {
   return {
     id: String(row.id),
@@ -1129,6 +1173,7 @@ function inspectionPricePlanFromRow(row: Row) {
     maxSeats: Number(row.max_seats),
     usageNatures: jsonArray(row.usage_natures_json),
     vehicleClassCodes: jsonArray(row.vehicle_class_codes_json),
+    plateCategories: pricePlanCategories(row),
     excludeVans: bool(row.exclude_vans),
     inspectionItems: jsonArray(row.inspection_items_json),
     sortOrder: Number(row.sort_order),
@@ -1140,7 +1185,11 @@ function inspectionPricePlanFromRow(row: Row) {
 
 async function resolveInspectionPricing(database: AppDatabase, vehicle: Row, station: Row) {
   const facts = deriveVehicleFacts(vehicle);
-  const hardGuardFailures = [
+  const explicitCategory = plateCategory(vehicle.plate_category);
+  const hardGuardFailures = explicitCategory ? [
+    ...facts.factsConsistencyFailures,
+    ...(facts.seats >= (explicitCategory.vehicleClassCode === "trailer" ? 0 : 1) && facts.seats <= 99 ? [] : ["seat_count_out_of_range"]),
+  ] : [
     ...facts.factsConsistencyFailures,
     ...(facts.usageNature === "非营运" ? [] : ["usage_nature_not_non_operational"]),
     ...(facts.seats >= 1 && facts.seats <= 9 ? [] : ["seat_count_out_of_range"]),
@@ -1167,7 +1216,8 @@ async function resolveInspectionPricing(database: AppDatabase, vehicle: Row, sta
   `).all(String(station.id));
   const matches = rows.filter((row) => {
     const plan = inspectionPricePlanFromRow(row);
-    return plan.powertrainTypes.includes(facts.powertrainType)
+    return facts.plateCategory !== null && plan.plateCategories.includes(facts.plateCategory)
+      && plan.powertrainTypes.includes(facts.powertrainType)
       && facts.seats >= plan.minSeats
       && facts.seats <= plan.maxSeats
       && plan.usageNatures.includes(facts.usageNature)
@@ -1221,8 +1271,7 @@ async function resolveInspectionPricing(database: AppDatabase, vehicle: Row, sta
 
 function vehiclePriceCategory(row: Row): VehiclePriceCategory {
   if (Number(row.seats) >= 7) return "seven_seat";
-  const parsed = parsePlate(String(row.plate_number));
-  return parsed.valid && parsed.energyCategory !== "none" ? "new_energy_small" : "fuel_small";
+  return vehiclePlateCategory(row)?.code.startsWith("new_energy_") ? "new_energy_small" : "fuel_small";
 }
 
 function haversineKm(fromLat: number, fromLng: number, toLat: number, toLng: number): number {
@@ -2160,10 +2209,13 @@ async function cancelBooking(
     throw new ApiProblem(409, "BOOKING_ALREADY_COMPLETED", "已完成的预约不能取消");
   }
   const effectiveStage = await cancellationStage(database, row);
+  if (actorType !== "owner" && ["pending_precheck", "precheck_action_required"].includes(effectiveStage)) {
+    throw new ApiProblem(403, "OWNER_REFUND_REQUIRED", "预检订单由车主主动申请退款，检测站或后台不能代为取消退款");
+  }
   const serviceMode = String(row.service_mode);
   const cancellableStages = serviceMode === "valet"
-    ? ["pending_payment", "paid_pending_confirmation", "pending_precheck", "confirmed", "driver_arranged"]
-    : ["pending_payment", "paid_pending_confirmation", "pending_precheck", "confirmed", "awaiting_arrival"];
+    ? ["pending_payment", "paid_pending_confirmation", "pending_precheck", "precheck_action_required", "confirmed", "driver_arranged"]
+    : ["pending_payment", "paid_pending_confirmation", "pending_precheck", "precheck_action_required", "confirmed", "awaiting_arrival"];
   if (!cancellableStages.includes(effectiveStage)) {
     throw new ApiProblem(
       409,
@@ -2228,7 +2280,7 @@ async function cancelBooking(
       payment_status = ?, cancelled_at = ?, updated_at = ?
     WHERE id = ?
   `).run(paymentStatusFromFinancials(after), now, now, String(row.id));
-  if (effectiveStage === "pending_precheck") {
+  if (["pending_precheck", "precheck_action_required"].includes(effectiveStage)) {
     await database.prepare(`
       UPDATE booking_prechecks SET
         refund_status = CASE WHEN ? > 0 THEN 'refunded' ELSE refund_status END,
@@ -2236,7 +2288,7 @@ async function cancelBooking(
         refund_requested_at = CASE WHEN ? > 0 THEN ? ELSE refund_requested_at END,
         refund_completed_at = CASE WHEN ? > 0 THEN ? ELSE refund_completed_at END,
         updated_at = ?
-      WHERE booking_id = ? AND status = 'pending'
+      WHERE booking_id = ?
     `).run(
       automaticRefundFen,
       automaticRefundFen,
@@ -2251,7 +2303,9 @@ async function cancelBooking(
   }
   await cancelValetDriverTaskForBooking(database, String(row.id), now);
   await markBookingMediaForRetention(database, String(row.id), now);
-  await database.prepare("UPDATE station_slots SET booked_count = GREATEST(0, booked_count - 1) WHERE id = ?").run(String(row.slot_id));
+  if (!Number(row.precheck_slot_released ?? 0)) {
+    await database.prepare("UPDATE station_slots SET booked_count = GREATEST(0, booked_count - 1) WHERE id = ?").run(String(row.slot_id));
+  }
   await insertEvent(
     database,
     String(row.id),
@@ -2286,10 +2340,12 @@ function vehicleFromRow(row: Row) {
       seats: row.seats,
     }),
     plateNumber: parsed.valid ? parsed.formatted : String(row.plate_number),
-    plateKind: parsed.valid ? parsed.plateKind : null,
+    plateKind: vehiclePlateCategory(row)?.plateKind ?? (parsed.valid ? parsed.plateKind : null),
+    plateCategory: facts.plateCategory,
+    plateCategoryLabel: vehiclePlateCategory(row)?.label ?? "未确认号牌类型",
     plateProvince: parsed.valid ? parsed.province : null,
     plateAgencyCode: parsed.valid ? parsed.agencyCode : null,
-    energyCategory: parsed.valid ? parsed.energyCategory : null,
+    energyCategory: facts.powertrainType === "pure_electric" ? "pure_electric" : ["phev", "erev"].includes(facts.powertrainType) ? "non_pure_electric" : "none",
     vehicleType: String(row.vehicle_type),
     usageNature: String(row.usage_nature),
     seats: Number(row.seats),
@@ -2307,8 +2363,13 @@ function vehicleFromRow(row: Row) {
     facts,
     brand,
     model,
+    exteriorColor: row.exterior_color == null ? null : String(row.exterior_color),
     visual: catalogModel
-      ? { imageUrl: catalogModel.imageUrl, kind: "synthetic_demo", label: "车型示意图" }
+      ? {
+          imageUrl: catalogModel.imageUrl,
+          kind: catalogModel.imageKind,
+          label: catalogModel.imageKind === "presentation_cutout" ? "车型展示图" : "未配置车型展示图",
+        }
       : null,
   };
 }
@@ -2479,6 +2540,7 @@ const fulfillmentAuditLabels: Record<string, string> = {
   pending_payment: "待支付",
   paid_pending_confirmation: "已支付待确认",
   pending_precheck: "待检测站预审",
+  precheck_action_required: "预检待处理",
   precheck_rejected: "预审未通过",
   confirmed: "已确认",
   driver_arranged: "已安排司机",
@@ -2623,6 +2685,7 @@ function pricePlanAuditSnapshot(row: Row) {
     maxSeats: plan.maxSeats,
     usageNatures: plan.usageNatures,
     vehicleClassCodes: plan.vehicleClassCodes,
+    plateCategories: plan.plateCategories,
     excludeVans: plan.excludeVans,
     inspectionItems: plan.inspectionItems,
     sortOrder: plan.sortOrder,
@@ -2647,6 +2710,7 @@ function pricePlanAuditDisplayValue(field: keyof ReturnType<typeof pricePlanAudi
   if (field === "powertrainTypes" && Array.isArray(value)) {
     return value.map((item) => auditPowertrainLabels[String(item)] ?? String(item));
   }
+  if (field === "plateCategories" && Array.isArray(value)) return value.map((item) => plateCategory(item)?.label ?? String(item));
   if (field === "inspectionItems" && Array.isArray(value)) {
     return value.map((item) => inspectionItemNames[String(item) as keyof typeof inspectionItemNames] ?? String(item));
   }
@@ -2657,7 +2721,7 @@ function pricePlanAuditChanges(before: ReturnType<typeof pricePlanAuditSnapshot>
   const definitions: Array<[keyof typeof after, string]> = [
     ["name", "方案名称"], ["code", "稳定代码"], ["description", "运营说明"],
     ["powertrainTypes", "适用动力类型"], ["minSeats", "最少座位"], ["maxSeats", "最多座位"],
-    ["usageNatures", "使用性质"], ["vehicleClassCodes", "车辆类别"], ["excludeVans", "排除面包车"],
+    ["usageNatures", "使用性质"], ["plateCategories", "号牌车型"], ["vehicleClassCodes", "车辆类别"], ["excludeVans", "排除面包车"],
     ["inspectionItems", "检验项目"], ["sortOrder", "后台排序"], ["isActive", "启用状态"],
   ];
   return definitions.flatMap(([field, label]) => JSON.stringify(before[field]) === JSON.stringify(after[field])
@@ -2775,20 +2839,15 @@ function eventFromRow(row: Row) {
   };
 }
 
-const BOOKING_PRECHECK_PHOTO_KINDS = [
-  "license_front",
-  "license_back",
-  "vehicle_front_left",
-  "vehicle_front_right",
-  "vehicle_rear_left",
-  "vehicle_rear_right",
-  "dashboard_started",
-] as const;
-
-function precheckFromRow(row: Row | undefined) {
+function precheckFromRow(row: Row | undefined, workflowTask: Row | undefined) {
   if (!row) return null;
   const submittedAt = String(row.submitted_at);
-  const ageMs = Math.max(0, Date.now() - Date.parse(submittedAt));
+  const taskStatus = workflowTask == null ? null : String(workflowTask.status);
+  const firstReminderAt = workflowTask?.first_reminder_at == null ? null : String(workflowTask.first_reminder_at);
+  const dueAt = workflowTask?.due_at == null ? null : String(workflowTask.due_at);
+  const escalateAt = workflowTask?.escalate_at == null ? null : String(workflowTask.escalate_at);
+  const lastRemindedAt = workflowTask?.last_reminded_at == null ? null : String(workflowTask.last_reminded_at);
+  const isOpenTask = taskStatus === "open";
   return {
     id: String(row.id),
     bookingId: String(row.booking_id),
@@ -2800,14 +2859,34 @@ function precheckFromRow(row: Row | undefined) {
     reasonCodes: jsonArray(row.reason_codes_json),
     reasonText: row.reason_text == null ? null : String(row.reason_text),
     issuePhotoKinds: jsonArray(row.issue_photo_kinds_json),
+    guidance: precheckGuidance,
+    history: jsonArray(row.history_json),
+    resolutionNote: row.resolution_note == null ? null : String(row.resolution_note),
     refundStatus: String(row.refund_status ?? "not_requested"),
     refundAmountFen: Number(row.refund_amount_fen ?? 0),
     refundError: row.refund_error == null ? null : String(row.refund_error),
     refundRequestedAt: row.refund_requested_at == null ? null : String(row.refund_requested_at),
     refundCompletedAt: row.refund_completed_at == null ? null : String(row.refund_completed_at),
     version: Number(row.version ?? 1),
-    reminderDue: String(row.status) === "pending" && ageMs >= 30 * 60 * 1000,
-    overdue: String(row.status) === "pending" && ageMs >= 2 * 60 * 60 * 1000,
+    // Compatibility booleans are now derived from the persisted task and its
+    // worker activity, never from the age of the precheck row.
+    reminderDue: String(row.status) === "pending" && isOpenTask && lastRemindedAt != null,
+    overdue: String(row.status) === "pending" && isOpenTask && dueAt != null && Date.parse(dueAt) <= Date.now(),
+    supervision: workflowTask == null ? null : {
+      taskId: String(workflowTask.id),
+      status: taskStatus,
+      policyVersion: Number(workflowTask.policy_version),
+      firstReminderAt,
+      dueAt,
+      escalateAt,
+      lastRemindedAt,
+      reminderCount: Number(workflowTask.reminder_count ?? 0),
+      escalatedAt: workflowTask.escalated_at == null ? null : String(workflowTask.escalated_at),
+      inAppCreatedAt: workflowTask.in_app_created_at == null ? null : String(workflowTask.in_app_created_at),
+      externalDeliveryStatus: workflowTask.external_delivery_status == null ? null : String(workflowTask.external_delivery_status),
+      externalAcceptedAt: workflowTask.external_accepted_at == null ? null : String(workflowTask.external_accepted_at),
+      externalLastErrorCode: workflowTask.external_last_error_code == null ? null : String(workflowTask.external_last_error_code),
+    },
   };
 }
 
@@ -2840,6 +2919,7 @@ function bookingFromRow(row: Row, includeInternal = false) {
     vehicleId: String(row.vehicle_id),
     stationId: String(row.station_id),
     slotId: String(row.slot_id),
+    precheckSlotReleased: Boolean(Number(row.precheck_slot_released ?? 0)),
     contactName: String(row.contact_name),
     contactPhone: String(row.contact_phone),
     serviceFeeFen: Number(row.service_fee_fen),
@@ -2997,11 +3077,23 @@ async function bookingDetailFromRow(
     .prepare<Row>("SELECT * FROM inspection_results WHERE booking_id = ?")
     .get(id);
   const mediaRows = await database
-    .prepare<Row>("SELECT * FROM booking_media WHERE booking_id = ? ORDER BY created_at ASC")
+    .prepare<Row>("SELECT * FROM booking_media WHERE booking_id = ? AND is_current = 1 ORDER BY created_at ASC")
     .all(id);
   const precheckRow = await database
     .prepare<Row>("SELECT * FROM booking_prechecks WHERE booking_id = ?")
     .get(id);
+  const precheckWorkflowTask = await database.prepare<Row>(`
+    SELECT t.*,
+      (SELECT MAX(n.created_at) FROM notification_inbox n WHERE n.task_id = t.id) AS in_app_created_at,
+      (SELECT o.status FROM notification_outbox o WHERE o.task_id = t.id ORDER BY o.created_at DESC, o.id DESC LIMIT 1) AS external_delivery_status,
+      (SELECT o.accepted_at FROM notification_outbox o WHERE o.task_id = t.id ORDER BY o.created_at DESC, o.id DESC LIMIT 1) AS external_accepted_at,
+      (SELECT o.last_error_code FROM notification_outbox o WHERE o.task_id = t.id ORDER BY o.created_at DESC, o.id DESC LIMIT 1) AS external_last_error_code
+    FROM workflow_tasks t
+    WHERE t.domain = 'annual_inspection' AND t.entity_type = 'booking'
+      AND t.entity_id = ? AND t.node_code = 'annual.precheck.pending'
+    ORDER BY t.created_at DESC, t.id DESC
+    LIMIT 1
+  `).get(id);
   const vehicleCheckupReport = await vehicleCheckupReportDto(database, id, reportAudience);
   const valetHandoff = await valetHandoffDetail(database, id, reportAudience, {
     revealDriverVerificationCode,
@@ -3023,7 +3115,13 @@ async function bookingDetailFromRow(
     vehicleCheckupReport:
       !includeInternal && vehicleCheckupReport?.status !== "published" ? null : vehicleCheckupReport,
     media: mediaRows.map((mediaRow) => mediaFromRow(mediaRow, reportAudience)),
-    precheck: precheckFromRow(precheckRow),
+    precheck: precheckFromRow(precheckRow, precheckWorkflowTask),
+    precheckServices: precheckRow ? [
+      ...(await database.prepare<Row>("SELECT id, request_no, status FROM repair_requests WHERE source_booking_id = ? AND source_type = 'precheck' ORDER BY created_at DESC").all(id))
+        .map((item) => ({ id: String(item.id), type: "repair", label: "维修报价", number: String(item.request_no), status: String(item.status) })),
+      ...(await database.prepare<Row>("SELECT w.id, w.status FROM precheck_wash_links l JOIN wash_orders w ON w.id = l.wash_order_id WHERE l.booking_id = ? ORDER BY l.created_at DESC").all(id))
+        .map((item) => ({ id: String(item.id), type: "wash", label: "洗车预约", status: String(item.status) })),
+    ] : [],
     refundStatus: precheckRow == null ? "not_requested" : String(precheckRow.refund_status ?? "not_requested"),
     ...valetHandoff,
     ...await bookingFinancials(database, id),
@@ -3063,6 +3161,14 @@ async function insertEvent(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(randomUUID(), bookingId, status, title, description, actorType, JSON.stringify(metadata), createdAt);
+  await syncAnnualWorkflowForBooking(database, bookingId, {
+    now: new Date(createdAt),
+    actorType: actorType === "operator"
+      ? "station"
+      : actorType === "owner" || actorType === "driver"
+        ? actorType
+        : "system",
+  });
 }
 
 async function upsertVerification(
@@ -3415,7 +3521,7 @@ async function assertBookingMedia(
   database: AppDatabase,
   mediaIds: string[],
   userId: string,
-  _serviceMode: "self_drive" | "valet",
+  serviceMode: "self_drive" | "valet",
 ): Promise<Row[]> {
   const uniqueIds = [...new Set(mediaIds)];
   if (uniqueIds.length !== mediaIds.length) {
@@ -3427,15 +3533,7 @@ async function assertBookingMedia(
   if (rows.some((row) => !row)) throw new ApiProblem(400, "MEDIA_NOT_AVAILABLE", "部分照片不存在、已过期或已绑定");
   const media = rows as Row[];
   const kinds = new Set(media.map((row) => String(row.kind)));
-  const required = [
-    "vehicle_front_left",
-    "vehicle_front_right",
-    "vehicle_rear_left",
-    "vehicle_rear_right",
-    "dashboard_started",
-    "license_front",
-    "license_back",
-  ];
+  const required = [...bookingPrecheckMediaKinds];
   const missing = required.filter((kind) => !kinds.has(kind));
   const unexpected = [...kinds].filter((kind) => !required.includes(kind));
   if (missing.length > 0 || unexpected.length > 0 || media.length !== required.length) {
@@ -3541,6 +3639,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       });
     }
 
+    if (error instanceof WorkflowDomainError) {
+      return reply.status(error.statusCode).send({
+        error: {
+          code: error.code,
+          message: error.message,
+          ...(error.fields ? { fields: error.fields } : {}),
+        },
+      });
+    }
+
     const postgresCode = (error as Error & { code?: string }).code;
     if (postgresCode && ["23502", "23503", "23505", "23514", "23P01"].includes(postgresCode)) {
       return reply.status(409).send({
@@ -3596,6 +3704,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerAuthRoutes(app, database, { uploadDir });
   registerUserProfileRoutes(app, database, { uploadDir });
   registerBackofficeRoutes(app, database);
+  await registerWorkflowRoutes(app, database, {
+    now: currentTime,
+    allowBackofficeTestFallback: process.env.YUXIAOMAN_ALLOW_BACKOFFICE_TEST_FALLBACK === "true",
+    problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+  });
   registerCustomerCenterRoutes(app, database, {
     uploadDir,
     insuranceUploadDir,
@@ -3958,14 +4071,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     const now = new Date().toISOString();
     const dueDateState = createInspectionDueDateState(body, now);
+    assertVehicleSeatCount(body.seats, body.plateCategory);
     assertVehicleDates(body.registrationDate, dueDateState.dueDate);
-    const parsedPlate = parsePlate(body.plateNumber);
-    if (!parsedPlate.valid) {
-      throw new ApiProblem(400, "INVALID_PLATE_NUMBER", "请输入有效的中国大陆车牌号", {
-        plateNumber: "车牌格式不符合蓝牌或新能源车牌规则",
+    const editablePlate = editablePlateValue(body.plateNumber);
+    if (!editablePlate) {
+      throw new ApiProblem(400, "INVALID_PLATE_NUMBER", "请输入有效的车牌号", {
+        plateNumber: "车牌号只能包含安全的文字、数字和常见分隔符",
       });
     }
-    const plateNormalized = parsedPlate.normalized;
+    const plateNormalized = editablePlate.normalized;
     const duplicate = await database
       .prepare(`
         SELECT id FROM vehicles
@@ -3986,6 +4100,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     );
     const makeDefault = body.isDefault === true || vehicleCount === 0;
     const catalogSelection = catalogSelectionFromInput(body);
+    const vehicleClassCode = plateCategory(body.plateCategory)?.vehicleClassCode ?? body.vehicleClassCode ?? null;
+    assertCatalogSelectionVehicleClass(catalogSelection.modelId, vehicleClassCode);
 
     await runTransaction(database, async (tx) => {
       if (makeDefault) {
@@ -4000,14 +4116,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
             seats, registration_date, inspection_due_date, inspection_due_date_source,
             inspection_due_date_confirmed_at, is_default,
             powertrain_type, vehicle_class_code, is_van, wash_vehicle_category,
-            brand_id, brand_name, model_id, model_name,
+            brand_id, brand_name, model_id, model_name, plate_category, exterior_color,
             created_at, updated_at, deleted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
         `)
         .run(
           id,
           userId,
-          parsedPlate.formatted,
+          editablePlate.formatted,
           plateNormalized,
           body.vehicleType,
           body.usageNature,
@@ -4018,7 +4134,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           dueDateState.confirmedAt,
           makeDefault ? 1 : 0,
           body.powertrainType ?? null,
-          body.vehicleClassCode ?? null,
+          vehicleClassCode,
           body.isVan === undefined ? null : body.isVan ? 1 : 0,
           body.washVehicleCategory ?? inferWashVehicleCategory({
             vehicleType: body.vehicleType,
@@ -4030,6 +4146,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           catalogSelection.brandName,
           catalogSelection.modelId,
           catalogSelection.modelName,
+          body.plateCategory ?? null,
+          exteriorColorForWrite(body.exteriorColor, undefined, vehicleClassCode),
           now,
           now,
         );
@@ -4047,18 +4165,23 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const current = await getVehicleRow(database, request.params.id, userId);
     if (!current) throw new ApiProblem(404, "VEHICLE_NOT_FOUND", "未找到该车辆");
 
-    const parsedPlate = body.plateNumber ? parsePlate(body.plateNumber) : undefined;
-    if (parsedPlate && !parsedPlate.valid) {
-      throw new ApiProblem(400, "INVALID_PLATE_NUMBER", "请输入有效的中国大陆车牌号", {
-        plateNumber: "车牌格式不符合蓝牌或新能源车牌规则",
+    const editablePlate = body.plateNumber ? editablePlateValue(body.plateNumber) : undefined;
+    assertVehicleSeatCount(body.seats ?? Number(current.seats), body.plateCategory ?? current.plate_category);
+    if (body.plateNumber && !editablePlate) {
+      throw new ApiProblem(400, "INVALID_PLATE_NUMBER", "请输入有效的车牌号", {
+        plateNumber: "车牌号只能包含安全的文字、数字和常见分隔符",
       });
     }
-    const plateNumber = parsedPlate?.valid ? parsedPlate.formatted : String(current.plate_number);
-    const plateNormalized = parsedPlate?.valid ? parsedPlate.normalized : String(current.plate_normalized);
+    const plateNumber = editablePlate?.formatted ?? String(current.plate_number);
+    const plateNormalized = editablePlate?.normalized ?? String(current.plate_normalized);
     const registrationDate = body.registrationDate ?? String(current.registration_date);
     const now = new Date().toISOString();
     const dueDateState = updateInspectionDueDateState(body, current, registrationDate, now);
     const catalogSelection = catalogSelectionFromInput(body, current);
+    const vehicleClassCode = plateCategory(body.plateCategory ?? current.plate_category)?.vehicleClassCode
+      ?? body.vehicleClassCode
+      ?? (current.vehicle_class_code == null ? null : String(current.vehicle_class_code));
+    assertCatalogSelectionVehicleClass(catalogSelection.modelId, vehicleClassCode);
     assertVehicleDates(registrationDate, dueDateState.dueDate);
 
     const duplicate = await database
@@ -4088,7 +4211,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
             seats = ?, registration_date = ?, inspection_due_date = ?, inspection_due_date_source = ?,
             inspection_due_date_confirmed_at = ?, is_default = ?,
             powertrain_type = ?, vehicle_class_code = ?, is_van = ?, wash_vehicle_category = ?,
-            brand_id = ?, brand_name = ?, model_id = ?, model_name = ?, updated_at = ?
+            brand_id = ?, brand_name = ?, model_id = ?, model_name = ?, plate_category = ?, exterior_color = ?, updated_at = ?
           WHERE id = ? AND user_id = ? AND deleted_at IS NULL
         `)
         .run(
@@ -4103,7 +4226,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           dueDateState.confirmedAt,
           nextIsDefault,
           body.powertrainType ?? (current.powertrain_type == null ? null : String(current.powertrain_type)),
-          body.vehicleClassCode ?? (current.vehicle_class_code == null ? null : String(current.vehicle_class_code)),
+          vehicleClassCode,
           body.isVan === undefined ? (current.is_van == null ? null : Number(current.is_van)) : body.isVan ? 1 : 0,
           body.washVehicleCategory ?? inferWashVehicleCategory({
             persisted: current.wash_vehicle_category,
@@ -4116,6 +4239,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           catalogSelection.brandName,
           catalogSelection.modelId,
           catalogSelection.modelName,
+          body.plateCategory ?? (current.plate_category == null ? null : String(current.plate_category)),
+          exteriorColorForWrite(body.exteriorColor, current, vehicleClassCode),
           now,
           request.params.id,
           userId,
@@ -4654,6 +4779,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         .prepare("UPDATE station_slots SET booked_count = booked_count + 1 WHERE id = ? AND booked_count < capacity")
         .run(body.slotId);
       if (reserved.changes !== 1) throw new ApiProblem(409, "SLOT_FULL", "该时段已约满，请选择其他时段");
+      await enableAnnualWorkflowForBooking(tx, id, {
+        now: new Date(now),
+        actorType: "owner",
+        actorId: userId,
+      });
       await insertEvent(
         tx,
         id,
@@ -5068,7 +5198,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           "检测站将核对行驶证、车辆四角及启动后仪表盘共 7 张预约资料",
           now,
           "system",
-          { precheckSlaReminderMinutes: 30, precheckOverdueMinutes: 120 },
+          { supervisionSource: "workflow_task" },
         );
       }
     });
@@ -5165,7 +5295,92 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     await runTransaction(database, async (tx) => {
       const booking = await tx.prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE").get(request.params.id, userId);
       if (!booking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
-      await cancelBooking(tx, booking, "owner");
+      await cancelBooking(tx, booking, "owner", true);
+    });
+    return { data: await getBooking(database, request.params.id, userId) };
+  });
+
+  app.post<{ Params: { id: string } }>("/api/bookings/:id/precheck/resubmit", async (request, reply) => {
+    const userId = await requireCurrentUser(request, database);
+    const body = parseBody(z.object({
+      expectedVersion: z.number().int().positive(),
+      idempotencyKey: z.string().trim().min(8).max(160),
+      slotId: idSchema,
+      mediaIds: z.array(idSchema).max(7).default([]),
+      resolutionNote: z.string().trim().min(5).max(500),
+    }).strict(), request.body, reply);
+    if (!body) return;
+    const hash = createHash("sha256").update(stableJson(body)).digest("hex");
+    await runTransaction(database, async (tx) => {
+      const booking = await tx.prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE").get(request.params.id, userId);
+      if (!booking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
+      const precheck = await tx.prepare<Row>("SELECT * FROM booking_prechecks WHERE booking_id = ? FOR UPDATE").get(request.params.id);
+      if (!precheck) throw new ApiProblem(404, "PRECHECK_NOT_FOUND", "未找到预检记录");
+      if (precheck.resubmission_key === body.idempotencyKey) {
+        if (precheck.resubmission_hash !== hash) throw new ApiProblem(409, "PRECHECK_IDEMPOTENCY_CONFLICT", "提交标识已用于其他资料，请刷新后重试");
+        return;
+      }
+      if (booking.fulfillment_status !== "precheck_action_required" || precheck.status !== "rejected" || booking.payment_status !== "paid") {
+        throw new ApiProblem(409, "PRECHECK_STATE_CHANGED", "只有预检待处理且未退款的订单可以重新提交");
+      }
+      if (Number(precheck.version) !== body.expectedVersion) throw new ApiProblem(409, "PRECHECK_VERSION_CONFLICT", "预检内容已更新，请刷新后再提交");
+      const slot = await tx.prepare<Row>("SELECT * FROM station_slots WHERE id = ? AND station_id = ? FOR UPDATE").get(body.slotId, String(booking.station_id));
+      if (!slot) throw new ApiProblem(404, "SLOT_NOT_FOUND", "请选择原检测站的预约时段");
+      if (inspectionSlotHasStarted(slot, currentSlotTime())) throw new ApiProblem(409, "SLOT_EXPIRED", "该时段已开始，请选择新的预约时段");
+      const station = await getStationRow(tx, String(booking.station_id));
+      if (!station || !bool(station.is_active)) throw new ApiProblem(409, "STATION_UNAVAILABLE", "原检测站当前不可预约，可由车主申请退款");
+      const vehicle = await getVehicleRow(tx, String(booking.vehicle_id), userId);
+      const snapshot = await tx.prepare<Row>("SELECT * FROM quote_snapshots WHERE id = ? AND user_id = ?").get(String(booking.quote_snapshot_id), userId);
+      if (!vehicle || !snapshot) throw new ApiProblem(409, "PRECHECK_VEHICLE_UNAVAILABLE", "原车辆或计价快照不可用，请申请退款后重新预约");
+      assertQuoteVehicleIsCurrent(snapshot, vehicle);
+      // Same vehicle, station and pickup context: retain the paid price snapshot.
+      const now = currentTime().toISOString();
+      const serviceMode = String(booking.service_mode);
+      const allowedMediaKinds = new Set(bookingPrecheckMediaKinds);
+      const replacementKinds = new Set<string>();
+      const replacements: Row[] = [];
+      for (const mediaId of [...body.mediaIds].sort()) {
+        const media = await tx.prepare<Row>("SELECT * FROM booking_media WHERE id = ? AND user_id = ? AND booking_id IS NULL FOR UPDATE").get(mediaId, userId);
+        if (!media || String(media.expires_at) <= now) throw new ApiProblem(409, "MEDIA_NOT_AVAILABLE", "补充照片已过期或已绑定，请重新上传");
+        const mediaKind = String(media.kind);
+        if (!allowedMediaKinds.has(mediaKind)) {
+          throw new ApiProblem(400, "PRECHECK_MEDIA_KIND_NOT_ALLOWED", "补充照片与预约服务方式不匹配", {
+            mediaIds: `本服务方式不应上传：${mediaKind}`,
+          });
+        }
+        if (replacementKinds.has(mediaKind)) throw new ApiProblem(400, "DUPLICATE_MEDIA_KIND", "每个照片位置只能补充一张");
+        replacementKinds.add(mediaKind);
+        replacements.push(media);
+      }
+      const currentMedia = await tx.prepare<Row>("SELECT * FROM booking_media WHERE booking_id = ? AND is_current = 1").all(request.params.id);
+      const requiredKinds = new Set(jsonArray(precheck.issue_photo_kinds_json).map(String));
+      if (!requiredKinds.size) replacements.forEach((item) => requiredKinds.add(String(item.kind)));
+      if (!replacements.length || [...requiredKinds].some((kind) => !replacementKinds.has(kind))) {
+        throw new ApiProblem(400, "PRECHECK_UPDATED_MEDIA_REQUIRED", "请补拍检测站标注的问题照片；未指定照片时至少补充一张处理后的资料");
+      }
+      const completeKinds = new Set([...currentMedia.map((item) => String(item.kind)), ...replacementKinds]);
+      const missingKinds = [...allowedMediaKinds].filter((kind) => !completeKinds.has(kind));
+      if (missingKinds.length) {
+        throw new ApiProblem(400, "PRECHECK_MEDIA_INCOMPLETE", "请补齐预约所需照片", {
+          mediaIds: `缺少：${missingKinds.join("、")}`,
+        });
+      }
+      for (const media of replacements) {
+        await tx.prepare("UPDATE booking_media SET is_current = 0 WHERE booking_id = ? AND kind = ? AND is_current = 1").run(request.params.id, String(media.kind));
+        await tx.prepare("UPDATE booking_media SET booking_id = ?, bound_at = ?, expires_at = '9999-12-31T23:59:59.999Z', is_current = 1 WHERE id = ?").run(request.params.id, now, String(media.id));
+      }
+      const reserved = await tx.prepare("UPDATE station_slots SET booked_count = booked_count + 1 WHERE id = ? AND booked_count < capacity").run(body.slotId);
+      if (reserved.changes !== 1) throw new ApiProblem(409, "SLOT_FULL", "该时段已约满，请选择其他时段");
+      await tx.prepare(`UPDATE bookings SET status = 'confirmed', fulfillment_status = 'pending_precheck',
+        slot_id = ?, appointment_date = ?, start_time = ?, end_time = ?, precheck_slot_released = 0, updated_at = ? WHERE id = ?`)
+        .run(body.slotId, String(slot.date), String(slot.start_time), String(slot.end_time), now, request.params.id);
+      await tx.prepare(`UPDATE booking_prechecks SET status = 'pending', submitted_at = ?, resolution_note = ?,
+        resubmission_key = ?, resubmission_hash = ?, decision_idempotency_key = NULL, decision_hash = NULL,
+        version = version + 1, updated_at = ? WHERE booking_id = ?`)
+        .run(now, body.resolutionNote, body.idempotencyKey, hash, now, request.params.id);
+      await insertEvent(tx, request.params.id, "pending_precheck", "车主已提交预检复核",
+        `${body.resolutionNote}；已选择本站新时段，保留原已付价格，等待检测站审核。`, now, "owner",
+        { mediaIds: body.mediaIds, previousVersion: body.expectedVersion, slotId: body.slotId });
     });
     return { data: await getBooking(database, request.params.id, userId) };
   });
@@ -5351,6 +5566,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         "owner",
         { previousSlotId: String(booking.slot_id), nextSlotId: body.slotId, snapshotId, priceDifferenceFen },
       );
+      // Strategy/template versions stay frozen, but a customer-approved slot
+      // change must re-anchor arrival notifications to the new appointment.
+      await syncAnnualWorkflowForBooking(tx, request.params.id, {
+        now: new Date(now),
+        actorType: "owner",
+        forceReopenNodeCodes: ["annual.arrival.owner", "annual.pickup.owner"],
+      });
     });
     return { data: await getBooking(database, request.params.id, userId) };
   });
@@ -5390,7 +5612,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       .prepare(`
         SELECT * FROM bookings
         WHERE station_id = ? AND appointment_date = ?
-          AND (fulfillment_status = 'legacy' OR fulfillment_status NOT IN ('pending_payment', 'paid_pending_confirmation', 'pending_precheck', 'precheck_rejected'))
+          AND (fulfillment_status = 'legacy' OR fulfillment_status NOT IN ('pending_payment', 'paid_pending_confirmation', 'pending_precheck', 'precheck_action_required', 'precheck_rejected'))
         ORDER BY start_time ASC, created_at ASC
       `)
       .all(stationId, date) as Row[];
@@ -5498,15 +5720,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   const assertPrecheckMediaComplete = async (tx: AppDatabase, bookingId: string) => {
     const rows = await tx.prepare<Row>(`
-      SELECT kind FROM booking_media WHERE booking_id = ?
+      SELECT kind FROM booking_media WHERE booking_id = ? AND is_current = 1
     `).all(bookingId);
     const actual = new Set(rows.map((row) => String(row.kind)));
-    const missing = BOOKING_PRECHECK_PHOTO_KINDS.filter((kind) => !actual.has(kind));
+    const required = bookingPrecheckMediaKinds;
+    const missing = required.filter((kind) => !actual.has(kind));
     if (missing.length) {
       throw new ApiProblem(409, "PRECHECK_MEDIA_INCOMPLETE", "预约资料不完整，暂不能通过预审", {
         media: `缺少 ${missing.length} 张必需照片`,
       });
     }
+    return required.length;
   };
 
   app.post<{ Params: { id: string } }>("/api/operator/prechecks/:id/approve", async (request, reply) => {
@@ -5527,7 +5751,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       if (String(booking.fulfillment_status) !== "pending_precheck" || String(booking.payment_status) !== "paid") {
         throw new ApiProblem(409, "PRECHECK_STATE_CHANGED", "订单状态已变化，请刷新后重试");
       }
-      await assertPrecheckMediaComplete(tx, request.params.id);
+      const requiredMediaCount = await assertPrecheckMediaComplete(tx, request.params.id);
       const now = new Date().toISOString();
       const selfDrive = String(booking.service_mode) === "self_drive";
       const nextStatus = selfDrive ? "awaiting_arrival" : "confirmed";
@@ -5546,8 +5770,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         nextStatus,
         "检测站预审通过",
         selfDrive
-          ? "检测站已核对 7 张预约资料并接单，等待车辆按预约时间到站"
-          : "检测站已核对 7 张预约资料并接单，订单进入代驾司机安排阶段",
+          ? `检测站已核对 ${requiredMediaCount} 张预约资料并接单，等待车辆按预约时间到站`
+          : `检测站已核对 ${requiredMediaCount} 张预约资料并接单，订单进入代驾司机安排阶段`,
         now,
         "operator",
         { reviewerName: principal.account.displayName, precheckVersion: Number(precheck.version) + 1 },
@@ -5568,105 +5792,54 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(precheckRejectSchema, request.body, reply);
     if (!body) return;
     const principal = backofficeForRequest(request);
+    const hash = createHash("sha256").update(stableJson(body)).digest("hex");
     await runTransaction(database, async (tx) => {
       const booking = await tx.prepare<Row>("SELECT * FROM bookings WHERE id = ? FOR UPDATE").get(request.params.id);
       const precheck = await tx.prepare<Row>("SELECT * FROM booking_prechecks WHERE booking_id = ? FOR UPDATE").get(request.params.id);
-      if (!booking || !precheck) throw new ApiProblem(404, "PRECHECK_NOT_FOUND", "未找到本站预审任务");
+      if (!booking || !precheck) throw new ApiProblem(404, "PRECHECK_NOT_FOUND", "未找到本站预检任务");
       if (String(precheck.status) !== "pending") {
-        if (String(precheck.status) === "rejected" && String(precheck.decision_idempotency_key) === body.idempotencyKey) return;
-        throw new ApiProblem(409, "PRECHECK_ALREADY_DECIDED", "该订单已经完成预审，不能重复操作");
+        if (precheck.status === "rejected" && precheck.decision_idempotency_key === body.idempotencyKey) {
+          if (precheck.decision_hash && precheck.decision_hash !== hash) throw new ApiProblem(409, "PRECHECK_IDEMPOTENCY_CONFLICT", "同一提交标识不能用于不同问题");
+          return;
+        }
+        throw new ApiProblem(409, "PRECHECK_ALREADY_DECIDED", "该轮预检已处理，请等待车主重新提交");
       }
-      if (Number(precheck.version) !== body.expectedVersion) {
-        throw new ApiProblem(409, "PRECHECK_VERSION_CONFLICT", "预审任务已更新，请刷新后重试");
+      if (Number(precheck.version) !== body.expectedVersion) throw new ApiProblem(409, "PRECHECK_VERSION_CONFLICT", "预检任务已更新，请刷新后重试");
+      if (booking.fulfillment_status !== "pending_precheck" || booking.payment_status !== "paid") throw new ApiProblem(409, "PRECHECK_STATE_CHANGED", "订单状态已变化，请刷新后重试");
+      if (new Set(body.reasonCodes).size !== body.reasonCodes.length || new Set(body.issuePhotoKinds).size !== body.issuePhotoKinds.length) throw new ApiProblem(400, "DUPLICATE_PRECHECK_ISSUE", "问题类型和照片不能重复");
+      const allowedMediaKinds = new Set(bookingPrecheckMediaKinds);
+      const unsupportedPhotoKinds = body.issuePhotoKinds.filter((kind) => !allowedMediaKinds.has(kind));
+      if (unsupportedPhotoKinds.length) {
+        throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_NOT_ALLOWED", "问题照片与预约服务方式不匹配", {
+          issuePhotoKinds: `本服务方式不支持：${unsupportedPhotoKinds.join("、")}`,
+        });
       }
-      if (String(booking.fulfillment_status) !== "pending_precheck" || String(booking.payment_status) !== "paid") {
-        throw new ApiProblem(409, "PRECHECK_STATE_CHANGED", "订单状态已变化，请刷新后重试");
-      }
-      const now = new Date().toISOString();
-      const beforeFinancials = await bookingFinancials(tx, request.params.id);
-      const refundableFen = Math.max(0, beforeFinancials.paidFen - beforeFinancials.refundedFen);
-      await tx.prepare(`
-        UPDATE booking_prechecks SET status = 'rejected', reviewed_at = ?,
-          reviewer_account_id = ?, reviewer_name = ?, reason_codes_json = ?, reason_text = ?,
-          issue_photo_kinds_json = ?, decision_idempotency_key = ?, refund_status = 'refund_pending',
-          refund_amount_fen = ?, refund_requested_at = ?, refund_error = NULL,
-          version = version + 1, updated_at = ?
-        WHERE booking_id = ?
-      `).run(
-        now,
-        principal.account.id,
-        principal.account.displayName,
-        JSON.stringify(body.reasonCodes),
-        body.reasonText,
-        JSON.stringify(body.issuePhotoKinds),
-        body.idempotencyKey,
-        refundableFen,
-        now,
-        now,
-        request.params.id,
-      );
-      if (beforeFinancials.chargedFen > 0) {
-        await tx.prepare(`
-          INSERT INTO booking_ledger_entries (
-            id, booking_id, kind, amount_fen, description, actor_type,
-            payment_id, idempotency_key, confirmation_status, confirmed_at, created_at
-          ) VALUES (?, ?, 'precheck_rejection_adjustment', ?, '预审未通过应收冲销',
-            'operator', NULL, 'precheck-rejection-adjustment', 'confirmed', ?, ?)
-          ON CONFLICT DO NOTHING
-        `).run(randomUUID(), request.params.id, -beforeFinancials.chargedFen, now, now);
-      }
-      if (refundableFen > 0) {
-        await tx.prepare(`
-          INSERT INTO booking_ledger_entries (
-            id, booking_id, kind, amount_fen, description, actor_type,
-            payment_id, idempotency_key, confirmation_status, confirmed_at, created_at
-          ) VALUES (?, ?, 'refund', ?, '检测站预审未通过全额退款',
-            'operator', NULL, 'precheck-rejection-refund', 'confirmed', ?, ?)
-          ON CONFLICT DO NOTHING
-        `).run(randomUUID(), request.params.id, -refundableFen, now, now);
-      }
-      const financials = await bookingFinancials(tx, request.params.id);
-      await tx.prepare(`
-        UPDATE bookings SET status = 'cancelled', fulfillment_status = 'precheck_rejected',
-          payment_status = ?, cancelled_at = ?, updated_at = ? WHERE id = ?
-      `).run(paymentStatusFromFinancials(financials), now, now, request.params.id);
-      await tx.prepare(`
-        UPDATE station_slots SET booked_count = CASE WHEN booked_count > 0 THEN booked_count - 1 ELSE 0 END
-        WHERE id = ?
-      `).run(String(booking.slot_id));
-      await tx.prepare(`
-        UPDATE booking_prechecks SET refund_status = 'refunded', refund_completed_at = ?, updated_at = ?
-        WHERE booking_id = ?
-      `).run(now, now, request.params.id);
-      await insertEvent(
-        tx,
-        request.params.id,
-        "precheck_rejected",
-        "检测站预审未通过",
-        body.reasonText,
-        now,
-        "operator",
-        { reasonCodes: body.reasonCodes, issuePhotoKinds: body.issuePhotoKinds, reviewerName: principal.account.displayName },
-      );
-      await insertEvent(
-        tx,
-        request.params.id,
-        "precheck_rejected",
-        "模拟退款已完成",
-        `已按实付金额退回 ¥${(refundableFen / 100).toFixed(2)}，本地模拟流程不会产生真实资金变动`,
-        now,
-        "system",
-        { refundStatus: "refunded", refundAmountFen: refundableFen },
-      );
-      await markBookingMediaForRetention(tx, request.params.id, now);
-      await auditBackofficeEvent(tx, {
-        request,
-        action: "booking.precheck.reject",
-        outcome: "success",
+      const media = await tx.prepare<Row>("SELECT id, kind FROM booking_media WHERE booking_id = ? AND is_current = 1").all(request.params.id);
+      const actualKinds = new Set(media.map((item) => String(item.kind)));
+      if (body.reasonCodes.includes("dashboard_warning") && !body.issuePhotoKinds.includes("dashboard_started")) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "故障灯问题请标注启动后仪表盘照片");
+      if (body.reasonCodes.some((code) => ["body_dirty", "body_damage"].includes(code)) && !body.issuePhotoKinds.some((kind) => kind.startsWith("vehicle_"))) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "脏污或车损问题请标注对应车身照片");
+      if (body.issuePhotoKinds.some((kind) => !actualKinds.has(kind)) && body.reasonCodes.some((code) => precheckAction(code) !== "materials")) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "服务问题必须有实际照片依据");
+      const now = currentTime().toISOString();
+      const history = [...jsonArray(precheck.history_json), {
+        version: Number(precheck.version), reasonCodes: body.reasonCodes, reasonText: body.reasonText,
+        issuePhotoKinds: body.issuePhotoKinds, mediaIds: media.map((item) => String(item.id)),
+        reviewerName: principal.account.displayName, reviewedAt: now,
+        resolutionNote: precheck.resolution_note ?? null,
+      }];
+      await tx.prepare(`UPDATE booking_prechecks SET status = 'rejected', reviewed_at = ?, reviewer_account_id = ?, reviewer_name = ?,
+        reason_codes_json = ?, reason_text = ?, issue_photo_kinds_json = ?, decision_idempotency_key = ?, decision_hash = ?,
+        history_json = ?, resolution_note = NULL, version = version + 1, updated_at = ? WHERE booking_id = ?`)
+        .run(now, principal.account.id, principal.account.displayName, JSON.stringify(body.reasonCodes), body.reasonText,
+          JSON.stringify(body.issuePhotoKinds), body.idempotencyKey, hash, JSON.stringify(history), now, request.params.id);
+      await tx.prepare("UPDATE bookings SET status = 'confirmed', fulfillment_status = 'precheck_action_required', precheck_slot_released = 1, updated_at = ? WHERE id = ?").run(now, request.params.id);
+      if (!Number(booking.precheck_slot_released ?? 0)) await tx.prepare("UPDATE station_slots SET booked_count = GREATEST(0, booked_count - 1) WHERE id = ?").run(String(booking.slot_id));
+      await insertEvent(tx, request.params.id, "precheck_action_required", "预检发现问题，等待车主处理",
+        body.reasonText + "；原时段已释放，订单及已付款保留。车主可处理后选择本站时段再次审核，或主动申请退款。", now, "operator",
+        { reasonCodes: body.reasonCodes, issuePhotoKinds: body.issuePhotoKinds, reviewerName: principal.account.displayName });
+      await auditBackofficeEvent(tx, { request, action: "booking.precheck.reject", outcome: "success",
         resource: { type: "booking", id: request.params.id },
         before: { fulfillmentStatus: "pending_precheck", precheckStatus: "pending" },
-        after: { fulfillmentStatus: "precheck_rejected", precheckStatus: "rejected", refundStatus: "refunded", refundAmountFen: refundableFen },
-      });
+        after: { fulfillmentStatus: "precheck_action_required", precheckStatus: "rejected", refundStatus: "not_requested" } });
     });
     return { data: await getOperatorBooking(database, request.params.id) };
   });
@@ -6517,9 +6690,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         await tx.prepare(`
           INSERT INTO inspection_price_plans (
             id, code, name, description, powertrain_types_json, min_seats, max_seats,
-            usage_natures_json, vehicle_class_codes_json, exclude_vans,
+            usage_natures_json, vehicle_class_codes_json, exclude_vans, plate_categories_json,
             inspection_items_json, sort_order, is_active, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           id,
           body.code,
@@ -6531,6 +6704,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           JSON.stringify(body.usageNatures),
           JSON.stringify(body.vehicleClassCodes),
           body.excludeVans ? 1 : 0,
+          body.plateCategories ? JSON.stringify(body.plateCategories) : null,
           JSON.stringify(body.inspectionItems),
           body.sortOrder,
           body.isActive ? 1 : 0,
@@ -6586,7 +6760,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         UPDATE inspection_price_plans SET
           code = ?, name = ?, description = ?, powertrain_types_json = ?,
           min_seats = ?, max_seats = ?, usage_natures_json = ?,
-          vehicle_class_codes_json = ?, exclude_vans = ?, inspection_items_json = ?,
+          vehicle_class_codes_json = ?, exclude_vans = ?, plate_categories_json = ?, inspection_items_json = ?,
           sort_order = ?, is_active = ?, updated_at = ?
         WHERE id = ?
       `).run(
@@ -6599,6 +6773,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         JSON.stringify(body.usageNatures),
         JSON.stringify(body.vehicleClassCodes),
         body.excludeVans ? 1 : 0,
+        body.plateCategories ? JSON.stringify(body.plateCategories) : current.plate_categories_json == null ? null : String(current.plate_categories_json),
         JSON.stringify(body.inspectionItems),
         body.sortOrder,
         body.isActive ? 1 : 0,
@@ -6898,6 +7073,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       if (String(precheck.refund_status) !== "refund_failed") {
         throw new ApiProblem(409, "PRECHECK_REFUND_NOT_RETRYABLE", "当前退款状态不需要重试");
       }
+      if (!precheck.refund_requested_at || !bookingIsTerminal(booking)) {
+        throw new ApiProblem(403, "OWNER_REFUND_REQUIRED", "尚无已结束订单的退款申请，不能由后台发起预检退款");
+      }
       const now = new Date().toISOString();
       const financials = await bookingFinancials(tx, request.params.id);
       const expectedRefundFen = Number(precheck.refund_amount_fen ?? 0);
@@ -7060,6 +7238,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           return false;
         }
         if (kind === "refund") {
+          if (["pending_precheck", "precheck_action_required"].includes(lockedBusiness)) throw new ApiProblem(403, "OWNER_REFUND_REQUIRED", "预检退款须由车主主动申请");
           const financials = await bookingFinancials(tx, request.params.id);
           if (financials.refundedFen + amountFen > financials.paidFen) {
             throw new ApiProblem(409, "REFUND_EXCEEDS_PAYMENT", "退款金额不能超过已支付金额");

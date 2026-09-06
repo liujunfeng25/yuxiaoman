@@ -8,6 +8,7 @@ import type {
   CheckupMedia,
   CheckupMediaKind,
   CheckupViewId,
+  Vehicle,
   VehicleCheckupReport,
   VehicleCheckupReportInput,
   VehicleFault,
@@ -35,6 +36,30 @@ export type CheckupRegion = {
   /** Callout label center Y as percent of stage height. */
   labelY: number;
 };
+
+export type CheckupSystemRegion = {
+  code: string;
+  viewId: CheckupViewId;
+  label: string;
+  hint: string;
+};
+
+export type CheckupDiagramView = {
+  id: CheckupViewId;
+  label: string;
+  imagePath: string;
+  mirrored: boolean;
+};
+
+export type CheckupVehicleDiagram = {
+  bodyType: CheckupVehicleBodyType;
+  vehicleLabel: string;
+  sourceLabel: string;
+  views: CheckupDiagramView[];
+  regions: ReadonlyArray<CheckupRegion>;
+};
+
+export type CheckupVehicleBodyType = "sedan" | "suv" | "mpv";
 
 export const SITE_PHOTO_SLOTS: ReadonlyArray<Omit<CheckupPhotoSlot, "media" | "uploading">> = [
   { kind: "front_left", label: "左前", hint: "完整拍到左前车身", required: true },
@@ -113,30 +138,178 @@ export function annualInspectionFailureDetails(
 }
 
 export const CHECKUP_REGIONS: ReadonlyArray<CheckupRegion> = [
-  // Top view: dots along centerline; labels alternate left/right to avoid stacking.
-  { code: "front_bumper", viewId: "top", label: "前保险杠", x: 50, y: 12, labelX: 18, labelY: 10 },
-  { code: "front_face", viewId: "top", label: "前脸与灯组", x: 50, y: 21, labelX: 82, labelY: 18 },
-  { code: "hood", viewId: "top", label: "发动机舱盖", x: 50, y: 32, labelX: 16, labelY: 30 },
-  { code: "windshield", viewId: "top", label: "前挡风玻璃", x: 50, y: 42, labelX: 84, labelY: 40 },
-  { code: "roof", viewId: "top", label: "车顶", x: 50, y: 54, labelX: 16, labelY: 54 },
-  { code: "rear_glass", viewId: "top", label: "后挡风玻璃", x: 50, y: 65, labelX: 84, labelY: 64 },
-  { code: "trunk_tailgate", viewId: "top", label: "后备厢盖与尾门", x: 50, y: 75, labelX: 18, labelY: 76 },
-  { code: "rear_bumper", viewId: "top", label: "后保险杠", x: 50, y: 86, labelX: 82, labelY: 88 },
-  // Left 3/4 profile (nose toward smaller x): dots on panels; labels fan into margins.
-  { code: "left_mirror", viewId: "left", label: "左后视镜", x: 35, y: 46, labelX: 12, labelY: 16 },
-  { code: "left_front_fender", viewId: "left", label: "左前翼子板", x: 28, y: 58, labelX: 8, labelY: 48 },
-  { code: "left_front_door", viewId: "left", label: "左前门", x: 46, y: 54, labelX: 10, labelY: 70 },
-  { code: "left_rear_door", viewId: "left", label: "左后门", x: 66, y: 52, labelX: 82, labelY: 78 },
-  { code: "left_rear_quarter", viewId: "left", label: "左后翼子板", x: 88, y: 48, labelX: 96, labelY: 16 },
-  { code: "left_sill", viewId: "left", label: "左侧裙", x: 52, y: 76, labelX: 50, labelY: 92 },
-  // Right 3/4 profile (nose toward larger x): mirrored layout into outer margins.
-  { code: "right_mirror", viewId: "right", label: "右后视镜", x: 62, y: 42, labelX: 88, labelY: 14 },
-  { code: "right_front_fender", viewId: "right", label: "右前翼子板", x: 72, y: 54, labelX: 92, labelY: 48 },
-  { code: "right_front_door", viewId: "right", label: "右前门", x: 54, y: 50, labelX: 90, labelY: 68 },
-  { code: "right_rear_door", viewId: "right", label: "右后门", x: 34, y: 48, labelX: 18, labelY: 74 },
-  { code: "right_rear_quarter", viewId: "right", label: "右后翼子板", x: 12, y: 44, labelX: 4, labelY: 16 },
-  { code: "right_sill", viewId: "right", label: "右侧裙", x: 48, y: 68, labelX: 50, labelY: 88 },
+  // Top view: every dot is centered on the named panel. Labels stay inside the
+  // 18%–82% safe band so a five-to-seven-character chip never clips the frame.
+  { code: "front_bumper", viewId: "top", label: "前保险杠", x: 50, y: 6, labelX: 18, labelY: 8 },
+  { code: "front_face", viewId: "top", label: "前脸与灯组", x: 50, y: 10, labelX: 82, labelY: 14 },
+  { code: "hood", viewId: "top", label: "发动机舱盖", x: 50, y: 19, labelX: 18, labelY: 23 },
+  { code: "windshield", viewId: "top", label: "前挡风玻璃", x: 50, y: 31, labelX: 82, labelY: 33 },
+  { code: "roof", viewId: "top", label: "车顶", x: 50, y: 49, labelX: 18, labelY: 48 },
+  { code: "rear_glass", viewId: "top", label: "后挡风玻璃", x: 50, y: 68, labelX: 82, labelY: 67 },
+  { code: "trunk_tailgate", viewId: "top", label: "后备厢盖与尾门", x: 50, y: 84, labelX: 18, labelY: 82 },
+  { code: "rear_bumper", viewId: "top", label: "后保险杠", x: 50, y: 94, labelX: 82, labelY: 91 },
+  // Normalized front-left model image (nose toward smaller x). The same image is
+  // mirrored for the right side, so corresponding panel coordinates are exact mirrors.
+  { code: "left_mirror", viewId: "left", label: "左后视镜", x: 69, y: 38, labelX: 80, labelY: 16 },
+  { code: "left_front_fender", viewId: "left", label: "左前翼子板", x: 48, y: 51, labelX: 18, labelY: 49 },
+  { code: "left_front_door", viewId: "left", label: "左前门", x: 67, y: 55, labelX: 23, labelY: 73 },
+  { code: "left_rear_door", viewId: "left", label: "左后门", x: 80, y: 53, labelX: 77, labelY: 80 },
+  { code: "left_rear_quarter", viewId: "left", label: "左后翼子板", x: 89, y: 54, labelX: 82, labelY: 30 },
+  { code: "left_sill", viewId: "left", label: "左侧裙", x: 75, y: 64, labelX: 50, labelY: 91 },
+  { code: "left_front_window", viewId: "left", label: "左前侧窗", x: 62, y: 34, labelX: 27, labelY: 15 },
+  { code: "left_rear_window", viewId: "left", label: "左后侧窗", x: 76, y: 34, labelX: 58, labelY: 9 },
+  { code: "left_front_wheel", viewId: "left", label: "左前轮胎轮毂", x: 54, y: 70, labelX: 18, labelY: 88 },
+  { code: "left_rear_wheel", viewId: "left", label: "左后轮胎轮毂", x: 86, y: 65, labelX: 82, labelY: 90 },
+  { code: "right_mirror", viewId: "right", label: "右后视镜", x: 31, y: 38, labelX: 20, labelY: 16 },
+  { code: "right_front_fender", viewId: "right", label: "右前翼子板", x: 52, y: 51, labelX: 82, labelY: 49 },
+  { code: "right_front_door", viewId: "right", label: "右前门", x: 33, y: 55, labelX: 77, labelY: 73 },
+  { code: "right_rear_door", viewId: "right", label: "右后门", x: 20, y: 53, labelX: 23, labelY: 80 },
+  { code: "right_rear_quarter", viewId: "right", label: "右后翼子板", x: 11, y: 54, labelX: 18, labelY: 30 },
+  { code: "right_sill", viewId: "right", label: "右侧裙", x: 25, y: 64, labelX: 50, labelY: 91 },
+  { code: "right_front_window", viewId: "right", label: "右前侧窗", x: 38, y: 34, labelX: 73, labelY: 15 },
+  { code: "right_rear_window", viewId: "right", label: "右后侧窗", x: 24, y: 34, labelX: 42, labelY: 9 },
+  { code: "right_front_wheel", viewId: "right", label: "右前轮胎轮毂", x: 46, y: 70, labelX: 82, labelY: 88 },
+  { code: "right_rear_wheel", viewId: "right", label: "右后轮胎轮毂", x: 14, y: 65, labelX: 18, labelY: 90 },
 ];
+
+type RegionPoint = readonly [x: number, y: number];
+type SideRegionKey = "mirror" | "front_fender" | "front_door" | "rear_door" | "rear_quarter" | "sill" | "front_window" | "rear_window" | "front_wheel" | "rear_wheel";
+
+const TOP_REGION_POINTS: Record<CheckupVehicleBodyType, Readonly<Record<string, RegionPoint>>> = {
+  sedan: {
+    front_bumper: [50, 4], front_face: [50, 8], hood: [50, 18], windshield: [50, 32],
+    roof: [50, 53], rear_glass: [50, 76], trunk_tailgate: [50, 89], rear_bumper: [50, 96],
+  },
+  suv: {
+    front_bumper: [50, 4], front_face: [50, 8], hood: [50, 17], windshield: [50, 30],
+    roof: [50, 56], rear_glass: [50, 85], trunk_tailgate: [50, 93], rear_bumper: [50, 96],
+  },
+  mpv: {
+    front_bumper: [50, 3], front_face: [50, 7], hood: [50, 14], windshield: [50, 26],
+    roof: [50, 55], rear_glass: [50, 85], trunk_tailgate: [50, 93], rear_bumper: [50, 96],
+  },
+};
+
+const TEMPLATE_SIDE_POINTS: Record<CheckupVehicleBodyType, Readonly<Record<SideRegionKey, RegionPoint>>> = {
+  sedan: {
+    mirror: [69, 38], front_fender: [48, 51], front_door: [67, 55], rear_door: [80, 53], rear_quarter: [89, 54],
+    sill: [75, 64], front_window: [62, 34], rear_window: [76, 34], front_wheel: [54, 70], rear_wheel: [86, 65],
+  },
+  suv: {
+    mirror: [64, 36], front_fender: [48, 53], front_door: [68, 52], rear_door: [81, 52], rear_quarter: [91, 52],
+    sill: [75, 65], front_window: [64, 30], rear_window: [76, 29], front_wheel: [52, 65], rear_wheel: [87, 61],
+  },
+  mpv: {
+    mirror: [59, 39], front_fender: [46, 53], front_door: [66, 51], rear_door: [79, 50], rear_quarter: [90, 49],
+    sill: [73, 66], front_window: [55, 31], rear_window: [75, 31], front_wheel: [48, 66], rear_wheel: [85, 61],
+  },
+};
+
+// Owner-model cutouts are normalized to a common 1120 x 630 presentation canvas.
+// These points account for aspectFit letterboxing inside the 3:2 diagnostic stage.
+const PRESENTATION_SIDE_POINTS: Record<CheckupVehicleBodyType, Readonly<Record<SideRegionKey, RegionPoint>>> = {
+  sedan: {
+    mirror: [65, 35], front_fender: [46, 52], front_door: [66, 50], rear_door: [81, 50], rear_quarter: [92, 49],
+    sill: [76, 65], front_window: [62, 29], rear_window: [79, 29], front_wheel: [50, 61], rear_wheel: [90, 59],
+  },
+  suv: {
+    mirror: [64, 35], front_fender: [48, 53], front_door: [67, 51], rear_door: [81, 51], rear_quarter: [92, 51],
+    sill: [75, 66], front_window: [64, 28], rear_window: [78, 28], front_wheel: [52, 66], rear_wheel: [88, 60],
+  },
+  mpv: {
+    mirror: [64, 35], front_fender: [48, 54], front_door: [68, 50], rear_door: [80, 49], rear_quarter: [92, 49],
+    sill: [75, 67], front_window: [57, 29], rear_window: [76, 28], front_wheel: [53, 67], rear_wheel: [89, 59],
+  },
+};
+
+function sideRegionKey(code: string): SideRegionKey | null {
+  const key = code.replace(/^(left|right)_/u, "") as SideRegionKey;
+  return key in TEMPLATE_SIDE_POINTS.sedan ? key : null;
+}
+
+export function checkupRegionsForVehicle(
+  bodyType: CheckupVehicleBodyType,
+  presentationCutout = false,
+): ReadonlyArray<CheckupRegion> {
+  const sidePoints = presentationCutout ? PRESENTATION_SIDE_POINTS[bodyType] : TEMPLATE_SIDE_POINTS[bodyType];
+  return CHECKUP_REGIONS.map((region) => {
+    if (region.viewId === "top") {
+      const point = TOP_REGION_POINTS[bodyType][region.code];
+      return point ? { ...region, x: point[0], y: point[1] } : region;
+    }
+    const key = sideRegionKey(region.code);
+    const point = key ? sidePoints[key] : null;
+    if (!point) return region;
+    return { ...region, x: region.viewId === "right" ? 100 - point[0] : point[0], y: point[1] };
+  });
+}
+
+export const CHECKUP_SYSTEM_REGIONS: ReadonlyArray<CheckupSystemRegion> = [
+  { code: "dashboard_obd", viewId: "top", label: "仪表 / OBD", hint: "故障灯、报码或仪表异常" },
+  { code: "engine_powertrain", viewId: "top", label: "发动机 / 动力", hint: "动力、启动、变速或电驱异常" },
+  { code: "brake_system", viewId: "top", label: "制动系统", hint: "制动异响、抖动或效果异常" },
+  { code: "steering_suspension", viewId: "top", label: "转向 / 悬架", hint: "跑偏、异响、抖动或支撑异常" },
+  { code: "chassis_exhaust", viewId: "top", label: "底盘 / 排气", hint: "托底、松动、异响或排气异常" },
+  { code: "cabin_electrical", viewId: "top", label: "车内电器", hint: "空调、车窗、座椅或车机异常" },
+  { code: "fuel_charging", viewId: "top", label: "燃油 / 充电", hint: "加注、充电、接口或能源系统异常" },
+  { code: "other_system", viewId: "top", label: "其他系统", hint: "不属于以上分类的功能问题" },
+];
+
+export function checkupRegionDefinition(code: string): CheckupRegion | CheckupSystemRegion | undefined {
+  return CHECKUP_REGIONS.find((item) => item.code === code)
+    || CHECKUP_SYSTEM_REGIONS.find((item) => item.code === code);
+}
+
+export function isCheckupSystemRegion(code: string): boolean {
+  return CHECKUP_SYSTEM_REGIONS.some((item) => item.code === code);
+}
+
+const SEDAN_SIDE_IMAGE = "/packages/inspection/assets/inspection-checkup/car-sedan-left-v1.png";
+const SEDAN_TOP_IMAGE = "/packages/inspection/assets/inspection-checkup/car-sedan-top-v1.png";
+const SUV_SIDE_IMAGE = "/packages/inspection/assets/inspection-checkup/car-suv-left-v1.png";
+const SUV_TOP_IMAGE = "/packages/inspection/assets/inspection-checkup/car-top.png";
+const MPV_SIDE_IMAGE = "/packages/inspection/assets/inspection-checkup/car-mpv-left-v1.png";
+const MPV_TOP_IMAGE = "/packages/inspection/assets/inspection-checkup/car-mpv-top-v1.png";
+
+export function checkupVehicleBodyType(vehicle?: Vehicle | null): CheckupVehicleBodyType {
+  if (vehicle?.washVehicleCategory === "mpv") return "mpv";
+  if (vehicle?.washVehicleCategory === "suv" || vehicle?.washVehicleCategory === "suv_mpv") return "suv";
+  if (vehicle?.washVehicleCategory === "sedan") return "sedan";
+  const descriptor = [vehicle?.vehicleType, vehicle?.model?.name].filter(Boolean).join(" ");
+  if (/MPV|商务|多用途|面包/u.test(descriptor)) return "mpv";
+  if (/SUV|越野/u.test(descriptor)) return "suv";
+  return "sedan";
+}
+
+export function checkupVehicleDiagram(vehicle?: Vehicle | null): CheckupVehicleDiagram {
+  const exactModelImage = vehicle?.visual?.kind === "presentation_cutout" && vehicle.visual.imageUrl
+    ? vehicle.visual.imageUrl
+    : "";
+  const bodyType = checkupVehicleBodyType(vehicle);
+  const registeredLabel = [vehicle?.brand?.name, vehicle?.model?.name].filter(Boolean).join(" ")
+    || vehicle?.vehicleType
+    || "已登记车辆";
+  const fallbackLeft = bodyType === "mpv" ? MPV_SIDE_IMAGE : bodyType === "suv" ? SUV_SIDE_IMAGE : SEDAN_SIDE_IMAGE;
+  const topImage = bodyType === "mpv" ? MPV_TOP_IMAGE : bodyType === "suv" ? SUV_TOP_IMAGE : SEDAN_TOP_IMAGE;
+  const sideImage = exactModelImage || fallbackLeft;
+  const bodyTypeLabel = bodyType === "mpv" ? "MPV" : bodyType === "suv" ? "SUV" : "轿车";
+  return {
+    bodyType,
+    vehicleLabel: registeredLabel,
+    sourceLabel: exactModelImage ? `${bodyTypeLabel} · 车主所选车型参考图` : `${bodyTypeLabel} · 按登记车身类型匹配`,
+    regions: checkupRegionsForVehicle(bodyType, Boolean(exactModelImage)),
+    views: [
+      { id: "top", label: "俯视", imagePath: topImage, mirrored: false },
+      { id: "left", label: "左侧", imagePath: sideImage, mirrored: false },
+      {
+        id: "right",
+        label: "右侧",
+        imagePath: sideImage,
+        mirrored: true,
+      },
+    ],
+  };
+}
 
 /** Stage frame aspect (height / width) from `.vehicle-visual-frame { padding-top: 66.6667% }`. */
 const CALLOUT_STAGE_ASPECT = 2 / 3;
@@ -203,6 +376,11 @@ const FAULT_TYPE_LABELS: Record<CheckupFaultType, string> = {
   crack: "裂纹",
   broken: "破损",
   rust: "锈蚀",
+  warning_light: "故障灯 / 报码",
+  malfunction: "功能异常",
+  abnormal_noise: "异响 / 抖动",
+  leakage: "渗漏",
+  wear: "磨损 / 老化",
   other: "其他",
 };
 
@@ -220,7 +398,7 @@ export function conclusionLabel(value: CheckupConclusion | null | undefined, sta
   if (status === "legacy_requires_reentry") return "历史结果待重新录入";
   return "待填写";
 }
-export function regionLabel(code: string): string { return CHECKUP_REGIONS.find((item) => item.code === code)?.label || "车身位置"; }
+export function regionLabel(code: string): string { return checkupRegionDefinition(code)?.label || "车辆位置"; }
 
 export function summaryPayload(text: string): Record<string, unknown> {
   const normalized = text.trim();

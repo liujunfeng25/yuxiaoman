@@ -44,7 +44,10 @@ export type BackofficeCapability =
   | "repair.requests.read"
   | "repair.quotes.read"
   | "repair.quotes.write"
-  | "repair.authorized_details.read";
+  | "repair.authorized_details.read"
+  | "workflow.tasks.read"
+  | "workflow.tasks.remind"
+  | "workflow.settings.manage";
 
 export type BackofficeSubject = {
   type: BackofficeSubjectType;
@@ -100,6 +103,9 @@ const PLATFORM_CAPABILITIES: BackofficeCapability[] = [
   "repair.quotes.read",
   "repair.quotes.write",
   "repair.authorized_details.read",
+  "workflow.tasks.read",
+  "workflow.tasks.remind",
+  "workflow.settings.manage",
 ];
 
 export const WASH_STORE_CAPABILITIES: BackofficeCapability[] = [
@@ -123,6 +129,7 @@ export const INSPECTION_STATION_CAPABILITIES: BackofficeCapability[] = [
   "inspection.slots.write",
   "inspection.reports.read",
   "inspection.reports.write",
+  "workflow.tasks.read",
   "audit.self.read",
 ];
 
@@ -131,6 +138,7 @@ export const REPAIR_SHOP_CAPABILITIES: BackofficeCapability[] = [
   "repair.quotes.read",
   "repair.quotes.write",
   "repair.authorized_details.read",
+  "workflow.tasks.read",
   "audit.self.read",
 ];
 
@@ -1633,18 +1641,28 @@ function mayWashStoreAccessPath(path: string): boolean {
     || path.startsWith("/api/admin/audit-events/");
 }
 
-function mayInspectionStationAccessPath(path: string): boolean {
+function mayProviderReadWorkflowPath(path: string, method: string): boolean {
+  if (method !== "GET" && method !== "HEAD") return false;
+  return path === "/api/admin/workflow/summary"
+    || path === "/api/admin/workflow/tasks"
+    || /^\/api\/admin\/workflow\/tasks\/[^/]+$/u.test(path)
+    || path === "/api/admin/workflow/policies/current";
+}
+
+function mayInspectionStationAccessPath(path: string, method: string): boolean {
   return path === "/api/operator"
     || path.startsWith("/api/operator/")
     || path === "/api/admin/audit-events"
-    || path.startsWith("/api/admin/audit-events/");
+    || path.startsWith("/api/admin/audit-events/")
+    || mayProviderReadWorkflowPath(path, method);
 }
 
-function mayRepairShopAccessPath(path: string): boolean {
+function mayRepairShopAccessPath(path: string, method: string): boolean {
   return path === "/api/repair-operator"
     || path.startsWith("/api/repair-operator/")
     || path === "/api/admin/audit-events"
-    || path.startsWith("/api/admin/audit-events/");
+    || path.startsWith("/api/admin/audit-events/")
+    || mayProviderReadWorkflowPath(path, method);
 }
 
 function repairOperatorCapability(path: string, method: string): BackofficeCapability {
@@ -1655,6 +1673,9 @@ function repairOperatorCapability(path: string, method: string): BackofficeCapab
 }
 
 function operatorCapability(path: string, method: string): BackofficeCapability {
+  if (path === "/api/operator/workflow/tasks" || path === "/api/operator/workflow/tasks/summary") {
+    return "workflow.tasks.read";
+  }
   if (path === "/api/operator/workbench") return "inspection.workbench.read";
   if (path.startsWith("/api/operator/station-slots/")) return "inspection.slots.write";
   if (path.includes("/checkup-report") || path.endsWith("/inspection-result")) {
@@ -1685,7 +1706,13 @@ async function enforceInspectionStationOperatorScope(
   if (principal.account.role !== "inspection_station_admin") return;
   assertCapability(principal, operatorCapability(path, method));
   const stationId = scopedInspectionStationId(principal);
-  if (path === "/api/operator" || path === "/api/operator/workbench" || path === "/api/operator/prechecks") return;
+  if (
+    path === "/api/operator"
+    || path === "/api/operator/workbench"
+    || path === "/api/operator/prechecks"
+    || path === "/api/operator/workflow/tasks"
+    || path === "/api/operator/workflow/tasks/summary"
+  ) return;
 
   const precheckMatch = path.match(/^\/api\/operator\/prechecks\/([^/]+)(?:\/|$)/u);
   if (precheckMatch) {
@@ -2208,11 +2235,11 @@ export function registerBackofficeRoutes(app: FastifyInstance, database: AppData
       }
       if (
         principal.account.role === "inspection_station_admin"
-        && !mayInspectionStationAccessPath(path)
+        && !mayInspectionStationAccessPath(path, request.method)
       ) {
         throw new BackofficeError(403, "BACKOFFICE_FORBIDDEN", "当前账号无权访问该后台模块");
       }
-      if (principal.account.role === "repair_shop_admin" && !mayRepairShopAccessPath(path)) {
+      if (principal.account.role === "repair_shop_admin" && !mayRepairShopAccessPath(path, request.method)) {
         throw new BackofficeError(403, "BACKOFFICE_FORBIDDEN", "当前账号无权访问该后台模块");
       }
       if (path === "/api/operator" || path.startsWith("/api/operator/")) {

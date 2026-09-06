@@ -3,10 +3,11 @@
 /**
  * Native WeChat DevTools annual-inspection end-to-end QA.
  *
- * The script deliberately drives rendered mini-program elements. The only
- * mocked native capability is wx.chooseMedia, so the deterministic local QA
- * fixtures can be selected without automating the host OS file picker. Upload,
- * quote, booking creation and mock payment still use the running local API.
+ * The script deliberately drives rendered mini-program elements. Deterministic
+ * local QA fixtures enter through a mocked wx.chooseMedia without automating
+ * the host OS file picker; native confirmation dialogs are still clicked by
+ * the automator. Upload, quote, booking creation, precheck and mock payment use
+ * the running local API.
  *
  * Privacy boundary: vehicle identifiers are read only from the ignored local
  * manifest. Screenshots and the sanitized run summary are written below the
@@ -34,6 +35,8 @@ const contactName = String(process.env.WECHAT_QA_CONTACT_NAME || '测试车主')
 const contactPhone = String(process.env.WECHAT_QA_CONTACT_PHONE || '13800001234').trim();
 const fullClosure = process.env.WECHAT_QA_BOOKING_ONLY !== '1';
 const resumeActive = process.env.WECHAT_QA_RESUME_ACTIVE === '1';
+const allowLegacyActiveResume = process.env.WECHAT_QA_ALLOW_LEGACY_ACTIVE_RESUME === '1';
+const screenshotsOptional = process.env.WECHAT_QA_SCREENSHOTS_OPTIONAL === '1';
 const verifyCompletedOnly = process.env.WECHAT_QA_VERIFY_COMPLETED_ONLY === '1';
 const adminOrigin = String(process.env.WECHAT_QA_ADMIN_ORIGIN || 'http://127.0.0.1:5174').replace(/\/+$/, '');
 let adminLogin = String(process.env.WECHAT_QA_ADMIN_LOGIN || '').trim();
@@ -53,6 +56,7 @@ const SLOTS_ROUTE = 'packages/annual/pages/slots/slots';
 const BOOKING_ROUTE = 'packages/annual/pages/booking/booking';
 const ORDER_DETAIL_ROUTE = 'packages/annual/pages/order-detail/order-detail';
 const OPERATOR_LOGIN_ROUTE = 'packages/operator/pages/operator-login/operator-login';
+const OPERATOR_PRECHECK_ROUTE = 'packages/operator/pages/precheck-detail/precheck-detail';
 const OPERATOR_DETAIL_ROUTE = 'packages/operator/pages/operator-detail/operator-detail';
 const CHECKUP_EDITOR_ROUTE = 'packages/inspection/pages/checkup-editor/checkup-editor';
 const CHECKUP_REPORT_ROUTE = 'packages/inspection/pages/checkup-report/checkup-report';
@@ -102,7 +106,15 @@ const scenarioDefinitions = Object.freeze({
     serviceMode: 'valet',
     noteLabel: '代驾验车',
     homeSelector: '.valet-job',
-    expectedMediaKinds: ['license_front', 'license_back'],
+    expectedMediaKinds: [
+      'vehicle_front_left',
+      'vehicle_front_right',
+      'vehicle_rear_left',
+      'vehicle_rear_right',
+      'dashboard_started',
+      'license_front',
+      'license_back',
+    ],
   },
 });
 
@@ -209,7 +221,14 @@ async function capture(miniProgram, scenarioName, step) {
   // upload/success toast that can obscure the content being reviewed.
   await miniProgram.callWxMethod('hideToast').catch(() => undefined);
   await delay(120);
-  await miniProgram.screenshot({ path: filePath });
+  try {
+    await miniProgram.screenshot({ path: filePath });
+  } catch (error) {
+    if (!screenshotsOptional) throw error;
+    const message = error && error.message ? error.message : String(error);
+    console.warn(`[${scenarioName}] screenshot ${step} skipped: ${message}`);
+    return null;
+  }
   console.log(`[${scenarioName}] screenshot ${step}`);
   return filePath;
 }
@@ -349,6 +368,14 @@ async function useAlbumForNextActionSheet(miniProgram) {
   await miniProgram.mockWxMethod('showActionSheet', functionDeclaration);
 }
 
+async function useTianjinQaLocation(miniProgram) {
+  // DevTools can retain a simulator location from an unrelated project. Keep
+  // this UI run deterministic while still exercising the rendered self-drive
+  // location -> station-ranking flow and the running API.
+  const functionDeclaration = "function(){return Promise.resolve({latitude:39.084158,longitude:117.200983,speed:0,accuracy:10,altitude:0,verticalAccuracy:10,horizontalAccuracy:10,errMsg:'getLocation:ok'})}";
+  await miniProgram.mockWxMethod('getLocation', functionDeclaration);
+}
+
 function validateLocalFixtures(manifest, scenarios) {
   for (const scenarioName of scenarios) {
     scenarioManifest(manifest, scenarioName);
@@ -429,9 +456,11 @@ async function enterBookingFlow(miniProgram, scenarioName, manifest) {
 
   await capture(miniProgram, scenarioName, '01-home-entry');
   const entry = await waitForElement(home, definition.homeSelector, `${scenarioName} home entry`);
+  if (definition.serviceMode === 'self_drive') await useTianjinQaLocation(miniProgram);
   await entry.tap();
   const stations = await currentPage(miniProgram, STATIONS_ROUTE, 'inspection station picker');
   await waitForPageData(stations, 'loading', (value) => value === false, 'Waiting for inspection stations');
+  if (definition.serviceMode === 'self_drive') await miniProgram.restoreWxMethod('getLocation').catch(() => undefined);
   if ((await stations.data('mode')) !== definition.serviceMode) throw new Error(`Station picker opened with the wrong service mode for ${scenarioName}.`);
 
   if (definition.serviceMode === 'valet') {
@@ -548,6 +577,21 @@ async function uploadBookingMedia(miniProgram, booking, scenarioName) {
   return uploadedKinds.length;
 }
 
+function pendingPrecheckPaymentEvent(booking) {
+  return Array.isArray(booking && booking.events)
+    ? booking.events.find((event) => event && event.status === 'pending_precheck' && event.title === '支付已确认' && event.actorType === 'owner')
+    : null;
+}
+
+function assertPaidPendingPrecheck(booking, scenarioName) {
+  if (!booking || booking.status !== 'pending_precheck' || booking.paymentStatus !== 'paid') {
+    throw new Error(`The paid ${scenarioName} order did not enter pending_precheck.`);
+  }
+  if (!pendingPrecheckPaymentEvent(booking)) {
+    throw new Error(`The ${scenarioName} order timeline does not contain the paid-to-pending_precheck transition.`);
+  }
+}
+
 async function submitAndPay(miniProgram, booking, scenarioName, expectedMediaCount) {
   const submit = await waitForElement(booking, '.submit-bar > button', 'submit booking button');
   const disabled = await submit.attribute('disabled');
@@ -570,17 +614,15 @@ async function submitAndPay(miniProgram, booking, scenarioName, expectedMediaCou
   const paidBooking = await waitForPageData(
     detail,
     'booking',
-    (value) => value && value.status === 'confirmed' && value.paymentStatus === 'paid',
-    `Waiting for ${scenarioName} mock payment confirmation`,
+    (value) => value && value.status === 'pending_precheck' && value.paymentStatus === 'paid',
+    `Waiting for ${scenarioName} mock payment to enter pending precheck`,
   );
+  assertPaidPendingPrecheck(paidBooking, scenarioName);
   if (Number(paidBooking.paidFen) !== Number(paidBooking.serviceFeeFen) || Number(paidBooking.paidFen) <= 0) {
     throw new Error(`The ${scenarioName} mock payment ledger does not match the frozen non-zero amount.`);
   }
-  if (!Array.isArray(paidBooking.events) || !paidBooking.events.some((event) => event.status === 'confirmed')) {
-    throw new Error(`The ${scenarioName} order timeline does not contain the automatic paid-to-confirmed transition.`);
-  }
   await assertPaidOrderHidesRequote(detail, scenarioName);
-  await capture(miniProgram, scenarioName, '07-order-paid-confirmed');
+  await capture(miniProgram, scenarioName, '07-order-paid-pending-precheck');
 
   return {
     scenario: scenarioName,
@@ -593,7 +635,7 @@ async function submitAndPay(miniProgram, booking, scenarioName, expectedMediaCou
     paidFen: Number(paidBooking.paidFen),
     bookingPhotoCount: paidBooking.media.length,
     quoteSnapshotPresent: Boolean(paidBooking.quoteSnapshotId),
-    confirmedEventPresent: true,
+    pendingPrecheckEventPresent: true,
   };
 }
 
@@ -660,25 +702,36 @@ async function resumeActiveBookingAndPay(miniProgram, scenarioName, manifest) {
     bookingRecord = await waitForPageData(
       detail,
       'booking',
-      (value) => value && value.status === 'confirmed' && value.paymentStatus === 'paid',
-      `Waiting for resumed ${scenarioName} mock payment confirmation`,
+      (value) => value && value.status === 'pending_precheck' && value.paymentStatus === 'paid',
+      `Waiting for resumed ${scenarioName} mock payment to enter pending precheck`,
     );
-  } else if (
-    bookingRecord.paymentStatus !== 'paid'
-    || !['confirmed', 'awaiting_arrival', 'checked_in', 'inspecting', 'result_received'].includes(bookingRecord.status)
-  ) {
-    throw new Error(`The active ${scenarioName} order cannot be safely resumed at status ${bookingRecord.status}/${bookingRecord.paymentStatus}.`);
+  } else {
+    const resumablePaidStatuses = definition.serviceMode === 'self_drive'
+      ? ['pending_precheck', 'awaiting_arrival', 'checked_in', 'inspecting', 'result_received']
+      : ['pending_precheck', 'confirmed'];
+    if (bookingRecord.paymentStatus !== 'paid' || !resumablePaidStatuses.includes(bookingRecord.status)) {
+      throw new Error(`The active ${scenarioName} order cannot be safely resumed at status ${bookingRecord.status}/${bookingRecord.paymentStatus}.`);
+    }
   }
 
   if (Number(bookingRecord.paidFen) !== Number(bookingRecord.serviceFeeFen) || Number(bookingRecord.paidFen) <= 0) {
     throw new Error(`The resumed ${scenarioName} mock payment ledger does not match the frozen non-zero amount.`);
   }
-  if (!Array.isArray(bookingRecord.events) || !bookingRecord.events.some((event) => event.status === 'confirmed')) {
-    throw new Error(`The resumed ${scenarioName} order timeline does not contain the automatic paid-to-confirmed transition.`);
+  const hasPendingPrecheckPaymentEvent = Boolean(pendingPrecheckPaymentEvent(bookingRecord));
+  if (!hasPendingPrecheckPaymentEvent && !allowLegacyActiveResume) {
+    throw new Error(`The resumed ${scenarioName} order timeline does not contain the paid-to-pending_precheck transition.`);
+  }
+  if (bookingRecord.status === 'pending_precheck') {
+    assertPaidPendingPrecheck(bookingRecord, scenarioName);
+  } else if ((!bookingRecord.precheck || bookingRecord.precheck.status !== 'approved') && !allowLegacyActiveResume) {
+    throw new Error(`The resumed ${scenarioName} order advanced past precheck without an approved precheck record.`);
   }
   await assertPaidOrderHidesRequote(detail, scenarioName);
-  await capture(miniProgram, scenarioName, '07-order-paid-confirmed-resumed');
-  console.log(`[${scenarioName}] resumed the existing order through its rendered detail and mock-payment button`);
+  const resumedPaymentStep = bookingRecord.status === 'pending_precheck'
+    ? '07-order-paid-pending-precheck-resumed'
+    : `07-order-paid-${bookingRecord.status}-resumed`;
+  await capture(miniProgram, scenarioName, resumedPaymentStep);
+  console.log(`[${scenarioName}] resumed the existing order at ${bookingRecord.status} through its rendered detail`);
   return {
     scenario: scenarioName,
     bookingId: bookingRecord.id,
@@ -690,7 +743,8 @@ async function resumeActiveBookingAndPay(miniProgram, scenarioName, manifest) {
     paidFen: Number(bookingRecord.paidFen),
     bookingPhotoCount: bookingRecord.media.length,
     quoteSnapshotPresent: Boolean(bookingRecord.quoteSnapshotId),
-    confirmedEventPresent: true,
+    pendingPrecheckEventPresent: hasPendingPrecheckPaymentEvent,
+    legacyPrecheckBypass: !hasPendingPrecheckPaymentEvent || !bookingRecord.precheck,
     resumedFromActiveOrder: true,
   };
 }
@@ -784,8 +838,8 @@ async function assignDriverInAdmin(bookingId, scenarioName) {
 
 let operatorAuthenticated = false;
 
-async function loginOperatorForBooking(miniProgram, bookingId) {
-  const redirect = `/packages/operator/pages/operator-detail/operator-detail?id=${encodeURIComponent(bookingId)}`;
+async function loginOperatorForPage(miniProgram, bookingId, route, label) {
+  const redirect = `/${route}?id=${encodeURIComponent(bookingId)}`;
   await miniProgram.callWxMethod('reLaunch', {
     url: `/packages/operator/pages/operator-login/operator-login?redirect=${encodeURIComponent(redirect)}`,
   });
@@ -803,30 +857,117 @@ async function loginOperatorForBooking(miniProgram, bookingId) {
   await inputs[1].input(operatorPassword);
   const submit = await waitForElement(login, '.primary', 'inspection-station login button');
   await submit.tap();
-  const detail = await currentPage(miniProgram, OPERATOR_DETAIL_ROUTE, 'inspection-station order detail after login');
-  await waitForPageData(detail, 'loading', (value) => value === false, 'Waiting for station order detail');
-  const loadError = await detail.data('loadError');
-  if (loadError) throw new Error(`Inspection-station order detail failed after login: ${loadError}`);
+  const target = await currentPage(miniProgram, route, `${label} after login`);
+  await waitForPageData(target, 'loading', (value) => value === false, `Waiting for ${label} after login`);
+  const loadError = await target.data('loadError');
+  if (loadError) throw new Error(`${label} failed after login: ${loadError}`);
   operatorAuthenticated = true;
-  return detail;
+  return target;
 }
 
-async function openOperatorDetail(miniProgram, bookingId) {
-  if (!operatorAuthenticated) return loginOperatorForBooking(miniProgram, bookingId);
+async function openOperatorPage(miniProgram, bookingId, route, label) {
+  if (!operatorAuthenticated) return loginOperatorForPage(miniProgram, bookingId, route, label);
   await miniProgram.callWxMethod('reLaunch', {
-    url: `/packages/operator/pages/operator-detail/operator-detail?id=${encodeURIComponent(bookingId)}`,
+    url: `/${route}?id=${encodeURIComponent(bookingId)}`,
   });
   await delay(1_000);
   const page = await miniProgram.currentPage();
   if (page && page.path === OPERATOR_LOGIN_ROUTE) {
     operatorAuthenticated = false;
-    return loginOperatorForBooking(miniProgram, bookingId);
+    return loginOperatorForPage(miniProgram, bookingId, route, label);
   }
-  const detail = await currentPage(miniProgram, OPERATOR_DETAIL_ROUTE, 'inspection-station order detail');
-  await waitForPageData(detail, 'loading', (value) => value === false, 'Waiting for station order detail');
-  const loadError = await detail.data('loadError');
-  if (loadError) throw new Error(`Inspection-station order detail failed: ${loadError}`);
-  return detail;
+  const target = await currentPage(miniProgram, route, label);
+  await waitForPageData(target, 'loading', (value) => value === false, `Waiting for ${label}`);
+  const loadError = await target.data('loadError');
+  if (loadError) throw new Error(`${label} failed: ${loadError}`);
+  return target;
+}
+
+async function openOperatorPrecheck(miniProgram, bookingId) {
+  return openOperatorPage(miniProgram, bookingId, OPERATOR_PRECHECK_ROUTE, 'inspection-station precheck detail');
+}
+
+async function openOperatorDetail(miniProgram, bookingId) {
+  return openOperatorPage(miniProgram, bookingId, OPERATOR_DETAIL_ROUTE, 'inspection-station order detail');
+}
+
+function approvedPrecheckStatus(scenarioName) {
+  return scenarioName === 'self-drive' ? 'awaiting_arrival' : 'confirmed';
+}
+
+function assertApprovedPrecheck(booking, scenarioName) {
+  const expectedStatus = approvedPrecheckStatus(scenarioName);
+  if (!booking || booking.paymentStatus !== 'paid') {
+    throw new Error(`The ${scenarioName} precheck approval did not retain the paid order.`);
+  }
+  if (!booking.precheck || booking.precheck.status !== 'approved') {
+    throw new Error(`The ${scenarioName} order does not contain an approved station precheck.`);
+  }
+  const approvalEvent = Array.isArray(booking.events)
+    ? booking.events.find((event) => event && event.status === expectedStatus && event.title === '检测站预审通过' && event.actorType === 'operator')
+    : null;
+  if (!approvalEvent) {
+    throw new Error(`The ${scenarioName} order timeline does not contain the operator precheck approval -> ${expectedStatus} transition.`);
+  }
+  if (scenarioName === 'self-drive' && booking.events.some((event) => event && event.title === '等待车辆到站')) {
+    throw new Error('The self-drive order contains a duplicate station accept event after precheck approval.');
+  }
+}
+
+async function approveOrVerifyOperatorPrecheck(miniProgram, bookingResult, scenarioName) {
+  const expectedStatus = approvedPrecheckStatus(scenarioName);
+  const alreadyApprovedStatuses = scenarioName === 'self-drive'
+    ? ['awaiting_arrival', 'checked_in', 'inspecting', 'result_received']
+    : ['confirmed'];
+  const needsApproval = bookingResult.status === 'pending_precheck';
+  if (!needsApproval && !alreadyApprovedStatuses.includes(bookingResult.status)) {
+    throw new Error(`The ${scenarioName} closure cannot enter precheck from status ${bookingResult.status}.`);
+  }
+
+  if (needsApproval) {
+    const precheck = await openOperatorPrecheck(miniProgram, bookingResult.bookingId);
+    const expectedMediaCount = scenarioDefinitions[scenarioName].expectedMediaKinds.length;
+    const pending = await waitForPageData(
+      precheck,
+      'booking',
+      (value) => value && value.status === 'pending_precheck' && value.paymentStatus === 'paid' && value.precheck?.status === 'pending',
+      `Waiting for ${scenarioName} pending station precheck`,
+    );
+    if (!Array.isArray(pending.media) || pending.media.length !== expectedMediaCount) {
+      throw new Error(`The ${scenarioName} station precheck exposes ${Array.isArray(pending.media) ? pending.media.length : 0}/${expectedMediaCount} booking photos.`);
+    }
+    const renderedPhotos = await precheck.data('photos');
+    if (!Array.isArray(renderedPhotos) || renderedPhotos.length !== expectedMediaCount || renderedPhotos.some((photo) => !photo || !photo.url)) {
+      throw new Error(`The ${scenarioName} station precheck did not render ${expectedMediaCount}/${expectedMediaCount} reviewable booking photos.`);
+    }
+    await capture(miniProgram, scenarioName, '08-station-precheck-pending');
+    const approve = await waitForElement(precheck, '.action-bar .approve', `${scenarioName} precheck approval button`);
+    const approveDisabled = await approve.attribute('disabled');
+    if (approveDisabled === true || approveDisabled === 'true') {
+      throw new Error(`The ${scenarioName} precheck approval button is disabled with all required photos present.`);
+    }
+    await approve.tap();
+    // 微信开发者工具在页面较重时，原生确认框可能晚于按钮点击数百毫秒出现。
+    // 预检详情是通过 reLaunch/redirectTo 打开的根页面，审批成功后的
+    // navigateBack 没有可返回页面，因此不能用“路径离开详情页”判断成功。
+    // 后续订单详情中的状态、预检版本和业务事件才是唯一成功判据。
+    await delay(750);
+    await miniProgram.native().confirmModal();
+    await delay(1_000);
+  }
+
+  const detail = await openOperatorDetail(miniProgram, bookingResult.bookingId);
+  const currentExpectedStatus = needsApproval ? expectedStatus : bookingResult.status;
+  const approved = await waitForPageData(
+    detail,
+    'booking',
+    (value) => value && value.status === currentExpectedStatus && value.precheck?.status === 'approved',
+    `Waiting for ${scenarioName} approved precheck at ${currentExpectedStatus}`,
+  );
+  assertApprovedPrecheck(approved, scenarioName);
+  const resumeSuffix = needsApproval ? '' : '-resumed';
+  await capture(miniProgram, scenarioName, `09-station-precheck-approved-${approved.status}${resumeSuffix}`);
+  return approved;
 }
 
 async function tapOperatorAction(detail, action, expectedStatus, scenarioName) {
@@ -840,25 +981,16 @@ async function tapOperatorAction(detail, action, expectedStatus, scenarioName) {
   );
 }
 
-async function advanceSelfDriveToInspection(miniProgram, bookingId, scenarioName) {
-  const detail = await openOperatorDetail(miniProgram, bookingId);
-  const initial = await waitForPageData(detail, 'booking', Boolean, 'Waiting for self-drive station booking');
-  if (initial.status !== 'confirmed') throw new Error(`Self-drive station flow expected confirmed, got ${initial.status}.`);
-  await tapOperatorAction(detail, 'accept', 'awaiting_arrival', scenarioName);
-  await tapOperatorAction(detail, 'check-in', 'checked_in', scenarioName);
-  await tapOperatorAction(detail, 'handoff', 'inspecting', scenarioName);
-  await capture(miniProgram, scenarioName, '08-station-inspecting');
-  return detail;
-}
-
 async function continueSelfDriveClosure(miniProgram, bookingId, scenarioName) {
   let detail = await openOperatorDetail(miniProgram, bookingId);
   let booking = await waitForPageData(detail, 'booking', Boolean, 'Waiting for resumable self-drive station booking');
-  if (booking.status === 'confirmed') booking = await tapOperatorAction(detail, 'accept', 'awaiting_arrival', scenarioName);
+  if (booking.status === 'confirmed') {
+    throw new Error('Self-drive precheck approval must enter awaiting_arrival without a second station accept action.');
+  }
   if (booking.status === 'awaiting_arrival') booking = await tapOperatorAction(detail, 'check-in', 'checked_in', scenarioName);
   if (booking.status === 'checked_in') {
     booking = await tapOperatorAction(detail, 'handoff', 'inspecting', scenarioName);
-    await capture(miniProgram, scenarioName, '08-station-inspecting');
+    await capture(miniProgram, scenarioName, '10-station-inspecting');
   }
   if (booking.status === 'inspecting') {
     const published = await publishInspectionCheckup(miniProgram, detail, bookingId, scenarioName);
@@ -1170,7 +1302,7 @@ async function runDriverPickup(miniProgram, verificationCode, bookingId, scenari
   if ((task.fulfillmentStatus || task.status) !== 'driver_arranged') {
     throw new Error(`Driver pickup expected driver_arranged, got ${task.fulfillmentStatus || task.status}.`);
   }
-  return uploadDriverStage(miniProgram, taskPage, scenarioName, 'owner_pickup', 'picked_up', '09-driver-pickup');
+  return uploadDriverStage(miniProgram, taskPage, scenarioName, 'owner_pickup', 'picked_up', '10-driver-pickup');
 }
 
 async function runDriverReturn(miniProgram, bookingId, scenarioName) {
@@ -1354,9 +1486,15 @@ async function verifyLatestCompletedScenario(miniProgram, scenarioName, manifest
 }
 
 async function runFullClosure(miniProgram, bookingResult, scenarioName) {
+  const approvedPrecheck = bookingResult.legacyPrecheckBypass
+    ? { status: bookingResult.status }
+    : await approveOrVerifyOperatorPrecheck(miniProgram, bookingResult, scenarioName);
   if (scenarioName === 'self-drive') {
     await continueSelfDriveClosure(miniProgram, bookingResult.bookingId, scenarioName);
   } else {
+    if (approvedPrecheck.status !== 'confirmed') {
+      throw new Error(`Valet precheck approval expected confirmed before driver assignment, got ${approvedPrecheck.status}.`);
+    }
     const verificationCode = await assignDriverInAdmin(bookingResult.bookingId, scenarioName);
     await runDriverPickup(miniProgram, verificationCode, bookingResult.bookingId, scenarioName);
     const stationDetail = await uploadStationArrivalEvidence(miniProgram, bookingResult.bookingId, scenarioName);
@@ -1365,7 +1503,12 @@ async function runFullClosure(miniProgram, bookingResult, scenarioName) {
   }
   const owner = await verifyOwnerOrderAndReport(miniProgram, bookingResult.bookingId, scenarioName);
   const admin = await verifyFinalOrderInAdmin(bookingResult.bookingId, scenarioName);
-  return { ...bookingResult, closure: { owner, admin } };
+  return {
+    ...bookingResult,
+    postPrecheckStatus: approvedPrecheck.status,
+    precheckApprovedEventPresent: !bookingResult.legacyPrecheckBypass,
+    closure: { owner, admin },
+  };
 }
 
 async function runScenario(miniProgram, scenarioName, manifest) {
@@ -1377,7 +1520,7 @@ async function runScenario(miniProgram, scenarioName, manifest) {
     bookingResult = await submitAndPay(miniProgram, booking, scenarioName, uploadedCount);
   }
   if (!fullClosure) {
-    console.log(`[${scenarioName}] booking passed: ${bookingResult.bookingPhotoCount} uploads, non-zero mock payment, confirmed state`);
+    console.log(`[${scenarioName}] booking passed: ${bookingResult.bookingPhotoCount} uploads, non-zero mock payment, pending precheck state`);
     return bookingResult;
   }
   const result = await runFullClosure(miniProgram, bookingResult, scenarioName);

@@ -16,7 +16,7 @@
     <block wx:else>
       <view wx:if="{{selectedVehicle}}" role="button" aria-label="编辑当前车辆 {{selectedVehicleName}}" class="vehicle-hero surface" bindtap="editSelectedVehicle">
         <image class="vehicle-hero-image" mode="aspectFill" src="/assets/brand/hero-tianjin-background.jpg" />
-        <image class="vehicle-hero-car" mode="aspectFit" src="{{selectedVehicleImage}}" webp="{{true}}" binderror="selectedVehicleImageError" />
+        <image wx:if="{{selectedVehicleImage}}" class="vehicle-hero-car" mode="aspectFit" src="{{selectedVehicleImage}}" webp="{{true}}" binderror="selectedVehicleImageError" />
         <text class="vehicle-edit-badge">编辑车型</text>
         <view class="vehicle-hero-copy">
           <view><text class="hero-plate">{{selectedVehicle.plateNumber}}</text><text wx:if="{{selectedVehicleIsDemo}}" class="demo-badge">演示车辆</text></view>

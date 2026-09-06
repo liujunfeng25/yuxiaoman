@@ -1,0 +1,43 @@
+page { background: #f3f7fb; }
+button::after { border: 0; }
+.workflow-page { min-height: 100vh; padding: 18rpx 22rpx calc(54rpx + env(safe-area-inset-bottom)); color: #20364d; background: linear-gradient(180deg,#edf5fd 0,#f4f7fb 350rpx); box-sizing: border-box; }
+.workflow-hero { padding: 26rpx 24rpx 20rpx; color: #fff; border-radius: 24rpx; background: linear-gradient(135deg,#0f5fbd,#1678d6 62%,#279de2); box-shadow: 0 15rpx 34rpx rgba(20,102,184,.19); }
+.workflow-hero > view:first-child { display: flex; flex-direction: column; }
+.workflow-hero > view:first-child text:first-child { color: #b9ddff; font-size: 17rpx; font-weight: 780; letter-spacing: 1rpx; }
+.workflow-hero > view:first-child text:nth-child(2) { margin-top: 6rpx; font-size: 38rpx; font-weight: 900; }
+.workflow-hero > view:first-child text:last-child { margin-top: 7rpx; color: rgba(255,255,255,.78); font-size: 17rpx; line-height: 1.5; }
+.hero-metrics { display: flex; margin-top: 19rpx; padding: 11rpx 0; border: 1rpx solid rgba(255,255,255,.16); border-radius: 14rpx; background: rgba(6,54,106,.15); }
+.hero-metrics view { display: flex; width: 33.333%; align-items: center; flex-direction: column; }
+.hero-metrics view + view { border-left: 1rpx solid rgba(255,255,255,.18); }
+.hero-metrics text:first-child { font-size: 27rpx; font-weight: 900; }
+.hero-metrics text:last-child { color: rgba(255,255,255,.72); font-size: 15rpx; }
+.scope-note { display: grid; margin: 14rpx 0 17rpx; padding: 14rpx 16rpx; grid-template-columns: 30rpx minmax(0,1fr); gap: 9rpx; color: #647b91; border: 1rpx solid #d7e5f2; border-radius: 15rpx; background: #fff; font-size: 16rpx; line-height: 1.55; }
+.scope-note image { width: 28rpx; height: 28rpx; }
+.task-list { display: flex; flex-direction: column; gap: 13rpx; }
+.workflow-task { display: flex; width: 100%; min-height: 184rpx; margin: 0; padding: 19rpx; flex-direction: column; color: #213a53; border: 1rpx solid #dfe8f0; border-left: 7rpx solid #2a80d4; border-radius: 20rpx; background: #fff; box-shadow: 0 9rpx 24rpx rgba(29,64,101,.055); text-align: left; line-height: normal; box-sizing: border-box; }
+.workflow-task.tone-attention { border-left-color: #e39a36; }
+.workflow-task.tone-overdue { border-left-color: #cf554d; }
+.task-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.task-head > view { display: flex; align-items: center; gap: 8rpx; color: #5c7185; font-size: 16rpx; font-weight: 800; }
+.task-dot { width: 14rpx; height: 14rpx; border-radius: 50%; background: #2a80d4; }
+.tone-attention .task-dot { background: #e39a36; }
+.tone-overdue .task-dot { background: #cf554d; }
+.task-head > text { color: #61778c; font-size: 16rpx; font-weight: 780; }
+.tone-overdue .task-head > text { color: #b64740; }
+.task-title { margin-top: 12rpx; font-size: 23rpx; font-weight: 880; }
+.task-description { display: -webkit-box; margin-top: 7rpx; overflow: hidden; color: #6e8193; font-size: 17rpx; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.task-foot { display: flex; min-height: 58rpx; margin-top: 10rpx; padding-top: 9rpx; align-items: center; justify-content: space-between; gap: 12rpx; border-top: 1rpx solid #edf1f5; }
+.task-foot > text { overflow: hidden; color: #8b99a7; font-size: 15rpx; text-overflow: ellipsis; white-space: nowrap; }
+.task-foot > view { display: flex; flex: 0 0 auto; align-items: center; color: #1768cf; font-size: 16rpx; font-weight: 820; }
+.task-foot image { width: 24rpx; height: 24rpx; }
+.loading-state { display: flex; flex-direction: column; gap: 13rpx; text-align: center; }
+.loading-state view { height: 184rpx; border-radius: 20rpx; background: #eaf0f5; }
+.loading-state text,.list-state { color: #8a9baa; font-size: 17rpx; }
+.state-card { display: flex; min-height: 380rpx; padding: 44rpx 28rpx; align-items: center; justify-content: center; flex-direction: column; border: 1rpx solid #dfe8f0; border-radius: 22rpx; background: #fff; }
+.state-card image { width: 62rpx; height: 62rpx; }
+.state-card > text:nth-child(2) { margin-top: 17rpx; font-size: 26rpx; font-weight: 880; }
+.state-card > text:nth-child(3) { margin-top: 8rpx; color: #7d8e9e; font-size: 17rpx; line-height: 1.55; text-align: center; }
+.state-card button,.load-more { min-height: 88rpx; margin-top: 22rpx; padding: 0 28rpx; color: #fff; border-radius: 15rpx; background: #1768cf; font-size: 18rpx; font-weight: 820; line-height: 88rpx; }
+.load-more { width: 100%; margin-top: 14rpx; color: #1768cf; border: 1rpx solid #cbddec; background: #fff; }
+.list-state { display: flex; min-height: 82rpx; align-items: center; justify-content: center; gap: 8rpx; }
+.list-state button { min-height: 64rpx; margin: 0; padding: 0 12rpx; color: #1768cf; background: transparent; font-size: 16rpx; line-height: 64rpx; }

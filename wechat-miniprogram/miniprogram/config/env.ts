@@ -12,9 +12,9 @@
  * same HTTPS API as production. Only the developer-tools / develop build keeps
  * the local LAN endpoints.
  */
-const DEVICE_LAN_HOST = "192.168.2.115";
-// 开发者工具也走线上 HTTPS，便于联调已部署的 API；真机局域网调试仍用 DEVICE_LAN_HOST。
-const DEVELOPMENT_API_BASE_LOCAL = "https://app.yuxiaomancs.com/api";
+const DEVICE_LAN_HOST = "192.168.1.16";
+// 开发者工具连接本机 API；真机局域网调试使用这台电脑的 WLAN 地址。
+const DEVELOPMENT_API_BASE_LOCAL = "http://127.0.0.1:8792/api";
 const DEVELOPMENT_API_BASE_DEVICE = `http://${DEVICE_LAN_HOST}:8792/api`;
 const PRODUCTION_API_BASE = "https://app.yuxiaomancs.com/api";
 

@@ -1,5 +1,6 @@
 import { CircleNotch, MapPin, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { operatorErrorMessage } from "./operatorError";
 
 type TencentLatLng = {
   getLat: () => number;
@@ -151,7 +152,7 @@ export function ProviderLocationMap({
     }).catch((reason) => {
       if (disposed) return;
       setMapState("error");
-      setMapError((reason as Error).message || "腾讯地图加载失败");
+      setMapError(operatorErrorMessage(reason, "腾讯地图加载失败，请稍后重试"));
     });
 
     return () => {
@@ -183,7 +184,7 @@ export function ProviderLocationMap({
     </header>
     <div className="provider-location-map-shell">
       <div ref={containerRef} className="provider-location-map" aria-label="门店地图选点区域" />
-      {mapState === "loading" ? <div className="provider-location-map-state"><CircleNotch className="backoffice-spinner" /><strong>正在加载腾讯地图…</strong><small>VPN 环境下可能需要更长时间</small></div> : null}
+      {mapState === "loading" ? <div className="provider-location-map-state"><CircleNotch className="backoffice-spinner" /><strong>正在加载腾讯地图…</strong><small>网络代理环境下可能需要更长时间</small></div> : null}
       {unavailable ? <div className="provider-location-map-state unavailable"><WarningCircle /><strong>{mapState === "missing" ? "地图选点尚未配置" : mapError}</strong><small>{mapState === "missing" ? "请配置独立的浏览器地图密钥；仍可使用上方地址联想" : "当前可信位置未改变，可继续使用地址联想或稍后重试"}</small></div> : null}
       {busy ? <div className="provider-location-map-state resolving"><CircleNotch className="backoffice-spinner" /><strong>正在核验落点…</strong><small>核验完成前不会修改当前门店地址</small></div> : null}
       {mapState === "ready" && !busy ? <span className="provider-location-map-hint"><MapPin weight="fill" />点击地图重新落针</span> : null}

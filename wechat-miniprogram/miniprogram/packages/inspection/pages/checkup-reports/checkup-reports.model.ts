@@ -46,7 +46,7 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
   pending_payment: "待支付",
   paid_pending_confirmation: "已支付",
   pending_precheck: "待检测站预审",
-  precheck_rejected: "预审未通过",
+  precheck_action_required: "预检待处理", precheck_rejected: "预审未通过",
   confirmed: "预约已确认",
   driver_arranged: "司机已安排",
   picked_up: "司机已取车，前往检测站",

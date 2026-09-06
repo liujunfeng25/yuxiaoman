@@ -16,7 +16,15 @@
         "pages/stations/stations",
         "pages/slots/slots",
         "pages/booking/booking",
-        "pages/order-detail/order-detail"
+        "pages/order-detail/order-detail",
+        "pages/precheck-actions/precheck-actions"
+      ]
+    },
+    {
+      "root": "packages/notifications",
+      "name": "workflowNotifications",
+      "pages": [
+        "pages/messages/messages"
       ]
     },
     {
@@ -67,7 +75,8 @@
         "pages/precheck-list/precheck-list",
         "pages/precheck-detail/precheck-detail",
         "pages/operator-detail/operator-detail",
-        "pages/operator-station/operator-station"
+        "pages/operator-station/operator-station",
+        "pages/workflow-tasks/workflow-tasks"
       ]
     },
     {
@@ -83,6 +92,7 @@
       "name": "inspectionReport",
       "pages": [
         "pages/checkup-editor/checkup-editor",
+        "pages/fault-severity/fault-severity",
         "pages/checkup-report/checkup-report",
         "pages/checkup-reports/checkup-reports"
       ]
@@ -99,7 +109,8 @@
         "pages/shop-hall/shop-hall",
         "pages/shop-request-detail/shop-request-detail",
         "pages/shop-quote/shop-quote",
-        "pages/shop-deal/shop-deal"
+        "pages/shop-deal/shop-deal",
+        "pages/shop-workflow-tasks/shop-workflow-tasks"
       ]
     },
     {

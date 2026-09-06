@@ -26,7 +26,7 @@
     </view>
 
     <view class="section-heading">
-      <view><text>车辆损伤明细</text><text>{{faults.length}} 处 · 逐条现场特写</text></view>
+      <view><text>车辆维修问题</text><text>{{faults.length}} 处 · 已授权的问题照片</text></view>
       <text>仅供维修报价参考</text>
     </view>
 

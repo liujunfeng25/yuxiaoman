@@ -5,6 +5,8 @@
   "scripts": {
     "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
     "check:main-package": "node scripts/check-main-package-budget.cjs",
+    "test:workflow": "node ../node_modules/tsx/dist/cli.mjs --test tests/workflow-notifications.test.ts",
+    "test:vehicle-catalog": "node ../node_modules/tsx/dist/cli.mjs --test tests/vehicle-catalog.test.ts tests/plate-categories.test.ts",
     "test:booking-upload": "node ../node_modules/tsx/dist/cli.mjs --test tests/booking-upload-state.test.ts",
     "test:owner-session": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-session.test.ts",
     "test:owner-media": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-media.test.ts",
@@ -22,7 +24,8 @@
     "test:repair-marketplace": "node ../node_modules/tsx/dist/cli.mjs --test miniprogram/packages/repair/utils/owner-repair.test.ts miniprogram/packages/repair/utils/shop-model.test.ts",
     "test:repair-ui-runner": "node ../node_modules/tsx/dist/cli.mjs --test tests/repair-ui-click-runner.test.ts",
     "test:annual-ui-runner": "node ../node_modules/tsx/dist/cli.mjs --test tests/annual-ui-evidence-runner.test.ts",
-    "check": "npm run typecheck && npm run check:main-package && npm run test:network-images && npm run test:owner-session && npm run test:owner-media && npm run test:media-url && npm run test:operator-session-media && npm run test:repair-operator && npm run test:booking-upload && npm run test:wash-category && npm run test:wash-store-picker && npm run test:car-rental && npm run test:checkup-report && npm run test:driver-task && npm run test:subsidy-consultation && npm run test:driving-school && npm run test:repair-marketplace && npm run test:repair-ui-runner && npm run test:annual-ui-runner",
+    "test:precheck-rejection-ui-runner": "node ../node_modules/tsx/dist/cli.mjs --test tests/precheck-rejection-ui-runner.test.ts",
+    "check": "npm run typecheck && npm run check:main-package && npm run test:workflow && npm run test:network-images && npm run test:vehicle-catalog && npm run test:owner-session && npm run test:owner-media && npm run test:media-url && npm run test:operator-session-media && npm run test:repair-operator && npm run test:booking-upload && npm run test:wash-category && npm run test:wash-store-picker && npm run test:car-rental && npm run test:checkup-report && npm run test:driver-task && npm run test:subsidy-consultation && npm run test:driving-school && npm run test:repair-marketplace && npm run test:repair-ui-runner && npm run test:annual-ui-runner && npm run test:precheck-rejection-ui-runner",
     "qa:smoke": "node scripts/qa-smoke.cjs",
     "qa:remote": "node scripts/qa-remote-device.cjs",
     "qa:wash-valet": "node scripts/qa-wash-valet.cjs",
@@ -32,8 +35,11 @@
     "qa:inspect": "node scripts/qa-inspect.cjs",
     "qa:eligibility": "node scripts/qa-eligibility.cjs",
     "qa:vehicle-identity": "node scripts/qa-vehicle-identity.cjs",
+    "qa:vehicle-catalog": "node scripts/qa-vehicle-catalog.cjs",
+    "qa:plate-categories": "node scripts/qa-plate-categories.cjs",
     "qa:annual-booking-e2e": "node scripts/qa-annual-booking-e2e.cjs",
     "qa:annual-native-e2e": "node scripts/qa-annual-booking-e2e.cjs",
+    "qa:precheck-rejection-e2e": "node scripts/qa-precheck-rejection-e2e.cjs",
     "qa:repair-marketplace": "node scripts/qa-repair-marketplace.cjs"
   },
   "devDependencies": {

@@ -315,7 +315,7 @@ test("洗车订单支持六位码筛选、人工核销和带原因的结算修�
   await expect(page.getByText("核销码 482731")).toBeVisible();
   await expect(page.getByText("上门代驾取送（往返）")).toBeVisible();
   await expect(page.getByText("天津文化中心地下停车场")).toBeVisible();
-  await expect(page.getByText(/8.6 km.*24 分钟/)).toBeVisible();
+  await expect(page.getByText(/8.6 公里.*24 分钟/)).toBeVisible();
   await expect(page.getByText("¥109.00").first()).toBeVisible();
   await page.getByLabel("核销来源").selectOption("phone");
   await page.getByLabel("核销备注").fill("车主来电确认，门店人工核验");

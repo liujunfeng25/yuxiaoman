@@ -365,6 +365,7 @@ async function publicReceipt(database: AppDatabase, lead: Row, duplicate: boolea
       id: snapshot.id == null ? null : String(snapshot.id),
       plateNumber: String(snapshot.plateNumber ?? lead.vehicle_plate_masked),
       modelName: String(snapshot.modelName ?? lead.vehicle_model_name),
+      exteriorColor: snapshot.exteriorColor == null ? null : String(snapshot.exteriorColor),
     },
     maskedPhone: String(lead.masked_phone),
     contactNameMasked: String(lead.contact_name_masked),
@@ -388,6 +389,7 @@ async function adminListItem(database: AppDatabase, lead: Row) {
       id: snapshot.id == null ? null : String(snapshot.id),
       plateNumber: String(lead.vehicle_plate_masked),
       modelName: String(snapshot.modelName ?? lead.vehicle_model_name),
+      exteriorColor: snapshot.exteriorColor == null ? null : String(snapshot.exteriorColor),
     },
     contactNameMasked: String(lead.contact_name_masked),
     maskedPhone: String(lead.masked_phone),
@@ -685,7 +687,12 @@ export async function registerInsuranceRoutes(
     const storageKey = `${randomUUID()}.jpg`;
     const maskedPlate = maskPlate(String(vehicle.plate_number));
     const modelName = String(vehicle.vehicle_type);
-    const vehicleSnapshot = { id: String(vehicle.id), plateNumber: String(vehicle.plate_number), modelName };
+    const vehicleSnapshot = {
+      id: String(vehicle.id),
+      plateNumber: String(vehicle.plate_number),
+      modelName,
+      exteriorColor: vehicle.exterior_color == null ? null : String(vehicle.exterior_color),
+    };
     const consentSnapshot = {
       version: disclosure.data.version,
       acceptedAt: nowIso,

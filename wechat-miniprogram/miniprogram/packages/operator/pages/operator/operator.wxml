@@ -16,6 +16,8 @@
     <view class="synthetic-label"><image src="/assets/icons/shield-check.png"/><text>合成演示数据</text></view>
   </view>
 
+  <view class="workflow-summary-wrap"><workflow-task-summary title="履约督办" open-count="{{workflowSummary.openCount}}" due-soon-count="{{workflowSummary.dueSoonCount}}" overdue-count="{{workflowSummary.overdueCount}}" next-due-label="{{workflowNextDueLabel}}" loading="{{workflowLoading}}" bind:open="openWorkflowTasks" /></view>
+
   <view wx:if="{{loading}}" class="loading operator-loading">正在读取工作台…</view>
   <view wx:elif="{{loadError && !workbench}}" class="operator-load-error"><image src="/assets/icons/warning-circle.png"/><text>检测站工作台暂时无法加载</text><text>{{loadError}}</text><button bindtap="retryLoad" loading="{{loading}}" disabled="{{loading}}">重新加载</button></view>
   <block wx:else>
@@ -37,7 +39,7 @@
 
     <button class="precheck-entry" bindtap="openPrechecks">
       <view class="precheck-entry-icon"><image src="/assets/icons/shield-check.png"/></view>
-      <view class="precheck-entry-copy"><text>预约资料待预审</text><text>跨日期核对支付订单的 7 张预约照片</text></view>
+      <view class="precheck-entry-copy"><text>预约资料待预审</text><text>核对支付订单的 7 张预约照片</text></view>
       <view class="precheck-entry-count"><text>{{workbench.summary.pendingPrecheckCount}}</text><text>待处理</text></view>
       <image class="precheck-entry-caret" src="/assets/icons/caret-right.png"/>
     </button>

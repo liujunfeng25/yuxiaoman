@@ -14,7 +14,7 @@
     <view class="boundary-note"><image src="/assets/icons/shield-check.png"/><text>该页面是平台履约中的车辆体检记录，不是机动车安全技术检验机构出具的官方报告，不含官方报告号或检验机构签章。年检有效期和电子检验标志状态以交管官方记录为准。</text></view>
 
     <view class="summary-grid">
-      <view><text>{{faultViews.length}}</text><text>车身问题</text></view>
+      <view><text>{{faultViews.length}}</text><text>车辆问题</text></view>
       <view><text>{{faultPhotoCount}}</text><text>故障特写</text></view>
       <view><text>{{sitePhotos.length}}/5</text><text>平台体检留证</text></view>
       <view class="mark-summary"><text>{{legalMaterialStatusText}}</text><text>法定检测材料</text></view>
@@ -55,10 +55,10 @@
 
     <view class="section-heading"><view><text>03</text><text>车辆体检记录</text></view><text>{{observationText}}</text></view>
     <view class="condition-report-card">
-      <view class="condition-heading"><image wx:if="{{faultViews.length}}" src="/assets/icons/warning-circle.png"/><image wx:else src="/assets/icons/check-circle.png"/><view><text>车身状态文字结论</text><text>{{conditionTitle}}</text></view></view>
+      <view class="condition-heading"><image wx:if="{{faultViews.length}}" src="/assets/icons/warning-circle.png"/><image wx:else src="/assets/icons/check-circle.png"/><view><text>车辆状态文字结论</text><text>{{conditionTitle}}</text></view></view>
       <text class="condition-narrative">{{conditionNarrative}}</text>
       <view class="inspection-note"><text>检测说明</text><text>{{inspectionNoteText}}</text></view>
-      <view class="record-scope"><text>记录范围</text><text>固定方位现场照片、启动后仪表盘照片，以及检测站录入的可见车身问题。</text></view>
+      <view class="record-scope"><text>记录范围</text><text>固定方位现场照片、启动后仪表盘照片，以及检测站录入的车身部位和功能系统问题。</text></view>
     </view>
 
     <view class="section-heading"><view><text>04</text><text>故障明细与建议</text></view><text>{{faultViews.length}} 项记录</text></view>
@@ -76,7 +76,7 @@
           </view>
           <view wx:else class="report-fault-photo-missing"><text>该故障暂未附现场特写</text><text>{{previewMode ? '回传前需补拍至少 1 张' : '历史记录未提供此附件'}}</text></view>
         </view>
-        <button data-id="{{item.id}}" bindtap="selectFault">在三视图中定位 #{{item.number}}</button>
+        <button data-id="{{item.id}}" bindtap="selectFault">{{item.isSystemRegion ? '查看功能系统记录' : '在三视图中定位'}} #{{item.number}}</button>
       </view>
     </view>
     <view wx:else class="zero-fault-report"><image src="/assets/icons/check-circle.png"/><view><text>故障记录 0 项</text><text>本次现场可见范围内未新增车身问题标记。该模板仅表达“未记录明显异常”，不代表对底盘、结构或机械系统作出无故障判断。</text></view></view>
@@ -96,13 +96,13 @@
       </button>
     </view>
 
-    <view class="section-heading"><view><text>07</text><text>车身问题三视图</text></view><text>点击定位点查看</text></view>
+    <view class="section-heading"><view><text>07</text><text>车辆问题定位</text></view><text>三视图与功能系统</text></view>
     <view class="diagnostic-panel readonly-diagnostic">
-      <view class="diagnostic-head"><view><text>VEHICLE CONDITION REPORT</text><text>车身问题数字定位</text></view><view class="scan-state"><text></text><text>报告已生成</text></view></view>
+      <view class="diagnostic-head"><view><text>VEHICLE CONDITION REPORT</text><text>车辆问题数字定位</text></view><view class="scan-state"><text></text><text>报告已生成</text></view></view>
       <view class="view-tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{item.selected ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="selectView"><text>{{item.label}}</text><text wx:if="{{item.faultCount}}">{{item.faultCount}}</text></button></view>
       <view class="vehicle-stage">
         <view class="vehicle-visual-frame">
-          <image class="vehicle-image" src="{{activeViewImage}}" mode="aspectFit"/>
+          <image class="vehicle-image {{activeViewMirrored ? 'mirrored' : ''}}" src="{{activeViewImage}}" mode="aspectFit"/>
           <block wx:for="{{markers}}" wx:key="code">
             <view class="region-callout-line faulted {{item.selected ? 'selected' : ''}}" style="{{item.lineStyle}}"></view>
             <button aria-label="{{item.label}}，当前显示故障序号{{item.markerLabel}}，该位置共{{item.count}}条故障" class="region-hotspot faulted {{item.selected ? 'selected' : ''}}" style="{{item.dotStyle}}" data-id="{{item.targetFaultId}}" bindtap="selectMarker"><text class="marker-number">{{item.markerLabel}}</text><text wx:if="{{item.count > 1}}" class="region-count">{{item.count}}条</text></button>
@@ -110,9 +110,13 @@
           </block>
           <view wx:if="{{activeBubble.visible}}" class="fault-bubble" style="{{activeBubble.style}}"><text>{{activeBubble.title}}</text><text>{{activeBubble.description}}</text></view>
         </view>
-        <view class="vehicle-caption"><text>{{markers.length ? '点击红色定位或部位名称查看问题' : '当前视图未记录问题'}}</text><text>通用车身示意，不代表实车车型；故障以位置文字和现场照片为准</text></view>
+        <view class="vehicle-caption"><text>{{diagramVehicleText}} · {{markers.length ? '点击红色定位或部位名称查看问题' : '当前视图未记录问题'}}</text><text>{{diagramSourceText}}；故障定位以标注部位和现场照片为准</text></view>
       </view>
-      <view class="diagnostic-legend"><view><text class="legend-dot fault"></text><text>车身问题</text></view><view><text class="legend-count">{{faultViews.length}}</text><text>条记录</text></view></view>
+      <view wx:if="{{systemMarkers.length}}" class="readonly-system-panel">
+        <view class="readonly-system-heading"><text>功能系统记录</text><text>{{systemMarkers.length}} 个部位</text></view>
+        <view class="readonly-system-grid"><button wx:for="{{systemMarkers}}" wx:key="code" class="{{item.selected ? 'selected' : ''}}" data-id="{{item.targetFaultId}}" bindtap="selectMarker"><view><text>{{item.label}}</text><text>{{item.hint}}</text></view><text>{{item.count > 1 ? item.count + '条' : '#' + item.markerLabel}}</text></button></view>
+      </view>
+      <view class="diagnostic-legend"><view><text class="legend-dot fault"></text><text>已记录问题</text></view><view><text class="legend-count">{{faultViews.length}}</text><text>条记录</text></view></view>
     </view>
 
     <view wx:if="{{faultViews.length}}" class="fault-list-card readonly-faults location-index">

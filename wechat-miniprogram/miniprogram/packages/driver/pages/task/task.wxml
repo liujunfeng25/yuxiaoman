@@ -38,6 +38,8 @@
       </view>
     </view>
 
+    <view class="workflow-summary-wrap"><workflow-task-summary title="当前任务时限" action-text="刷新时限" open-count="{{workflowSummary.openCount}}" due-soon-count="{{workflowSummary.dueSoonCount}}" overdue-count="{{workflowSummary.overdueCount}}" next-due-label="{{workflowNextDueLabel}}" loading="{{workflowLoading}}" bind:open="openWorkflowTasks" /></view>
+
     <view class="section-heading"><view><text>01</text><text>车辆与路线</text></view><text>单笔任务</text></view>
     <view class="route-card">
       <view class="route-line"></view>

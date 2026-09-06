@@ -8,7 +8,9 @@ import pg from "pg";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const suite = process.argv[2] === "admin" ? "admin" : "mobile";
-const extraArguments = process.argv.slice(3);
+const requestedArguments = process.argv.slice(3);
+const realBackofficeAuth = requestedArguments.includes("--real-auth");
+const extraArguments = requestedArguments.filter((argument) => argument !== "--real-auth");
 
 function repositoryEnvironment() {
   const environment = { ...process.env };
@@ -49,7 +51,7 @@ const childEnvironment = {
   YUXIAOMAN_E2E_SCHEMA: schema,
   YUXIAOMAN_DB_SCHEMA: schema,
   YUXIAOMAN_ALLOW_DEMO_AUTH_FALLBACK: "true",
-  YUXIAOMAN_ALLOW_BACKOFFICE_TEST_FALLBACK: "true",
+  YUXIAOMAN_ALLOW_BACKOFFICE_TEST_FALLBACK: realBackofficeAuth ? "false" : "true",
 };
 
 function configuredPort(name) {

@@ -1,3 +1,4 @@
+import { PLATE_CATEGORIES } from "../../wechat-miniprogram/miniprogram/utils/plate-categories.js";
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -8,11 +9,14 @@ import type { FastifyInstance } from "fastify";
 import type inject from "light-my-request";
 import sharp from "sharp";
 import { createDevelopmentSession } from "../auth.js";
+import { createInitialPlatformAdmin } from "../backoffice.js";
+import { migrateCustomerCenterDatabase } from "../customer-center.js";
 import { buildApp, parseTrustProxy } from "../app.js";
 import { DEMO_STATION_ID, HUAYANG_STATION_ID, migrateDatabase, seedDemoData, type Database } from "../db.js";
 import { migrateVehicleCheckupDatabase } from "../vehicle-checkup-db.js";
 import { createWashLocationProof, validWashLocationProof } from "../wash.js";
 import { migrateWashDatabase, WASH_MPV_PRICE_SEED_V2_MARKER, WASH_SEED_MARKER } from "../wash-db.js";
+import { runWorkflowWorkerOnce } from "../workflow-worker.js";
 import { createTestDatabase } from "./test-database.js";
 
 process.env.YUXIAOMAN_DEMO_DATE = "2026-08-11";
@@ -256,7 +260,7 @@ async function seedContext(app: FastifyInstance) {
   return { vehicle: vehicles[0], station, slots };
 }
 
-async function createVehicle(app: FastifyInstance, plateNumber: string) {
+async function createVehicle(app: FastifyInstance, plateNumber: string, powertrainType?: string) {
   const response = await app.inject({
     method: "POST",
     url: "/api/vehicles",
@@ -267,6 +271,7 @@ async function createVehicle(app: FastifyInstance, plateNumber: string) {
       seats: 5,
       registrationDate: "2020-01-01",
       inspectionDueDate: "2027-01-01",
+      ...(powertrainType ? { powertrainType } : {}),
     },
   });
   assert.equal(response.statusCode, 201, response.body);
@@ -283,7 +288,10 @@ const annualBookingMediaKinds = [
   "license_back",
 ] as const;
 
-async function uploadAnnualBookingMedia(app: FastifyInstance): Promise<Json[]> {
+async function uploadAnnualBookingMedia(
+  app: FastifyInstance,
+  _serviceMode: "self_drive" | "valet" = "self_drive",
+): Promise<Json[]> {
   return Promise.all(annualBookingMediaKinds.map((kind) => uploadMedia(app, kind)));
 }
 
@@ -446,7 +454,7 @@ test("车辆接口校验车牌、注册日期、重复车辆并支持更新", as
     const invalidPlate = await app.inject({
       method: "POST",
       url: "/api/vehicles",
-      payload: { plateNumber: "ABC", registrationDate: "2020-01-01" },
+      payload: { plateNumber: "津A#2345", registrationDate: "2020-01-01" },
     });
     assert.equal(invalidPlate.statusCode, 400);
     assert.equal(invalidPlate.json<Json>().error.code, "VALIDATION_ERROR");
@@ -502,11 +510,20 @@ test("车辆品牌车型目录支持关联校验、名称快照、清除与旧�
     const catalogResponse = await app.inject({ method: "GET", url: "/api/vehicle-catalog" });
     assert.equal(catalogResponse.statusCode, 200, catalogResponse.body);
     const catalog = catalogResponse.json<Json>().data;
-    assert.equal(catalog.brands.length, 6);
-    assert.equal(catalog.brands.reduce((count: number, brand: Json) => count + brand.models.length, 0), 12);
+    assert.ok(catalog.brands.length >= 130);
+    assert.ok(catalog.brands.reduce((count: number, brand: Json) => count + brand.models.length, 0) >= 1500);
     assert.equal(catalog.brands[0].name, "奔驰");
     assert.equal(catalog.brands[0].models[0].name, "S级");
-    assert.equal(catalog.disclosure.kind, "synthetic_demo");
+    assert.equal(catalog.disclosure.kind, "model_reference");
+    const subaru = catalog.brands.find((brand: Json) => brand.id === "brand-subaru");
+    assert.equal(subaru.models.length, 9);
+    assert.deepEqual(subaru.models.filter((model: Json) => model.imageUrl).map((model: Json) => model.name), ["森林人", "傲虎", "XV", "旭豹", "力狮", "翼豹", "BRZ", "驰鹏", "WRX"]);
+    const trailerCatalog = catalog.brands.find((brand: Json) => brand.id === "brand-trailer-body");
+    assert.equal(trailerCatalog.models.length, 7);
+    assert.deepEqual(trailerCatalog.models.filter((model: Json) => model.imageUrl).map((model: Json) => model.name), [
+      "平板半挂车", "栏板半挂车", "车辆运输半挂车", "侧帘半挂车", "集装箱运输半挂车", "罐式半挂车", "厢式半挂车",
+    ]);
+    assert.ok(trailerCatalog.models.every((model: Json) => model.vehicleClassCodes.includes("trailer")));
 
     const createdResponse = await app.inject({
       method: "POST",
@@ -525,7 +542,8 @@ test("车辆品牌车型目录支持关联校验、名称快照、清除与旧�
     const created = createdResponse.json<Json>().data;
     assert.deepEqual(created.brand, { id: "brand-mercedes", name: "奔驰" });
     assert.deepEqual(created.model, { id: "vehicle-mercedes-s", name: "S级" });
-    assert.match(created.visual.imageUrl, /vehicle-mercedes-s\.webp$/);
+    assert.match(created.visual.imageUrl, /owner-models\/vehicle-mercedes-s\.webp$/);
+    assert.equal(created.visual.kind, "presentation_cutout");
 
     const identityOnlyUpdate = await app.inject({
       method: "PATCH",
@@ -540,6 +558,35 @@ test("车辆品牌车型目录支持关联校验、名称快照、清除与旧�
     assert.equal(updated.seats, created.seats);
     assert.equal(updated.powertrainType, created.powertrainType);
     assert.equal(updated.registrationDate, created.registrationDate);
+
+    const expandedSelection = await app.inject({
+      method: "PATCH",
+      url: `/api/vehicles/${created.id}`,
+      payload: { brandId: "brand-volkswagen", modelId: "vehicle-volkswagen-lavida" },
+    });
+    assert.equal(expandedSelection.statusCode, 200, expandedSelection.body);
+    const expanded = expandedSelection.json<Json>().data;
+    assert.deepEqual(expanded.brand, { id: "brand-volkswagen", name: "大众" });
+    assert.deepEqual(expanded.model, { id: "vehicle-volkswagen-lavida", name: "朗逸" });
+    const expandedCatalogModel = catalog.brands.find((brand: Json) => brand.id === "brand-volkswagen")
+      .models.find((model: Json) => model.id === "vehicle-volkswagen-lavida");
+    assert.equal(expanded.visual.imageUrl, expandedCatalogModel.imageUrl);
+    assert.equal(expanded.visual.kind, expandedCatalogModel.imageKind);
+    if (expanded.visual.imageUrl) assert.match(expanded.visual.imageUrl, /^\/assets\/used-cars\//);
+    assert.equal(expanded.seats, created.seats);
+    assert.equal(expanded.powertrainType, created.powertrainType);
+    const reloaded = (await app.inject({ method: "GET", url: "/api/vehicles" })).json<Json>().data
+      .find((vehicle: Json) => vehicle.id === created.id);
+    assert.deepEqual(reloaded.model, expanded.model);
+    const newBrandVehicle = await app.inject({
+      method: "POST", url: "/api/vehicles",
+      payload: { plateNumber: "津B·T8803", vehicleType: "小型轿车", usageNature: "非营运", seats: 5,
+        registrationDate: "2025-01-01", brandId: "brand-xiaomi", modelId: "vehicle-xiaomi-su7" },
+    });
+    assert.equal(newBrandVehicle.statusCode, 201, newBrandVehicle.body);
+    assert.deepEqual(newBrandVehicle.json<Json>().data.model, { id: "vehicle-xiaomi-su7", name: "SU7" });
+    assert.match(newBrandVehicle.json<Json>().data.visual.imageUrl, /owner-presentation-v2\/vehicle-xiaomi-su7\.webp$/);
+    assert.equal(newBrandVehicle.json<Json>().data.visual.kind, "presentation_cutout");
 
     const mismatch = await app.inject({
       method: "PATCH",
@@ -571,12 +618,157 @@ test("车辆品牌车型目录支持关联校验、名称快照、清除与旧�
     assert.equal(legacyVehicle.brand, null);
     assert.equal(legacyVehicle.model, null);
     assert.equal(legacyVehicle.visual, null);
+
+    const coloredPassengerResponse = await app.inject({
+      method: "POST", url: "/api/vehicles",
+      payload: {
+        plateNumber: "津B·T8804", plateCategory: "blue_small_passenger", vehicleType: "小型普通客车",
+        usageNature: "非营运", seats: 5, registrationDate: "2023-01-01", exteriorColor: "蓝色",
+        brandId: "brand-subaru", modelId: "vehicle-subaru-forester",
+      },
+    });
+    assert.equal(coloredPassengerResponse.statusCode, 201, coloredPassengerResponse.body);
+    const coloredPassenger = coloredPassengerResponse.json<Json>().data;
+    assert.equal(coloredPassenger.exteriorColor, "蓝色");
+
+    const convertedToTruck = await app.inject({
+      method: "PATCH", url: `/api/vehicles/${coloredPassenger.id}`,
+      payload: {
+        plateCategory: "blue_small_truck", vehicleType: "轻型栏板货车", usageNature: "货运", seats: 2,
+        brandId: "brand-jac-shuailing", modelId: "vehicle-jac-shuailing-n55",
+      },
+    });
+    assert.equal(convertedToTruck.statusCode, 200, convertedToTruck.body);
+    assert.equal(convertedToTruck.json<Json>().data.exteriorColor, null);
+    assert.equal(convertedToTruck.json<Json>().data.model.name, "帅铃N55");
+    assert.match(convertedToTruck.json<Json>().data.visual.imageUrl, /vehicle-jac-shuailing-n55\.webp$/);
+
+    const wrongVehicleClass = await app.inject({
+      method: "PATCH", url: `/api/vehicles/${coloredPassenger.id}`,
+      payload: { plateCategory: "blue_small_passenger" },
+    });
+    assert.equal(wrongVehicleClass.statusCode, 400, wrongVehicleClass.body);
+    assert.equal(wrongVehicleClass.json<Json>().error.code, "VEHICLE_CATALOG_CLASS_MISMATCH");
   } finally {
     await close();
   }
 });
 
-test("车辆 API 规范化并识别小型与大型新能源号牌", async () => {
+test("11 类号牌独立保存并匹配各自站点报价，变更类别使旧报价失效", async () => {
+  const { app, database, close } = await fixture();
+  try {
+    const { station, slots } = await seedContext(app);
+    const definitions = (await app.inject({ method: "GET", url: "/api/admin/inspection-price-plans" })).json<Json>().data as Json[];
+    assert.equal(PLATE_CATEGORIES.length, 11);
+    assert.equal(new Set(definitions.flatMap((plan) => plan.plateCategories)).size, 11);
+    const unconfirmed = await app.inject({ method: "POST", url: "/api/vehicles", payload: {
+      plateNumber: "津CQA999", plateCategory: "new_energy_small_passenger", registrationDate: "2020-01-01",
+    } });
+    assert.equal(unconfirmed.statusCode, 201, unconfirmed.body);
+    assert.equal(unconfirmed.json<Json>().data.powertrainType, "unknown");
+    const vehicles: Json[] = [];
+    const offers: Json[] = [];
+    for (const [index, category] of PLATE_CATEGORIES.entries()) {
+      const serial = category.code === "yellow_trailer" ? "9301挂" : category.code.startsWith("new_energy_") ? `B${93000 + index}` : `Q${9300 + index}`;
+      const response = await app.inject({ method: "POST", url: "/api/vehicles", payload: {
+        plateNumber: `津C${serial}`, plateCategory: category.code,
+        vehicleType: category.vehicleType, seats: category.defaultSeats,
+        usageNature: category.vehicleClassCode === "passenger_car" ? "非营运" : "货运",
+        powertrainType: category.code === "yellow_trailer" ? "unknown" : "gasoline",
+        // A client-authored class cannot override the selected category.
+        vehicleClassCode: "passenger_car", registrationDate: "2020-01-01",
+      } });
+      assert.equal(response.statusCode, 201, response.body);
+      const vehicle = response.json<Json>().data;
+      vehicles.push(vehicle);
+      assert.equal(vehicle.plateCategory, category.code);
+      assert.equal(vehicle.plateKind, category.plateKind);
+      assert.equal(vehicle.vehicleClassCode, category.vehicleClassCode);
+      assert.equal(vehicle.facts.powertrainSource, "vehicle_profile");
+      assert.equal(vehicle.powertrainType, category.code === "yellow_trailer" ? "unknown" : "gasoline");
+      const reread = (await app.inject({ method: "GET", url: `/api/vehicles/${vehicle.id}` })).json<Json>().data;
+      assert.equal(reread.plateCategory, category.code);
+      const status = await app.inject({ method: "GET", url: `/api/inspection/status/${vehicle.id}` });
+      assert.equal(status.statusCode, 200, status.body);
+      if (category.vehicleClassCode !== "passenger_car") {
+        const before = (await app.inject({ method: "POST", url: "/api/bookings/quote", payload: {
+          vehicleId: vehicle.id, stationId: station.id, serviceMode: "self_drive",
+        } })).json<Json>().data;
+        assert.equal(before.serviceable, false, category.label);
+        assert.equal(before.inspectionFeeFen, 0);
+      }
+      let plan = definitions.find((item) => item.id === `plan-${category.code}`);
+      if (!plan) {
+        const createdPlan = await app.inject({ method: "POST", url: "/api/admin/inspection-price-plans", payload: {
+          code: `test-${category.code}`, name: category.label,
+          plateCategories: [category.code], powertrainTypes: ["gasoline"],
+          minSeats: 1, maxSeats: 9, usageNatures: ["非营运"], vehicleClassCodes: ["passenger_car"],
+          inspectionItems: ["safety_basic", "emissions_gasoline"],
+        } });
+        assert.equal(createdPlan.statusCode, 201, createdPlan.body);
+        plan = createdPlan.json<Json>().data;
+      }
+      offers.push({ planId: plan!.id, isSupported: true, priceFen: 21000 + index * 1700 });
+    }
+    const configured = await app.inject({ method: "PUT", url: `/api/admin/stations/${station.id}/price-plans`, payload: { pricePlans: offers } });
+    assert.equal(configured.statusCode, 200, configured.body);
+    const quotes: Json[] = [];
+    for (const [index, vehicle] of vehicles.entries()) {
+      const response = await app.inject({ method: "POST", url: "/api/bookings/quote", payload: {
+        vehicleId: vehicle.id, stationId: station.id, serviceMode: "self_drive",
+      } });
+      assert.equal(response.statusCode, 200, response.body);
+      const quote = response.json<Json>().data;
+      quotes.push(quote);
+      assert.equal(quote.pricingEligibility, "supported", `${vehicle.plateCategory}: ${response.body}`);
+      assert.equal(quote.inspectionFeeFen, offers[index].priceFen);
+      assert.equal(quote.matchedPricePlan.id, offers[index].planId);
+      assert.deepEqual(quote.matchedPricePlan.plateCategories, [vehicle.plateCategory]);
+      assert.equal(quote.vehicleSnapshot.plateCategory, vehicle.plateCategory);
+    }
+    const changed = await app.inject({ method: "PATCH", url: `/api/vehicles/${vehicles[0].id}`, payload: { plateCategory: PLATE_CATEGORIES[1].code } });
+    assert.equal(changed.statusCode, 200, changed.body);
+    assert.equal(changed.json<Json>().data.plateNumber, vehicles[0].plateNumber);
+    const media = await uploadAnnualBookingMedia(app);
+    const stale = await app.inject({ method: "POST", url: "/api/bookings", payload: {
+      vehicleId: vehicles[0].id, stationId: station.id, slotId: slots[0].id,
+      serviceMode: "self_drive", contactName: "类别测试", contactPhone: "13800138000",
+      quoteSnapshotId: quotes[0].quoteSnapshotId, mediaIds: media.map((item) => item.id),
+    } });
+    assert.equal(stale.statusCode, 409, stale.body);
+    assert.equal(stale.json<Json>().error.code, "QUOTE_STALE");
+    const unrelatedEdit = await app.inject({ method: "PATCH", url: `/api/vehicles/${vehicles[8].id}`, payload: { isDefault: true } });
+    assert.equal(unrelatedEdit.statusCode, 200, unrelatedEdit.body);
+    assert.equal(unrelatedEdit.json<Json>().data.plateCategory, "yellow_trailer");
+    assert.equal(unrelatedEdit.json<Json>().data.seats, 0);
+    const invalidSeats = await app.inject({ method: "PATCH", url: `/api/vehicles/${vehicles[8].id}`, payload: { plateCategory: "blue_small_passenger" } });
+    assert.equal(invalidSeats.statusCode, 400, invalidSeats.body);
+    const plan = definitions.find((item) => item.id === offers[2].planId)!;
+    const edited = await app.inject({ method: "PUT", url: `/api/admin/inspection-price-plans/${plan.id}`, payload: {
+      ...plan, plateCategories: ["new_energy_small_truck"],
+    } });
+    assert.equal(edited.statusCode, 200, edited.body);
+    const noMatch = (await app.inject({ method: "POST", url: "/api/bookings/quote", payload: {
+      vehicleId: vehicles[2].id, stationId: station.id, serviceMode: "self_drive",
+    } })).json<Json>().data;
+    assert.equal(noMatch.pricingEligibility, "manual_review");
+    const ambiguous = (await app.inject({ method: "POST", url: "/api/bookings/quote", payload: {
+      vehicleId: vehicles[3].id, stationId: station.id, serviceMode: "self_drive",
+    } })).json<Json>().data;
+    assert.equal(ambiguous.pricingReason, "ambiguous_price_plan");
+    await database.prepare("UPDATE inspection_price_plans SET name = ? WHERE id = ?")
+      .run("蓝牌（新能源）小型货车", "plan-new_energy_small_truck");
+    await migrateDatabase(database);
+    await seedDemoData(database);
+    const renamedGeneratedPlan = (await app.inject({ method: "GET", url: "/api/admin/inspection-price-plans" })).json<Json>().data
+      .find((item: Json) => item.id === "plan-new_energy_small_truck");
+    assert.equal(renamedGeneratedPlan.name, "新能源小型货车");
+    const preserved = (await app.inject({ method: "GET", url: "/api/admin/inspection-price-plans" })).json<Json>().data.find((item: Json) => item.id === plan.id);
+    assert.deepEqual(preserved.plateCategories, ["new_energy_small_truck"]);
+  } finally { await close(); }
+});
+
+test("车辆 API 规范化号牌，大小类别和动力以主动填写为准", async () => {
   const { app, close } = await fixture();
   try {
     const small = await createVehicle(app, "粤ｂ－ｄ１２３４５");
@@ -584,14 +776,14 @@ test("车辆 API 规范化并识别小型与大型新能源号牌", async () => 
     assert.equal(small.plateKind, "green_small");
     assert.equal(small.plateProvince, "粤");
     assert.equal(small.plateAgencyCode, "B");
-    assert.equal(small.energyCategory, "pure_electric");
+    assert.equal(small.energyCategory, "none");
 
     const large = await createVehicle(app, "沪A12345F");
     assert.equal(large.plateNumber, "沪A·12345F");
-    assert.equal(large.plateKind, "green_large");
+    assert.equal(large.plateKind, "green_small");
     assert.equal(large.plateProvince, "沪");
     assert.equal(large.plateAgencyCode, "A");
-    assert.equal(large.energyCategory, "non_pure_electric");
+    assert.equal(large.energyCategory, "none");
 
     const duplicate = await app.inject({
       method: "POST",
@@ -604,7 +796,7 @@ test("车辆 API 规范化并识别小型与大型新能源号牌", async () => 
     const updated = await app.inject({
       method: "PATCH",
       url: `/api/vehicles/${large.id}`,
-      payload: { plateNumber: "京C54321D" },
+      payload: { plateNumber: "京C54321D", plateCategory: "new_energy_large_truck", powertrainType: "pure_electric" },
     });
     assert.equal(updated.statusCode, 200, updated.body);
     assert.equal(updated.json<Json>().data.plateNumber, "京C·54321D");
@@ -620,29 +812,38 @@ test("车辆 API 规范化并识别小型与大型新能源号牌", async () => 
   }
 });
 
-test("车辆 API 拒绝无效省份、I/O 和错误长度并定位 plateNumber", async () => {
+test("车辆 API 允许不同长度和特殊号牌，自由编辑时仅拦截空值与不安全字符", async () => {
   const { app, close } = await fixture();
   try {
-    for (const plateNumber of ["港A12345", "津I12345", "津AI2345", "津A1234", "津ADI1234"]) {
+    for (const plateNumber of ["港A12345", "津I12345", "津A1234", "粤Z1234港", "冀A警123456789"]) {
       const response = await app.inject({
         method: "POST",
         url: "/api/vehicles",
         payload: { plateNumber, registrationDate: "2020-01-01" },
       });
-      assert.equal(response.statusCode, 400, plateNumber);
-      assert.equal(response.json<Json>().error.code, "VALIDATION_ERROR", plateNumber);
-      assert.ok(response.json<Json>().error.fields.plateNumber, plateNumber);
+      assert.equal(response.statusCode, 201, `${plateNumber}: ${response.body}`);
+      assert.equal(response.json<Json>().data.plateNumber, plateNumber);
     }
 
     const { vehicle } = await seedContext(app);
-    const invalidPatch = await app.inject({
+    const edited = await app.inject({
       method: "PATCH",
       url: `/api/vehicles/${vehicle.id}`,
-      payload: { plateNumber: "津AO2345" },
+      payload: { plateNumber: "津 A · DF 12 学" },
     });
-    assert.equal(invalidPatch.statusCode, 400);
-    assert.equal(invalidPatch.json<Json>().error.code, "VALIDATION_ERROR");
-    assert.ok(invalidPatch.json<Json>().error.fields.plateNumber);
+    assert.equal(edited.statusCode, 200, edited.body);
+    assert.equal(edited.json<Json>().data.plateNumber, "津A·DF12学");
+
+    for (const plateNumber of ["", "津A#2345", "<script>", "津".repeat(33)]) {
+      const invalid = await app.inject({
+        method: "PATCH",
+        url: `/api/vehicles/${vehicle.id}`,
+        payload: { plateNumber },
+      });
+      assert.equal(invalid.statusCode, 400, plateNumber);
+      assert.equal(invalid.json<Json>().error.code, "VALIDATION_ERROR", plateNumber);
+      assert.ok(invalid.json<Json>().error.fields.plateNumber, plateNumber);
+    }
   } finally {
     await close();
   }
@@ -689,7 +890,7 @@ test("车型矩阵、代驾里程规则与地址联想返回可解释报价", as
       return new Response(JSON.stringify({ status: 1 }), { status: 200, headers: { "content-type": "application/json" } });
     }) as typeof fetch;
     const { vehicle, station } = await seedContext(app);
-    const newEnergy = await createVehicle(app, "津A·D12345");
+    const newEnergy = await createVehicle(app, "津A·D12345", "pure_electric");
     const sevenSeatResponse = await app.inject({
       method: "POST", url: "/api/vehicles", payload: {
         plateNumber: "津B·T7001", vehicleType: "7 座乘用车", usageNature: "非营运", seats: 7,
@@ -1101,7 +1302,7 @@ test("腾讯矩阵成功时一次计算所有站点并按真实路线排序", as
   }
 });
 
-test("代驾预约与自驾一致要求四角、仪表盘和两张行驶证", async () => {
+test("代驾预约要求四角、启动后仪表盘和两张行驶证，预检问题可关联洗车维修", async () => {
   const { app, database, close } = await fixture();
   const originalKey = process.env.TENCENT_MAP_KEY;
   const originalFetch = globalThis.fetch;
@@ -1118,7 +1319,6 @@ test("代驾预约与自驾一致要求四角、仪表盘和两张行驶证", as
     const completeMedia = await uploadAnnualBookingMedia(app);
     const licenseFront = completeMedia.find((item) => item.kind === "license_front")!;
     const licenseBack = completeMedia.find((item) => item.kind === "license_back")!;
-    const bookingStageDashboard = completeMedia.find((item) => item.kind === "dashboard_started")!;
     assert.equal(licenseFront.mimeType, "image/jpeg");
     assert.ok(licenseFront.width <= 2048 && licenseFront.height <= 2048);
     const quoted = await app.inject({ method: "POST", url: "/api/bookings/quote", payload: {
@@ -1129,19 +1329,11 @@ test("代驾预约与自驾一致要求四角、仪表盘和两张行驶证", as
     const missingLicensePage = await app.inject({ method: "POST", url: "/api/bookings", payload: {
       vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id, contactName: "张女士", contactPhone: "13800138000",
       serviceMode: "valet", pickupAddress, quoteSnapshotId: quoted.json<Json>().data.quoteSnapshotId,
-      mediaIds: completeMedia.filter((item) => item.kind !== "license_back").map((item) => item.id),
+      mediaIds: [licenseFront.id],
     } });
     assert.equal(missingLicensePage.statusCode, 400);
     assert.equal(missingLicensePage.json<Json>().error.code, "BOOKING_MEDIA_REQUIRED");
     assert.match(missingLicensePage.json<Json>().error.fields.mediaIds, /license_back/);
-    const missingVehiclePhotos = await app.inject({ method: "POST", url: "/api/bookings", payload: {
-      vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id, contactName: "张女士", contactPhone: "13800138000",
-      serviceMode: "valet", pickupAddress, quoteSnapshotId: quoted.json<Json>().data.quoteSnapshotId,
-      mediaIds: [licenseFront.id, licenseBack.id, bookingStageDashboard.id],
-    } });
-    assert.equal(missingVehiclePhotos.statusCode, 400, missingVehiclePhotos.body);
-    assert.equal(missingVehiclePhotos.json<Json>().error.code, "BOOKING_MEDIA_REQUIRED");
-    assert.match(missingVehiclePhotos.json<Json>().error.fields.mediaIds, /vehicle_front_left/);
     const mismatchedPickup = await app.inject({ method: "POST", url: "/api/bookings", payload: {
       vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id, contactName: "张女士", contactPhone: "13800138000",
       serviceMode: "valet", pickupAddress: { ...pickupAddress, latitude: pickupAddress.latitude + 0.001 },
@@ -1180,6 +1372,44 @@ test("代驾预约与自驾一致要求四角、仪表盘和两张行驶证", as
     } });
     assert.equal(expiredPayment.statusCode, 409, expiredPayment.body);
     assert.equal(expiredPayment.json<Json>().error.code, "QUOTE_EXPIRED");
+
+    const precheckDetail = await app.inject({ method: "GET", url: `/api/operator/prechecks/${booking.id}` });
+    assert.equal(precheckDetail.statusCode, 200, precheckDetail.body);
+    assert.deepEqual(precheckDetail.json<Json>().data.precheck.guidance.map((item: Json) => item.code), [
+      "license_unclear", "vehicle_photos_incomplete", "vehicle_information_mismatch",
+      "booking_information_mismatch", "materials_cannot_be_verified", "body_dirty",
+      "body_damage", "dashboard_warning", "other",
+    ]);
+    const precheckVersion = precheckDetail.json<Json>().data.precheck.version;
+    const rejected = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/reject`, payload: {
+      expectedVersion: precheckVersion,
+      idempotencyKey: "valet-precheck-license-reject",
+      reasonCodes: ["license_unclear"],
+      reasonText: "行驶证副页反光，需要车主重新拍摄",
+      issuePhotoKinds: ["license_back"],
+    } });
+    assert.equal(rejected.statusCode, 200, rejected.body);
+
+    const replacementLicenseBack = await uploadMedia(app, "license_back");
+    const resubmitted = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: {
+      expectedVersion: rejected.json<Json>().data.precheck.version,
+      idempotencyKey: "valet-precheck-valid-media",
+      slotId: slots[0].id,
+      mediaIds: [replacementLicenseBack.id],
+      resolutionNote: "已重新拍摄清晰的行驶证副页",
+    } });
+    assert.equal(resubmitted.statusCode, 200, resubmitted.body);
+    assert.equal(resubmitted.json<Json>().data.media.length, 7);
+    const approved = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/approve`, payload: {
+      expectedVersion: resubmitted.json<Json>().data.precheck.version,
+      idempotencyKey: "valet-precheck-approved",
+    } });
+    assert.equal(approved.statusCode, 200, approved.body);
+    assert.equal(approved.json<Json>().data.fulfillmentStatus, "confirmed");
+    assert.match(
+      approved.json<Json>().data.events.find((item: Json) => item.title === "检测站预审通过").description,
+      /核对 7 张预约资料/,
+    );
 
     const pending = await uploadMedia(app, "license_front");
     const deleted = await app.inject({ method: "DELETE", url: `/api/media/${pending.id}` });
@@ -1275,13 +1505,41 @@ test("支付后进入跨日期预审队列，七图缺失时禁止检测站通�
     assert.equal(queue.json<Json>().data.items.find((item: Json) => item.id === booking.id).media.length, 7);
     await database.prepare("UPDATE booking_prechecks SET submitted_at = ? WHERE booking_id = ?")
       .run(new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), booking.id);
+    const beforeWorkerQueue = await app.inject({
+      method: "GET",
+      url: `/api/operator/prechecks?stationId=${station.id}`,
+    });
+    const beforeWorkerItem = beforeWorkerQueue.json<Json>().data.items.find((item: Json) => item.id === booking.id);
+    assert.equal(beforeWorkerItem.precheck.reminderDue, false);
+    const workflowTask = await database.prepare<Record<string, unknown>>(`
+      SELECT id, due_at FROM workflow_tasks
+      WHERE entity_type = 'booking' AND entity_id = ?
+        AND node_code = 'annual.precheck.pending' AND status = 'open'
+    `).get(booking.id);
+    assert.ok(workflowTask);
+    assert.ok(workflowTask?.due_at);
+    const workerNow = new Date();
+    const alreadyDue = new Date(workerNow.getTime() - 1_000).toISOString();
+    await database.prepare(`
+      UPDATE workflow_tasks
+      SET next_reminder_at = ?, due_at = ?, escalate_at = ?
+      WHERE id = ?
+    `).run(alreadyDue, alreadyDue, alreadyDue, String(workflowTask.id));
+    await runWorkflowWorkerOnce(database, {
+      now: workerNow,
+      sender: async () => ({ outcome: "accepted" }),
+    });
     const overdueQueue = await app.inject({
       method: "GET",
       url: `/api/operator/prechecks?stationId=${station.id}`,
     });
     const overdueItem = overdueQueue.json<Json>().data.items.find((item: Json) => item.id === booking.id);
+    // Merely aging submitted_at no longer pretends a station message was sent;
+    // reminder state comes from the workflow worker touching the persisted task.
     assert.equal(overdueItem.precheck.reminderDue, true);
     assert.equal(overdueItem.precheck.overdue, true);
+    assert.ok(overdueItem.precheck.supervision.lastRemindedAt);
+    assert.ok(overdueItem.precheck.supervision.escalatedAt);
 
     await database.prepare("DELETE FROM booking_media WHERE booking_id = ? AND kind = 'dashboard_started'").run(booking.id);
     const detail = await app.inject({ method: "GET", url: `/api/operator/prechecks/${booking.id}` });
@@ -1300,7 +1558,7 @@ test("支付后进入跨日期预审队列，七图缺失时禁止检测站通�
   }
 });
 
-test("预审驳回校验原因并幂等释放号源、全额模拟退款", async () => {
+test("预检退回保留款项并释放号源，只有车主申请才全额模拟退款", async () => {
   const { app, database, close } = await fixture();
   try {
     const { vehicle, station, slots } = await seedContext(app);
@@ -1351,11 +1609,13 @@ test("预审驳回校验原因并幂等释放号源、全额模拟退款", async
     });
     assert.equal(rejected.statusCode, 200, rejected.body);
     const rejectedBooking = rejected.json<Json>().data;
-    assert.equal(rejectedBooking.fulfillmentStatus, "precheck_rejected");
-    assert.equal(rejectedBooking.paymentStatus, "refunded");
+    assert.equal(rejectedBooking.fulfillmentStatus, "precheck_action_required");
+    assert.equal(rejectedBooking.paymentStatus, "paid");
     assert.equal(rejectedBooking.precheck.status, "rejected");
-    assert.equal(rejectedBooking.precheck.refundStatus, "refunded");
-    assert.equal(rejectedBooking.precheck.refundAmountFen, booking.serviceFeeFen);
+    assert.equal(rejectedBooking.precheck.refundStatus, "not_requested");
+    assert.equal(rejectedBooking.precheck.refundAmountFen, 0);
+    assert.equal(rejectedBooking.refundedFen, 0);
+    assert.equal(rejectedBooking.chargedFen, booking.serviceFeeFen);
     assert.deepEqual(rejectedBooking.precheck.issuePhotoKinds, ["license_back"]);
 
     const repeated = await app.inject({
@@ -1364,9 +1624,16 @@ test("预审驳回校验原因并幂等释放号源、全额模拟退款", async
       payload: rejectionPayload,
     });
     assert.equal(repeated.statusCode, 200, repeated.body);
+    const blockedStationRefund = await app.inject({ method: "PATCH", url: `/api/admin/bookings/${booking.id}`, payload: { refund: { amountFen: booking.serviceFeeFen, reason: "检测站尝试退款", idempotencyKey: "station-forbidden-refund" } } });
+    assert.equal(blockedStationRefund.statusCode, 403, blockedStationRefund.body);
+    const ownerRefund = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/cancel` });
+    assert.equal(ownerRefund.statusCode, 200, ownerRefund.body);
+    assert.equal(ownerRefund.json<Json>().data.refundedFen, booking.serviceFeeFen);
+    const again = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/cancel` });
+    assert.equal(again.statusCode, 200, again.body);
     const refundCount = Number((await database.prepare<Json>(`
       SELECT COUNT(*) AS count FROM booking_ledger_entries
-      WHERE booking_id = ? AND idempotency_key = 'precheck-rejection-refund'
+      WHERE booking_id = ? AND kind = 'refund'
     `).get(booking.id))?.count);
     assert.equal(refundCount, 1);
     await database.prepare(`
@@ -1399,6 +1666,210 @@ test("预审驳回校验原因并幂等释放号源、全额模拟退款", async
   } finally {
     await close();
   }
+});
+
+test("预检待处理可补拍复核，时段和款项不重复占用，原照片保留", async () => {
+  const { app, database, close } = await fixture();
+  try {
+    const { vehicle, station, slots } = await seedContext(app);
+    const created = await createBooking(app, { vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id });
+    const booking = created.json<Json>().data;
+    const oldPhoto = booking.media.find((item: Json) => item.kind === "license_back");
+    const paid = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/payments`, payload: { provider: "mock", idempotencyKey: "resubmit-paid-001", quoteSnapshotId: booking.quoteSnapshotId } });
+    const returned = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/reject`, payload: {
+      expectedVersion: paid.json<Json>().data.booking.precheck.version, idempotencyKey: "resubmit-reject-001", reasonCodes: ["license_unclear"], reasonText: "行驶证副页反光，请补拍清晰照片", issuePhotoKinds: ["license_back"],
+    } });
+    assert.equal(returned.statusCode, 200, returned.body);
+    const version = returned.json<Json>().data.precheck.version;
+    const replacement = await uploadMedia(app, "license_back");
+    const body = { expectedVersion: version, idempotencyKey: "resubmit-owner-001", slotId: slots[0].id, mediaIds: [replacement.id], resolutionNote: "已重新拍摄清晰的行驶证副页" };
+    const missing = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: { ...body, mediaIds: [] } });
+    assert.equal(missing.statusCode, 400, missing.body);
+    await database.prepare("UPDATE station_slots SET booked_count = capacity WHERE id = ?").run(slots[0].id);
+    const full = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: body });
+    assert.equal(full.statusCode, 409, full.body);
+    assert.equal(full.json<Json>().error.code, "SLOT_FULL");
+    assert.equal((await database.prepare<Json>("SELECT booking_id FROM booking_media WHERE id = ?").get(replacement.id))?.booking_id, null);
+    await database.prepare("UPDATE station_slots SET booked_count = capacity - ? WHERE id = ?").run(slots[0].remaining, slots[0].id);
+    const owner = await createDevelopmentSession(database, { userId: "precheck-other-owner" });
+    const foreign = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, headers: { authorization: `Bearer ${owner.token}` }, payload: body });
+    assert.equal(foreign.statusCode, 404, foreign.body);
+    const submitted = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: body });
+    assert.equal(submitted.statusCode, 200, submitted.body);
+    const next = submitted.json<Json>().data;
+    assert.equal(next.fulfillmentStatus, "pending_precheck");
+    assert.equal(next.media.length, 7);
+    assert.equal(next.paidFen, booking.serviceFeeFen);
+    assert.equal(next.refundedFen, 0);
+    assert.equal(next.serviceFeeFen, booking.serviceFeeFen);
+    assert.equal(next.precheckSlotReleased, false);
+    assert.ok(next.media.some((item: Json) => item.id === replacement.id));
+    assert.equal((await database.prepare<Json>("SELECT is_current FROM booking_media WHERE id = ?").get(oldPhoto.id))?.is_current, 0);
+    assert.equal((await app.inject({ method: "GET", url: `/api/media/${oldPhoto.id}` })).statusCode, 200);
+    const repeated = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: body });
+    assert.equal(repeated.statusCode, 200, repeated.body);
+    const changedRetry = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: { ...body, resolutionNote: "不同内容不能复用同一个幂等键" } });
+    assert.equal(changedRetry.statusCode, 409, changedRetry.body);
+    const stale = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/approve`, payload: { expectedVersion: version, idempotencyKey: "stale-review-001" } });
+    assert.equal(stale.statusCode, 409, stale.body);
+    const approved = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/approve`, payload: { expectedVersion: next.precheck.version, idempotencyKey: "resubmit-approved-001" } });
+    assert.equal(approved.statusCode, 200, approved.body);
+    assert.equal(approved.json<Json>().data.fulfillmentStatus, "awaiting_arrival");
+    const slot = await database.prepare<Json>("SELECT capacity, booked_count FROM station_slots WHERE id = ?").get(slots[0].id);
+    assert.equal(Number(slot!.capacity) - Number(slot!.booked_count), slots[0].remaining - 1);
+  } finally { await close(); }
+});
+
+test("预检维修快照兼容重复初始化与客户中心，排除错链并在补拍取消清理后保留", async () => {
+  const { app, database, close } = await fixture();
+  try {
+    const { vehicle, station, slots } = await seedContext(app);
+    const created = await createBooking(app, { vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id });
+    const booking = created.json<Json>().data;
+    const paid = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/payments`, payload: { provider: "mock", idempotencyKey: "precheck-repair-pay", quoteSnapshotId: booking.quoteSnapshotId } });
+    const decision = { expectedVersion: paid.json<Json>().data.booking.precheck.version, idempotencyKey: "precheck-repair-reject", reasonCodes: ["body_damage", "dashboard_warning", "license_unclear"], reasonText: "车身与仪表盘需维修核对，副页反光需补拍", issuePhotoKinds: ["vehicle_front_left", "dashboard_started", "license_back"] };
+    const noPhoto = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/reject`, payload: { ...decision, issuePhotoKinds: ["license_back"] } });
+    assert.equal(noPhoto.statusCode, 400, noPhoto.body);
+    const returned = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/reject`, payload: decision });
+    assert.equal(returned.statusCode, 200, returned.body);
+    assert.equal(returned.json<Json>().data.precheck.guidance.find((item: Json) => item.code === "dashboard_warning").action, "repair");
+    const body = { bookingId: booking.id, expectedVersion: returned.json<Json>().data.precheck.version, reasonCodes: ["body_damage", "dashboard_warning"], consented: true };
+    const noConsent = await app.inject({ method: "POST", url: "/api/repair/precheck-requests", payload: { ...body, consented: false } });
+    assert.equal(noConsent.statusCode, 400, noConsent.body);
+    const published = await app.inject({ method: "POST", url: "/api/repair/precheck-requests", payload: body });
+    assert.equal(published.statusCode, 201, published.body);
+    const repair = published.json<Json>().data;
+    assert.equal(repair.sourceType, "precheck");
+    assert.equal(repair.sourceBookingId, booking.id);
+    assert.equal(repair.report.annualConclusion, null);
+    assert.equal(repair.faults.length, 2);
+    assert.equal(repair.media.length, 2);
+    // Startup must accept precheck requests without fabricating a report/fault source.
+    await migrateDatabase(database);
+    await migrateDatabase(database);
+    const password = "customer precheck regression password";
+    await createInitialPlatformAdmin(database, { loginName: "platform.precheck", displayName: "客户资料测试管理员", password });
+    const login = await app.inject({ method: "POST", url: "/api/backoffice/sessions", payload: { loginName: "platform.precheck", password } });
+    assert.equal(login.statusCode, 200, login.body);
+    const headers = { cookie: String(login.headers["set-cookie"]).split(";")[0] };
+    const listRepairMaterials = () => app.inject({ method: "GET", url: "/api/admin/customers/demo-user/materials?domain=repair", headers });
+    const listed = await listRepairMaterials();
+    assert.equal(listed.statusCode, 200, listed.body);
+    const materials = listed.json<Json>().data.items.filter((item: Json) => item.businessId === repair.id);
+    assert.equal(materials.length, 2);
+    const copiedBytes = new Map<string, Buffer>();
+    for (const material of materials) {
+      assert.equal(material.available, true);
+      assert.equal(material.purpose, "预检维修报价授权快照");
+      assert.equal(JSON.stringify(material).includes("precheck-"), false);
+      const content = await app.inject({ method: "GET", url: material.contentPath, headers });
+      assert.equal(content.statusCode, 200, content.body);
+      assert.equal(content.headers["cache-control"], "private, no-store");
+      copiedBytes.set(material.id, content.rawPayload);
+    }
+    const audit = await database.prepare<Json>(`SELECT COUNT(*)::integer AS count FROM backoffice_audit_events
+      WHERE action = 'customer.material.read' AND resource_id IN (SELECT id FROM repair_request_media WHERE request_id = ?)`)
+      .get(repair.id);
+    assert.equal(audit?.count, 2);
+    const mediaRow = (await database.prepare<Json>("SELECT * FROM repair_request_media WHERE request_id = ? ORDER BY id LIMIT 1").get(repair.id))!;
+    const invalidPath = `/api/admin/customers/demo-user/materials/repair/${mediaRow.id}/content`;
+    const expectInvalidSource = async () => {
+      await assert.rejects(migrateCustomerCenterDatabase(database), /inconsistent repair media source/u);
+      const hidden = await listRepairMaterials();
+      assert.equal(hidden.statusCode, 200, hidden.body);
+      assert.equal(hidden.json<Json>().data.items.some((item: Json) => item.id === mediaRow.id), false);
+      assert.equal((await app.inject({ method: "GET", url: invalidPath, headers })).statusCode, 404);
+    };
+    // Even a valid booking-media ID cannot authorize licenses or another owner's photos.
+    await database.prepare("UPDATE repair_request_media SET precheck_media_id = ? WHERE id = ?")
+      .run(booking.media.find((item: Json) => item.kind === "license_front").id, mediaRow.id);
+    await expectInvalidSource();
+    await database.prepare(`INSERT INTO booking_media (id, user_id, booking_id, kind, storage_key,
+      mime_type, size_bytes, width, height, created_at, bound_at, expires_at)
+      SELECT 'foreign-precheck-photo', 'operator-user-1', 'booking-op-1', kind, 'foreign-precheck-photo.jpg',
+        mime_type, size_bytes, width, height, created_at, bound_at, expires_at FROM booking_media WHERE id = ?`)
+      .run(mediaRow.precheck_media_id);
+    await database.prepare("UPDATE repair_request_media SET precheck_media_id = 'foreign-precheck-photo' WHERE id = ?").run(mediaRow.id);
+    await expectInvalidSource();
+    await database.prepare("UPDATE repair_request_media SET precheck_media_id = ? WHERE id = ?").run(mediaRow.precheck_media_id, mediaRow.id);
+    await database.prepare("UPDATE repair_requests SET source_precheck_version = 999 WHERE id = ?").run(repair.id);
+    await assert.rejects(migrateCustomerCenterDatabase(database), /inconsistent repair source ownership chain/u);
+    assert.equal((await app.inject({ method: "GET", url: invalidPath, headers })).statusCode, 404);
+    await database.prepare("UPDATE repair_requests SET source_precheck_version = ? WHERE id = ?").run(body.expectedVersion, repair.id);
+    await migrateDatabase(database);
+    const licenseIds = booking.media.filter((item: Json) => item.kind.startsWith("license_")).map((item: Json) => item.id);
+    assert.ok(repair.media.every((item: Json) => !licenseIds.includes(item.sourceMediaId)));
+    const duplicated = await app.inject({ method: "POST", url: "/api/repair/precheck-requests", payload: body });
+    assert.equal(duplicated.statusCode, 200, duplicated.body);
+    assert.equal(duplicated.json<Json>().data.id, repair.id);
+    const other = await createDevelopmentSession(database, { userId: "other-repair-owner" });
+    const foreign = await app.inject({ method: "GET", url: repair.media[0].url, headers: { authorization: `Bearer ${other.token}` } });
+    assert.equal(foreign.statusCode, 404, foreign.body);
+    const foreignCustomer = await app.inject({ method: "GET", url: `/api/admin/customers/other-repair-owner/materials/repair/${mediaRow.id}/content`, headers });
+    assert.equal(foreignCustomer.statusCode, 404, foreignCustomer.body);
+    const linked = (await app.inject({ method: "GET", url: `/api/bookings/${booking.id}` })).json<Json>().data;
+    assert.equal(linked.precheckServices[0].id, repair.id);
+    const replacements = [];
+    for (const kind of ["vehicle_front_left", "dashboard_started", "license_back"]) replacements.push(await uploadMedia(app, kind));
+    const resubmitted = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/precheck/resubmit`, payload: {
+      expectedVersion: body.expectedVersion, idempotencyKey: "repair-customer-resubmit", slotId: slots[0].id,
+      mediaIds: replacements.map((item) => item.id), resolutionNote: "已处理并重新拍摄，请检测站复核",
+    } });
+    assert.equal(resubmitted.statusCode, 200, resubmitted.body);
+    await migrateDatabase(database);
+    await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/cancel` });
+    assert.equal((await app.inject({ method: "GET", url: repair.media[0].url })).statusCode, 200);
+    assert.equal((await app.inject({ method: "GET", url: `/api/repair/requests/${repair.id}` })).json<Json>().data.status, "open");
+    // Source retention cleanup sets the provenance FK to NULL; the authorized copy is independent.
+    await database.prepare("DELETE FROM booking_media WHERE booking_id = ?").run(booking.id);
+    await migrateDatabase(database);
+    const retained = await listRepairMaterials();
+    assert.equal(retained.statusCode, 200, retained.body);
+    assert.equal(retained.json<Json>().data.items.filter((item: Json) => item.businessId === repair.id && item.available).length, 2);
+    for (const material of materials) {
+      const content = await app.inject({ method: "GET", url: material.contentPath, headers });
+      assert.equal(content.statusCode, 200, content.body);
+      assert.deepEqual(content.rawPayload, copiedBytes.get(material.id));
+    }
+    const sources = await database.prepare<Json>("SELECT precheck_media_id FROM repair_request_media WHERE request_id = ?").all(repair.id);
+    assert.ok(sources.every((item) => item.precheck_media_id === null));
+  } finally { await close(); }
+});
+
+test("预检脏污衔接独立洗车订单并保留年检复核，禁止跨车关联", async () => {
+  const { app, database, close } = await fixture();
+  try {
+    const { vehicle, station, slots } = await seedContext(app);
+    const booking = (await createBooking(app, { vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id })).json<Json>().data;
+    const paid = await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/payments`, payload: { provider: "mock", idempotencyKey: "precheck-wash-pay", quoteSnapshotId: booking.quoteSnapshotId } });
+    const rejected = await app.inject({ method: "POST", url: `/api/operator/prechecks/${booking.id}/reject`, payload: { expectedVersion: paid.json<Json>().data.booking.precheck.version, idempotencyKey: "precheck-wash-reject", reasonCodes: ["body_dirty"], reasonText: "车身脏污无法核对，请清洁后重新拍摄", issuePhotoKinds: ["vehicle_front_left"] } });
+    assert.equal(rejected.statusCode, 200, rejected.body);
+    const store = (await app.inject({ method: "GET", url: "/api/wash/stores" })).json<Json>().data[0];
+    const offer = (await app.inject({ method: "GET", url: `/api/wash/stores/${store.id}/offers?vehicleCategory=sedan` })).json<Json>().data[0];
+    const slot = (await app.inject({ method: "GET", url: `/api/wash/stores/${store.id}/slots?date=2026-08-12&packageId=${offer.packageId}` })).json<Json>().data[0];
+    const quote = await app.inject({ method: "POST", url: "/api/wash/quotes", payload: { vehicleId: vehicle.id, storeId: store.id, packageId: offer.packageId, slotId: slot.id } });
+    assert.equal(quote.statusCode, 201, quote.body);
+    const order = await app.inject({ method: "POST", url: "/api/wash/orders", payload: { quoteSnapshotId: quote.json<Json>().data.id, idempotencyKey: "precheck-wash-create", contactName: "测试车主", contactPhone: "13800138000", precheckBookingId: booking.id } });
+    assert.equal(order.statusCode, 201, order.body);
+    const wrongOriginRetry = await app.inject({ method: "POST", url: "/api/wash/orders", payload: { quoteSnapshotId: quote.json<Json>().data.id, idempotencyKey: "precheck-wash-create", contactName: "测试车主", contactPhone: "13800138000" } });
+    assert.equal(wrongOriginRetry.statusCode, 409, wrongOriginRetry.body);
+    const otherVehicle = await createVehicle(app, "津A56789");
+    const otherQuote = await app.inject({ method: "POST", url: "/api/wash/quotes", payload: { vehicleId: otherVehicle.id, storeId: store.id, packageId: offer.packageId, slotId: slot.id } });
+    assert.equal(otherQuote.statusCode, 201, otherQuote.body);
+    const wrongVehicle = await app.inject({ method: "POST", url: "/api/wash/orders", payload: { quoteSnapshotId: otherQuote.json<Json>().data.id, idempotencyKey: "precheck-wash-other-car", contactName: "测试车主", contactPhone: "13800138000", precheckBookingId: booking.id } });
+    assert.equal(wrongVehicle.statusCode, 409, wrongVehicle.body);
+    assert.equal(wrongVehicle.json<Json>().error.code, "PRECHECK_WASH_NOT_APPLICABLE");
+    const linked = (await app.inject({ method: "GET", url: `/api/bookings/${booking.id}` })).json<Json>().data;
+    assert.equal(linked.fulfillmentStatus, "precheck_action_required");
+    assert.equal(linked.refundedFen, 0);
+    assert.equal(linked.precheckServices.find((item: Json) => item.type === "wash").id, order.json<Json>().data.id);
+    assert.equal(Number((await database.prepare<Json>("SELECT COUNT(*) AS count FROM repair_requests WHERE source_booking_id = ?").get(booking.id))!.count), 0);
+    const failedConsent = await app.inject({ method: "POST", url: "/api/repair/precheck-requests", payload: { bookingId: booking.id, expectedVersion: linked.precheck.version, reasonCodes: ["body_damage"], consented: true } });
+    assert.equal(failedConsent.statusCode, 400, failedConsent.body);
+    await app.inject({ method: "POST", url: `/api/bookings/${booking.id}/cancel` });
+    const independent = (await app.inject({ method: "GET", url: `/api/wash/orders/${order.json<Json>().data.id}` })).json<Json>().data;
+    assert.equal(independent.status, "pending_payment");
+  } finally { await close(); }
 });
 
 test("车主取消与检测站预审决策并发时只形成一个终态和一笔退款", async () => {
@@ -1437,9 +1908,10 @@ test("车主取消与检测站预审决策并发时只形成一个终态和一�
         },
       }),
     ]);
-    assert.deepEqual([cancelled.statusCode, rejected.statusCode].sort((a, b) => a - b), [200, 409]);
+    assert.equal(cancelled.statusCode, 200, cancelled.body);
+    assert.ok([200, 409].includes(rejected.statusCode), rejected.body);
     const finalBooking = (await app.inject({ method: "GET", url: `/api/bookings/${booking.id}` })).json<Json>().data;
-    assert.ok(["cancelled", "precheck_rejected"].includes(finalBooking.fulfillmentStatus));
+    assert.equal(finalBooking.fulfillmentStatus, "cancelled");
     assert.equal(finalBooking.paymentStatus, "refunded");
     const refundCount = Number((await database.prepare<Json>(`
       SELECT COUNT(*) AS count FROM booking_ledger_entries WHERE booking_id = ? AND kind = 'refund'
@@ -1467,6 +1939,8 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
 
     const { vehicle, station, slots } = await seedContext(app);
+    await database.prepare("UPDATE vehicles SET exterior_color = ? WHERE id = ?")
+      .run("午夜蓝", vehicle.id);
     const pickupAddress = {
       poiId: "valet-handoff-pickup",
       title: "天津文化中心地下停车场",
@@ -1482,7 +1956,7 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
       payload: { vehicleId: vehicle.id, stationId: station.id, serviceMode: "valet", pickupAddress },
     });
     assert.equal(quote.statusCode, 200, quote.body);
-    const bookingMedia = await uploadAnnualBookingMedia(app);
+    const bookingMedia = await uploadAnnualBookingMedia(app, "valet");
     const created = await app.inject({
       method: "POST",
       url: "/api/bookings",
@@ -1501,6 +1975,9 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     assert.equal(created.statusCode, 201, created.body);
     const booking = created.json<Json>().data;
     const bookingId = booking.id;
+    assert.equal(booking.vehicleSnapshot.exteriorColor, "午夜蓝");
+    await database.prepare("UPDATE vehicles SET exterior_color = ? WHERE id = ?")
+      .run("后改红", vehicle.id);
     assert.equal(created.json<Json>().data.evidencePolicyVersion, "valet-handoff-v1");
     assert.equal(created.json<Json>().data.media.length, 7);
     assert.deepEqual(
@@ -1618,28 +2095,73 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     assert.equal(exchanged.statusCode, 201, exchanged.body);
     const driverToken = exchanged.json<Json>().data.token;
     assert.match(driverToken, /^yxm_drv_/u);
+    const workflowAfterExchange = await database.prepare<Json>(`
+      SELECT
+        COUNT(*) FILTER (WHERE node_code = 'annual.driver.claim' AND status = 'open') AS open_claims,
+        COUNT(*) FILTER (WHERE node_code = 'annual.pickup.driver' AND status = 'open') AS open_pickups,
+        COUNT(*) FILTER (WHERE node_code = 'annual.pickup.driver') AS pickup_count
+      FROM workflow_tasks WHERE entity_id = ?
+    `).get(bookingId);
+    assert.equal(Number(workflowAfterExchange?.open_claims), 0);
+    assert.equal(Number(workflowAfterExchange?.open_pickups), 1);
+    assert.equal(Number(workflowAfterExchange?.pickup_count), 1);
+    const pickupWorkflowTask = await database.prepare<Json>(`
+      SELECT subject_type, subject_id, recipient_user_id, due_at, template_bindings_snapshot_json
+      FROM workflow_tasks
+      WHERE entity_id = ? AND node_code = 'annual.pickup.driver' AND status = 'open'
+    `).get(bookingId);
+    assert.equal(pickupWorkflowTask?.subject_type, "driver_assignment");
+    assert.equal(pickupWorkflowTask?.subject_id, exchanged.json<Json>().data.taskId);
+    assert.equal(pickupWorkflowTask?.recipient_user_id, "demo-user");
+    assert.ok(pickupWorkflowTask?.due_at);
+    assert.match(String(pickupWorkflowTask?.template_bindings_snapshot_json), /annual\.pickup\.evidence\.driver/u);
+    assert.doesNotMatch(String(pickupWorkflowTask?.template_bindings_snapshot_json), /verificationCode/u);
+    const driverWorkflowSummary = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}/workflow/summary`,
+      headers: { authorization: `Bearer ${driverToken}` },
+    });
+    assert.equal(driverWorkflowSummary.statusCode, 200, driverWorkflowSummary.body);
+    assert.equal(driverWorkflowSummary.json<Json>().data.pending, 1);
+    assert.ok(driverWorkflowSummary.json<Json>().data.nextDueAt);
+    const ownerCannotReadDriverWorkflow = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}/workflow/summary`,
+      headers: { authorization: `Bearer ${ownerSession.token}` },
+    });
+    assert.notEqual(ownerCannotReadDriverWorkflow.statusCode, 200, ownerCannotReadDriverWorkflow.body);
+    const consumedCredential = await database.prepare<Json>(`
+      SELECT status, bound_user_id, task_code_hash, task_code_expires_at,
+        verification_code_hmac, verification_code_ciphertext, verification_code_expires_at
+      FROM valet_driver_assignments WHERE booking_id = ?
+    `).get(bookingId);
+    assert.equal(consumedCredential?.status, "bound");
+    assert.equal(consumedCredential?.bound_user_id, "demo-user");
+    assert.equal(consumedCredential?.task_code_hash, null);
+    assert.equal(consumedCredential?.task_code_expires_at, null);
+    assert.equal(consumedCredential?.verification_code_hmac, null);
+    assert.equal(consumedCredential?.verification_code_ciphertext, null);
+    assert.equal(consumedCredential?.verification_code_expires_at, null);
 
-    await database.prepare(`
-      UPDATE valet_driver_assignments SET verification_code_expires_at = ? WHERE booking_id = ?
-    `).run("2000-01-01T00:00:00.000Z", bookingId);
-
-    const reopened = await app.inject({
+    const repeatedVerificationExchange = await app.inject({
       method: "POST",
       url: "/api/driver/task-sessions/exchange",
       headers: { authorization: `Bearer ${ownerSession.token}` },
       payload: { verificationCode },
     });
-    assert.equal(reopened.statusCode, 201, reopened.body);
-    const legacyDeepLinkStillWorks = await app.inject({
+    assert.equal(repeatedVerificationExchange.statusCode, 404, repeatedVerificationExchange.body);
+    assert.equal(repeatedVerificationExchange.json<Json>().error.code, "DRIVER_TASK_CODE_INVALID");
+    const repeatedLegacyTaskCodeExchange = await app.inject({
       method: "POST",
       url: "/api/driver/task-sessions/exchange",
       headers: { authorization: `Bearer ${ownerSession.token}` },
       payload: { taskCode },
     });
-    assert.equal(legacyDeepLinkStillWorks.statusCode, 201, legacyDeepLinkStillWorks.body);
+    assert.equal(repeatedLegacyTaskCodeExchange.statusCode, 404, repeatedLegacyTaskCodeExchange.body);
+    assert.equal(repeatedLegacyTaskCodeExchange.json<Json>().error.code, "DRIVER_TASK_CODE_INVALID");
     const boundAdminDetail = await app.inject({ method: "GET", url: `/api/admin/bookings/${bookingId}` });
-    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCode, verificationCode);
-    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCodeStatus, "bound");
+    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCode, null);
+    assert.equal(boundAdminDetail.json<Json>().data.driverAssignment.verificationCodeStatus, "unavailable");
     const otherOwner = await createDevelopmentSession(database, { userId: "valet-forwarded-link-owner" });
     const forwarded = await app.inject({
       method: "POST",
@@ -1648,6 +2170,13 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
       payload: { verificationCode },
     });
     assert.equal(forwarded.statusCode, 404, forwarded.body);
+    const issuedSessionStillWorks = await app.inject({
+      method: "GET",
+      url: `/api/driver/tasks/${bookingId}`,
+      headers: { authorization: `Bearer ${driverToken}` },
+    });
+    assert.equal(issuedSessionStillWorks.statusCode, 200, issuedSessionStillWorks.body);
+    assert.equal(issuedSessionStillWorks.json<Json>().data.vehicle.exteriorColor, "午夜蓝");
 
     const bypassPickup = await app.inject({
       method: "PATCH",
@@ -1705,6 +2234,16 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
     });
     assert.equal(pickupComplete.statusCode, 200, pickupComplete.body);
     assert.equal(pickupComplete.json<Json>().data.status, "picked_up");
+    const workflowAfterPickup = await database.prepare<Json>(`
+      SELECT
+        COUNT(*) FILTER (WHERE node_code = 'annual.pickup.driver' AND status = 'open') AS open_pickups,
+        COUNT(*) FILTER (WHERE node_code = 'annual.station.arrival' AND status = 'open') AS open_arrivals,
+        COUNT(*) FILTER (WHERE node_code = 'annual.station.arrival') AS arrival_count
+      FROM workflow_tasks WHERE entity_id = ?
+    `).get(bookingId);
+    assert.equal(Number(workflowAfterPickup?.open_pickups), 0);
+    assert.equal(Number(workflowAfterPickup?.open_arrivals), 1);
+    assert.equal(Number(workflowAfterPickup?.arrival_count), 1);
     const lateValetCancellation = await app.inject({
       method: "PATCH",
       url: `/api/admin/bookings/${bookingId}`,
@@ -1723,7 +2262,8 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
       headers: { authorization: `Bearer ${ownerSession.token}` },
       payload: { taskCode },
     });
-    assert.equal(reopenedInProgress.statusCode, 201, reopenedInProgress.body);
+    assert.equal(reopenedInProgress.statusCode, 404, reopenedInProgress.body);
+    assert.equal(reopenedInProgress.json<Json>().error.code, "DRIVER_TASK_CODE_INVALID");
     assert.equal(
       String((await database.prepare<Json>("SELECT status FROM valet_driver_assignments WHERE booking_id = ?")
         .get(bookingId))?.status),
@@ -1737,6 +2277,10 @@ test("新版代驾任务以四组五图留证原子推进，并向车主和后�
       payload: { idempotencyKey: "pickup-complete-0001" },
     });
     assert.equal(pickupRetry.statusCode, 200, pickupRetry.body);
+    assert.equal(Number((await database.prepare<Json>(`
+      SELECT COUNT(*) AS count FROM workflow_tasks
+      WHERE entity_id = ? AND node_code = 'annual.station.arrival'
+    `).get(bookingId))?.count), 1, "重复提交不能重复创建到站督办任务");
     const pickupConflict = await app.inject({
       method: "POST",
       url: `/api/driver/tasks/${bookingId}/evidence/owner_pickup/complete`,
@@ -2088,7 +2632,7 @@ test("新版代驾预约取消会原子撤销任务码与已签发司机会话",
       payload: { vehicleId: vehicle.id, stationId: station.id, serviceMode: "valet", pickupAddress },
     });
     assert.equal(quote.statusCode, 200, quote.body);
-    const bookingMedia = await uploadAnnualBookingMedia(app);
+    const bookingMedia = await uploadAnnualBookingMedia(app, "valet");
     const created = await app.inject({
       method: "POST",
       url: "/api/bookings",
@@ -2707,7 +3251,7 @@ test("代驾取消按阶段退款，后台取消幂等释放号源且取车后�
         vehicleId, stationId: station.id, serviceMode: "valet", pickupAddress,
       } });
       assert.equal(quote.statusCode, 200, quote.body);
-      const media = await uploadAnnualBookingMedia(app);
+      const media = await uploadAnnualBookingMedia(app, "valet");
       const booking = await app.inject({ method: "POST", url: "/api/bookings", payload: {
         vehicleId, stationId: station.id, slotId, contactName: "张女士", contactPhone: "13800138000",
         serviceMode: "valet", pickupAddress, quoteSnapshotId: quote.json<Json>().data.quoteSnapshotId,
@@ -3210,17 +3754,17 @@ test("车辆体检报告要求五张现场照且仅通过时强制合格凭证�
         faults: [
           {
             viewId: "left",
-            regionCode: "left_front_fender",
+            regionCode: "left_front_wheel",
             faultType: "scratch",
             severity: "severe",
-            description: "左前翼子板有长划痕",
+            description: "左前轮毂有长划痕",
           },
           {
-            viewId: "right",
-            regionCode: "right_rear_door",
-            faultType: "dent",
+            viewId: "top",
+            regionCode: "dashboard_obd",
+            faultType: "warning_light",
             severity: "moderate",
-            description: "右后门轻微凹陷",
+            description: "发动机故障灯常亮并记录报码",
           },
         ],
       },
@@ -4945,6 +5489,7 @@ test("多轴价格方案按实际动力筛选检验项目并将未支持车型�
     const huayang = stations.find((item: Json) => item.id === HUAYANG_STATION_ID);
     const pureSeven = await app.inject({ method: "POST", url: "/api/vehicles", payload: {
       plateNumber: "津A·D12345", vehicleType: "7 座纯电乘用车", usageNature: "非营运", seats: 7,
+      powertrainType: "pure_electric",
       registrationDate: "2020-01-01", inspectionDueDate: "2027-01-01",
     } });
     assert.equal(pureSeven.statusCode, 201, pureSeven.body);
@@ -5432,7 +5977,7 @@ test("代驾待支付订单使用原取车地址重新计算真实路线后可�
       payload: { vehicleId: vehicle.id, stationId: station.id, serviceMode: "valet", pickupAddress },
     });
     assert.equal(quote.statusCode, 200, quote.body);
-    const media = await uploadAnnualBookingMedia(app);
+    const media = await uploadAnnualBookingMedia(app, "valet");
     const created = await app.inject({
       method: "POST",
       url: "/api/bookings",
@@ -5639,7 +6184,7 @@ test("自动报价硬守卫优先于动态方案，营运十座非乘用面包�
   }
 });
 
-test("矛盾车辆事实不能绕过新能源、面包车与货车自动报价守卫", async () => {
+test("D/F 不覆盖车主动力选择，未分类的矛盾车辆仍不误报价", async () => {
   const { app, close } = await fixture();
   try {
     const { station } = await seedContext(app);
@@ -5671,12 +6216,11 @@ test("矛盾车辆事实不能绕过新能源、面包车与货车自动报价�
       vehicleClassCode: "passenger_car",
       isVan: false,
     });
-    assert.equal(dPlate.facts.powertrainType, "pure_electric");
-    assert.ok(dPlate.facts.factsConsistencyFailures.includes("plate_powertrain_conflict"));
+    assert.equal(dPlate.facts.powertrainType, "gasoline");
+    assert.deepEqual(dPlate.facts.factsConsistencyFailures, []);
     const dQuote = await quoteVehicle(dPlate.id);
-    assert.equal(dQuote.pricingEligibility, "manual_review");
-    assert.equal(dQuote.pricingReason, "outside_auto_pricing_scope");
-    assert.ok(dQuote.hardGuardFailures.includes("plate_powertrain_conflict"));
+    assert.equal(dQuote.pricingEligibility, "supported");
+    assert.ok(dQuote.matchedPricePlan.powertrainTypes.includes("gasoline"));
 
     const fPlate = await createContradictoryVehicle({
       plateNumber: "津A·F99882",
@@ -5685,12 +6229,12 @@ test("矛盾车辆事实不能绕过新能源、面包车与货车自动报价�
       vehicleClassCode: "passenger_car",
       isVan: false,
     });
-    assert.equal(fPlate.facts.powertrainType, "unknown");
-    assert.equal(fPlate.facts.powertrainSource, "conflict");
-    assert.ok(fPlate.facts.factsConsistencyFailures.includes("plate_powertrain_conflict"));
+    assert.equal(fPlate.facts.powertrainType, "pure_electric");
+    assert.equal(fPlate.facts.powertrainSource, "vehicle_profile");
+    assert.deepEqual(fPlate.facts.factsConsistencyFailures, []);
     const fQuote = await quoteVehicle(fPlate.id);
-    assert.equal(fQuote.pricingEligibility, "manual_review");
-    assert.ok(fQuote.hardGuardFailures.includes("plate_powertrain_conflict"));
+    assert.equal(fQuote.pricingEligibility, "supported");
+    assert.ok(fQuote.matchedPricePlan.powertrainTypes.includes("pure_electric"));
 
     const cargoVan = await createContradictoryVehicle({
       plateNumber: "津B·T7012",
@@ -5726,7 +6270,7 @@ test("报价与订单冻结完整实体和逐项金额，车辆事实变化时�
     assert.equal(quoteResponse.statusCode, 200, quoteResponse.body);
     const quote = quoteResponse.json<Json>().data;
     assert.equal(quote.snapshotVersion, "quote-v1");
-    assert.equal(quote.vehicleFactsVersion, "vehicle-facts-v1");
+    assert.equal(quote.vehicleFactsVersion, "vehicle-facts-v2-explicit-category");
     assert.match(quote.vehicleFactsHash, /^[a-f0-9]{64}$/);
     assert.equal(quote.vehicleSnapshot.id, vehicle.id);
     assert.equal(quote.stationSnapshot.id, station.id);
@@ -5865,6 +6409,8 @@ test("洗车目录、冻结报价、支付核销与结算形成可审计闭环",
   try {
     const vehicles = (await app.inject({ method: "GET", url: "/api/vehicles" })).json<Json>().data;
     assert.equal(vehicles[0].washVehicleCategory, "sedan");
+    await database.prepare("UPDATE vehicles SET exterior_color = ? WHERE id = ?")
+      .run("海湾蓝（个性定制）", vehicles[0].id);
 
     const storesResponse = await app.inject({ method: "GET", url: "/api/wash/stores" });
     assert.equal(storesResponse.statusCode, 200, storesResponse.body);
@@ -5915,6 +6461,7 @@ test("洗车目录、冻结报价、支付核销与结算形成可审计闭环",
     const quote = quoteResponse.json<Json>().data;
     assert.equal(quote.quoteSnapshotId, quote.id);
     assert.equal(quote.totalFeeFen, 3800);
+    assert.equal(quote.vehicle.exteriorColor, "海湾蓝（个性定制）");
     assert.ok(Date.parse(quote.expiresAt) - Date.parse(quote.createdAt) === 10 * 60_000);
 
     const createPayload = {
@@ -5931,6 +6478,7 @@ test("洗车目录、冻结报价、支付核销与结算形成可审计闭环",
     assert.equal(pending.redemptionCode, null);
     assert.equal(pending.verificationCode, null);
     assert.equal(pending.serviceType, "car_wash");
+    assert.equal(pending.vehicle.exteriorColor, "海湾蓝（个性定制）");
     const duplicateCreate = await app.inject({ method: "POST", url: "/api/wash/orders", payload: createPayload });
     assert.equal(duplicateCreate.statusCode, 200, duplicateCreate.body);
     assert.equal(duplicateCreate.json<Json>().data.id, pending.id);

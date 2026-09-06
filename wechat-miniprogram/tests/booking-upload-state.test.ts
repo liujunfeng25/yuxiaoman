@@ -145,6 +145,41 @@ test("预约页统一显示七项必传且每个槽位单次只选一张", () =>
   assert.match(source, /mediaIds: this\.data\.uploads\.map/);
 });
 
+test("检测站预审统一核对七张资料并展示订单真实督办时点", () => {
+  const listSource = readFileSync(new URL("../miniprogram/packages/operator/pages/precheck-list/precheck-list.ts", import.meta.url), "utf8");
+  const listTemplate = readFileSync(new URL("../miniprogram/packages/operator/pages/precheck-list/precheck-list.wxml", import.meta.url), "utf8");
+  const detailSource = readFileSync(new URL("../miniprogram/packages/operator/pages/precheck-detail/precheck-detail.ts", import.meta.url), "utf8");
+  const detailTemplate = readFileSync(new URL("../miniprogram/packages/operator/pages/precheck-detail/precheck-detail.wxml", import.meta.url), "utf8");
+  const workbenchTemplate = readFileSync(new URL("../miniprogram/packages/operator/pages/operator/operator.wxml", import.meta.url), "utf8");
+
+  assert.match(listSource, /const requiredPhotoKinds = selfDrivePhotoKinds/);
+  assert.match(listSource, /supervision\.firstReminderAt/);
+  assert.match(listSource, /supervision\.dueAt/);
+  assert.match(listSource, /supervision\.lastRemindedAt/);
+  assert.match(listTemplate, /item\.requiredPhotoCount/);
+  assert.match(listTemplate, /item\.photoProgressPercent/);
+  assert.match(listTemplate, /item\.supervisionDetail/);
+  assert.doesNotMatch(listTemplate, /PHOTO PRECHECK|支付后 30 分钟|2 小时标记超时/);
+
+  assert.doesNotMatch(detailSource, /valetPhotoDefinitions|valetReasonCodes/);
+  assert.match(detailTemplate, /requiredPhotoCount/);
+  assert.match(detailTemplate, /vehiclePhotosRequired/);
+  assert.match(workbenchTemplate, /核对支付订单的 7 张预约照片/);
+});
+
+test("车主订单页展示冻结的实际督办版本与时点，不写死提醒分钟数", () => {
+  const source = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.ts", import.meta.url), "utf8");
+  const template = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.wxml", import.meta.url), "utf8");
+
+  assert.match(source, /precheckSupervisionNote/);
+  assert.match(source, /supervision\.policyVersion/);
+  assert.match(source, /supervision\.firstReminderAt/);
+  assert.match(source, /supervision\.dueAt/);
+  assert.match(source, /supervision\.reminderCount/);
+  assert.match(template, /\{\{precheckSupervisionNote\}\}/);
+  assert.doesNotMatch(template, /超过 30 分钟系统会提醒/);
+});
+
 test("代驾履约留证由司机、检测站和报告分阶段展示且不要求客户确认", () => {
   const ownerTemplate = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.wxml", import.meta.url), "utf8");
   const operatorTemplate = readFileSync(new URL("../miniprogram/packages/operator/pages/operator-detail/operator-detail.wxml", import.meta.url), "utf8");
@@ -263,6 +298,10 @@ test("首页三入口和资格及建档回流保持快捷导航契约", () => {
   assert.match(homeSource, /actionLabel: canBookInspection \? "选择验车方式"/);
   assert.match(homeSource, /loadError: message/);
   assert.match(homeSource, /if \(this\.data\.entryTarget\) return/);
+  assert.match(homeSource, /fail: \(\) => \{/);
+  assert.match(homeSource, /if \(this\.data\.entryTarget === target\) this\.setData\(\{ entryTarget: "" \}\)/);
+  assert.match(homeSource, /页面打开失败，请重试/);
+  assert.doesNotMatch(homeSource, /setTimeout\(\(\) => \{\s*if \(this\.data\.entryTarget === target\)/);
   assert.match(homeSource, /navigateEntry\("\/packages\/inspection\/pages\/checkup-reports\/checkup-reports", "report"\)/);
   assert.match(homeSource, /checkup-reports\/checkup-reports/);
   assert.match(homeSource, /api\.vehicleCheckupReports\(\{ limit: 1 \}\)/);
@@ -275,8 +314,8 @@ test("首页三入口和资格及建档回流保持快捷导航契约", () => {
   assert.match(eligibilitySource, /service-mode\/service-mode\?vehicleId=\$\{vehicleId\}/);
   assert.match(vehicleFormSource, /stations\?serviceMode=\$\{this\.data\.requestedServiceMode\}&vehicleId=\$\{vehicleId\}&returnTo=inspection_booking/);
   assert.match(vehicleFormSource, /eligibility\?vehicleId=\$\{encodeURIComponent\(vehicle\.id\)\}\$\{modeQuery\}/);
-  assert.match(vehicleFormSource, /function isSerialKeyAllowed/);
-  assert.doesNotMatch(vehicleFormSource, /lockedIndex/);
+  assert.match(vehicleFormSource, /function isPlateInputSafe/);
+  assert.doesNotMatch(vehicleFormSource, /lockedIndex|D\/F|plateLength/);
 });
 
 test("首页报告入口诚实区分空态、进行中、结论与缺报告异常", () => {
@@ -581,7 +620,7 @@ test("重报价金额变化必须再次确认，待支付订单仍可取消", ()
   assert.match(markup, /booking\.status === 'pending_payment' \|\| booking\.status === 'pending_precheck' \|\| booking\.status === 'confirmed'/);
   assert.match(pageSource, /this\.data\.cancelling \|\| this\.data\.paying \|\| this\.data\.requoting/);
   assert.match(markup, /bindtap="cancel" loading="\{\{cancelling\}\}" disabled="\{\{cancelling \|\| paying \|\| requoting\}\}"/);
-  assert.match(markup, /cancelling \? '正在取消…' : '取消预约'/);
+  assert.match(markup, /cancelling \? '正在处理…' : booking\.paymentStatus === 'paid' \? '申请退款并取消预约' : '取消预约'/);
   assert.match(pageSource, /loadError:\s*message/);
   assert.match(markup, /当前保留的是上次成功同步的订单信息/);
   assert.match(markup, /bindtap="retryLoad"/);
@@ -675,25 +714,17 @@ test("年检快捷预约页面使用明确阶段文案、错误恢复和安全�
   assert.match(bookingTemplate, /!quote\.serviceable/);
 });
 
-test("车牌键盘与检测站任务卡在窄屏保持可滚动且不重叠", () => {
+test("自由车牌输入与检测站任务卡在窄屏保持可用", () => {
   const vehicleMarkup = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", import.meta.url), "utf8");
   const vehicleStyle = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxss", import.meta.url), "utf8");
   const operatorMarkup = readFileSync(new URL("../miniprogram/packages/operator/pages/operator/operator.wxml", import.meta.url), "utf8");
   const operatorStyle = readFileSync(new URL("../miniprogram/packages/operator/pages/operator/operator.wxss", import.meta.url), "utf8");
 
-  assert.match(vehicleMarkup, /wx:if="\{\{provinceOpen\}\}" scroll-y[^>]*class="plate-keyboard-scroll"/);
-  assert.match(vehicleMarkup, /<scroll-view scroll-y[^>]*class="plate-keyboard-scroll">[\s\S]*serial-numbers[\s\S]*serial-letters/);
-  assert.match(vehicleMarkup, /class="plate-key[^"]*"[^>]*>\s*<text>\{\{item\}\}<\/text>/, "省份/序号键必须用 view+text，避免真机 Grid 内 button 文字被裁没");
-  assert.doesNotMatch(vehicleMarkup, /green_small' && index === 2\)/, "新能源小型不应再锁定第 3 格 D/F");
-  assert.match(vehicleMarkup, /按实际号牌填写字母或数字/);
-  assert.match(vehicleMarkup, /plate-prefix-row/);
-  assert.match(vehicleMarkup, /清空序号/);
-  assert.match(vehicleStyle, /\.plate-key\s*\{[^}]*display:\s*flex[^}]*min-height:\s*88rpx/);
-  assert.match(vehicleStyle, /\.plate-keyboard-sheet\s*\{[^}]*height:\s*74vh[^}]*max-height:\s*calc\(100vh - 48rpx\)[^}]*overflow:\s*hidden/);
-  assert.match(vehicleStyle, /\.plate-keyboard-scroll\s*\{[^}]*flex:\s*1 1 auto/);
-  assert.match(vehicleStyle, /\.serial-controls\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/);
-  assert.match(vehicleStyle, /\.serial-controls \.done\s*\{[^}]*grid-column:\s*1 \/ -1/);
-  assert.match(vehicleStyle, /@media \(max-width:\s*340px\)[\s\S]*grid-template-columns:\s*repeat\(4,/);
+  assert.match(vehicleMarkup, /class="plate-free-input"[^>]*aria-label="车牌号码"[^>]*bindinput="plateNumberInput"/);
+  assert.match(vehicleMarkup, /按实际号牌自由填写，不固定字符位数/);
+  assert.doesNotMatch(vehicleMarkup, /号码位数|>7 位<|>8 位<|plate-keyboard-sheet|plate-cells/);
+  assert.match(vehicleMarkup, /aria-label="自定义车身颜色"[^>]*bindinput="exteriorColorInput"/);
+  assert.match(vehicleStyle, /\.plate-free-input\s*\{[^}]*width:\s*100%[^}]*box-sizing:\s*border-box/);
 
   assert.match(operatorMarkup, /class="task-time"><text>\{\{item\.startTime\}\}<\/text><text>至 \{\{item\.endTime\}\}<\/text><text>\{\{item\.dateLabel\}\}<\/text>/);
   assert.match(operatorStyle, /\.task-row\s*\{[^}]*grid-template-columns:\s*104rpx minmax\(0, 1fr\) 26rpx[^}]*grid-template-rows:\s*auto auto auto/);

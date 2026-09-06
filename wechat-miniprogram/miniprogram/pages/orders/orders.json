@@ -1,1 +1,6 @@
-{ "navigationBarTitleText": "订单" }
+{
+  "navigationBarTitleText": "订单",
+  "usingComponents": {
+    "workflow-bell": "/components/workflow-bell/workflow-bell"
+  }
+}

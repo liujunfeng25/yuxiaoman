@@ -185,6 +185,28 @@ export async function migrateRepairDatabase(database: AppDatabase): Promise<void
     CREATE UNIQUE INDEX IF NOT EXISTS repair_quotes_one_active_per_shop
       ON repair_quotes(request_id, shop_id)
       WHERE status = 'active';
+    ALTER TABLE repair_requests ALTER COLUMN source_report_id DROP NOT NULL;
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'report';
+    ALTER TABLE repair_requests ADD COLUMN IF NOT EXISTS source_precheck_version INTEGER;
+    ALTER TABLE repair_request_faults ALTER COLUMN source_fault_id DROP NOT NULL;
+    ALTER TABLE repair_request_faults ADD COLUMN IF NOT EXISTS precheck_reason_code TEXT;
+    ALTER TABLE repair_request_media ALTER COLUMN source_media_id DROP NOT NULL;
+    ALTER TABLE repair_request_media ADD COLUMN IF NOT EXISTS precheck_media_id TEXT REFERENCES booking_media(id) ON DELETE SET NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS repair_precheck_media_unique ON repair_request_media(request_id, precheck_media_id);
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'repair_request_source_kind_check' AND conrelid = 'repair_requests'::regclass) THEN
+        ALTER TABLE repair_requests ADD CONSTRAINT repair_request_source_kind_check CHECK (
+          (source_type = 'report' AND source_report_id IS NOT NULL) OR
+          (source_type = 'precheck' AND source_report_id IS NULL AND source_precheck_version IS NOT NULL));
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'repair_fault_source_kind_check' AND conrelid = 'repair_request_faults'::regclass) THEN
+        ALTER TABLE repair_request_faults ADD CONSTRAINT repair_fault_source_kind_check CHECK (
+          (source_fault_id IS NOT NULL AND precheck_reason_code IS NULL) OR
+          (source_fault_id IS NULL AND precheck_reason_code IS NOT NULL AND precheck_reason_code IN ('body_damage', 'dashboard_warning')));
+      END IF;
+    END $$;
+    CREATE UNIQUE INDEX IF NOT EXISTS repair_precheck_active_request
+      ON repair_requests(source_booking_id) WHERE source_type = 'precheck' AND status IN ('open', 'paid');
   `);
 }
 

@@ -7,6 +7,8 @@ type VehicleView = Vehicle & {
   brandModelLabel: string;
   vehicleImage: string;
   washCategoryLabel: string;
+  exteriorColorLabel: string;
+  washCategoryVisible: boolean;
 };
 type Data = { vehicles: VehicleView[]; loading: boolean };
 
@@ -62,8 +64,10 @@ Page<Data>({
         powertrainLabel: powertrainLabel(item),
         validityLabel: validityLabel(item),
         brandModelLabel: item.brand && item.model ? `${item.brand.name} ${item.model.name}` : "品牌车型待设置",
-        vehicleImage: item.visual?.imageUrl || "/assets/brand/hero-car-generic.png",
+        vehicleImage: item.visual?.imageUrl || "",
         washCategoryLabel: item.washVehicleCategory === "mpv" ? "MPV" : item.washVehicleCategory === "suv" || item.washVehicleCategory === "suv_mpv" ? "SUV" : "小轿车",
+        exteriorColorLabel: item.exteriorColor ? ` · ${item.exteriorColor}` : "",
+        washCategoryVisible: item.vehicleClassCode === "passenger_car",
       })) });
     }
     catch (error) { wx.showToast({ title: error instanceof Error ? error.message : "读取车辆失败", icon: "none" }); }
@@ -84,7 +88,7 @@ Page<Data>({
   },
   vehicleImageError(event) {
     const index = Number(event.currentTarget.dataset.index);
-    this.setData({ [`vehicles[${index}].vehicleImage`]: "/assets/brand/hero-car-generic.png" });
+    this.setData({ [`vehicles[${index}].vehicleImage`]: "" });
   },
   deleteVehicle(event) {
     const id = event.currentTarget.dataset.id as string;

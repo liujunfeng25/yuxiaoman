@@ -38,7 +38,7 @@
       <view class="photo-note"><image src="/assets/icons/camera.png"/><text>可使用相机或相册。每个位置独立保存，替换一张不会清除其他照片。</text></view>
     </view>
 
-    <view class="section-heading"><view><text>02</text><text>车辆故障定位</text></view><text>三视图 · 20 个区域</text></view>
+    <view class="section-heading"><view><text>02</text><text>车辆故障定位</text></view><text>{{totalRegionCount}} 个车身部位 · {{systemRegionCount}} 个系统部位</text></view>
     <view class="diagnostic-panel">
       <view class="diagnostic-head">
         <view><text>VEHICLE DIAGNOSTICS</text><text>车身状态数字定位</text></view>
@@ -52,7 +52,7 @@
       <view class="vehicle-stage">
         <view class="vehicle-visual-frame">
           <image class="vehicle-stage-background" src="/packages/inspection/assets/inspection-checkup/diagnostic-stage.jpg" mode="aspectFill" />
-          <image class="vehicle-image" src="{{activeViewImage}}" mode="aspectFit" />
+          <image class="vehicle-image {{activeViewMirrored ? 'mirrored' : ''}}" src="{{activeViewImage}}" mode="aspectFit" />
           <block wx:for="{{regions}}" wx:key="code">
             <view class="region-callout-line {{item.faultCount ? 'faulted' : ''}} {{item.selected ? 'selected' : ''}}" style="{{item.lineStyle}}"></view>
             <button
@@ -76,7 +76,22 @@
             <text>{{activeBubble.title}}</text><text>{{activeBubble.description}}</text>
           </view>
         </view>
-        <view class="vehicle-caption"><text>点击定位点或部位名称记录问题</text><text>通用车身示意，不代表实车车型；故障以位置文字和现场照片为准</text></view>
+        <view class="vehicle-caption"><text>{{diagramVehicleText}} · 点击定位点或部位名称，先选择故障程度</text><text>{{diagramSourceText}}；故障定位以标注部位和现场照片为准</text></view>
+      </view>
+
+      <view class="system-region-panel">
+        <view class="system-region-heading"><view><text>功能系统部位</text><text>不在车身图上虚构落点</text></view><text>{{systemRegionCount}} 项</text></view>
+        <view class="system-region-grid">
+          <button
+            wx:for="{{systemRegions}}"
+            wx:key="code"
+            aria-label="{{item.label}}，{{item.hint}}{{item.faultCount ? '，已记录' + item.faultCount + '条故障' : '，点击添加故障'}}"
+            class="system-region-button {{item.faultCount ? 'faulted' : ''}} {{item.selected ? 'selected' : ''}}"
+            data-code="{{item.code}}"
+            bindtap="tapSystemRegion"
+            disabled="{{saving || submitting}}"
+          ><view><text>{{item.label}}</text><text>{{item.hint}}</text></view><text class="system-region-marker">{{item.markerLabel}}</text></button>
+        </view>
       </view>
 
       <view class="diagnostic-legend">
@@ -120,7 +135,7 @@
         <view class="failure-text-field"><text>具体原因 / 检测说明</text><textarea value="{{failureReason}}" maxlength="300" placeholder="请按检测记录填写未通过项目、测量值或异常说明" bindinput="inputFailureReason" disabled="{{saving || submitting}}" /></view>
         <view class="failure-text-field"><text>整改与复检建议</text><textarea value="{{retestAdvice}}" maxlength="300" placeholder="请填写整改要求、复检项目及建议安排" bindinput="inputRetestAdvice" disabled="{{saving || submitting}}" /></view>
       </view>
-      <view class="summary-field"><text>结果说明（选填）</text><textarea value="{{summary}}" maxlength="200" placeholder="例如：检测项目完成，车身问题已记录在体检报告中" bindinput="inputSummary" disabled="{{saving || submitting}}" /></view>
+      <view class="summary-field"><text>结果说明（选填）</text><textarea value="{{summary}}" maxlength="200" placeholder="例如：检测项目完成，车辆问题已记录在体检报告中" bindinput="inputSummary" disabled="{{saving || submitting}}" /></view>
     </view>
 
     <view class="section-heading"><view><text>04</text><text>法定检测材料</text></view><text>与平台车辆体检留证分开</text></view>
@@ -215,7 +230,7 @@
           </view>
           <view class="preview-metrics">
             <view><text>{{photoCompleteCount}}/5</text><text>现场照片</text></view>
-            <view><text>{{faults.length}}</text><text>车身问题</text></view>
+            <view><text>{{faults.length}}</text><text>车辆问题</text></view>
             <view><text>{{faultPhotoCount}}</text><text>故障特写</text></view>
             <view><text>{{markMedia ? '已上传' : (conclusion === 'passed' ? '待上传' : '不适用')}}</text><text>合格凭证</text></view>
           </view>

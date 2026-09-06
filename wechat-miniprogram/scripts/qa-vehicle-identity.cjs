@@ -32,6 +32,7 @@ async function relaunch(miniProgram, url) {
 async function run() {
   fs.mkdirSync(artifactsDir, { recursive: true });
   const vehicles = await api('/vehicles');
+  const catalog = await api('/vehicle-catalog');
   const original = vehicles.find((vehicle) => vehicle.isDefault) || vehicles[0];
   if (!original) throw new Error('Vehicle identity QA needs one vehicle.');
 
@@ -40,6 +41,7 @@ async function run() {
     : { brandId: null, modelId: null };
   let miniProgram;
   const issues = [];
+  const assetBase = apiBase.replace(/\/api\/?$/, '');
 
   try {
     miniProgram = await automator.launcher.connectTool({ wsEndpoint: endpoint });
@@ -70,35 +72,47 @@ async function run() {
     await delay(1_000);
 
     const brandButtons = await page.$$('.brand-selector button');
-    assert.equal(brandButtons.length, 6, 'Catalog must render six brands.');
-    await brandButtons[0].tap();
+    const visibleBrands = await page.data('catalogBrandOptions');
+    assert.equal(brandButtons.length, visibleBrands.length, 'Catalog must render every presentation-ready brand.');
+    assert.ok(brandButtons.length > 0 && brandButtons.length <= catalog.brands.length,
+      'The visual picker must contain only catalog brands with presentation-ready models.');
+    const search = await page.$('.catalog-search input');
+    assert.ok(search, 'Catalog search must be rendered.');
+    await search.input('斯巴鲁');
     await delay(300);
+    const subaruModels = await page.data('activeModels');
     const modelButtons = await page.$$('.model-selector button');
-    assert.equal(modelButtons.length, 3, 'Mercedes must render three models.');
+    assert.equal(modelButtons.length, subaruModels.length, 'Rendered Subaru choices must match current catalog data.');
+    const foresterIndex = subaruModels.findIndex((model) => model.id === 'vehicle-subaru-forester');
+    assert.ok(foresterIndex >= 0, 'The Forester presentation model must remain selectable.');
     await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-vehicle-catalog-sheet.png') });
-    await modelButtons[0].tap();
+    await modelButtons[foresterIndex].tap();
     await delay(800);
-    assert.equal(await page.data('selectedBrandName'), '奔驰');
-    assert.equal(await page.data('selectedModelName'), 'S级');
-    assert.equal(await page.data('selectedModelImage'), '/assets/vehicles/vehicle-mercedes-s.png');
-    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-vehicle-form-mercedes-s-preview.png') });
+    assert.equal(await page.data('selectedBrandName'), '斯巴鲁');
+    assert.equal(await page.data('selectedModelName'), '森林人');
+    assert.equal(await page.data('selectedModelImage'), `${assetBase}/assets/used-cars/owner-presentation-v2/vehicle-subaru-forester.webp`);
+    const useModel = await page.$('.catalog-heading > button');
+    assert.ok(useModel, 'Selected model must require an explicit confirmation.');
+    await useModel.tap();
+    await delay(300);
+    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-vehicle-form-subaru-forester-preview.png') });
 
     await api(`/vehicles/${encodeURIComponent(original.id)}`, {
       method: 'PATCH',
-      body: JSON.stringify({ brandId: 'brand-mercedes', modelId: 'vehicle-mercedes-s' }),
+      body: JSON.stringify({ brandId: 'brand-subaru', modelId: 'vehicle-subaru-forester' }),
     });
 
     page = await relaunch(miniProgram, '/pages/home/home');
     const homeData = await page.data();
-    assert.equal(homeData.hero.vehicleCopy, '奔驰 S级');
-    assert.equal(homeData.hero.vehicleImage, '/assets/vehicles/vehicle-mercedes-s.png');
-    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-home-mercedes-s.png') });
+    assert.equal(homeData.hero.vehicleCopy, '斯巴鲁 森林人');
+    assert.equal(homeData.hero.vehicleImage, `${assetBase}/assets/used-cars/owner-presentation-v2/vehicle-subaru-forester.webp`);
+    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-home-subaru-forester.png') });
 
     page = await relaunch(miniProgram, '/packages/annual/pages/eligibility/eligibility');
     const eligibilityData = await page.data();
-    assert.equal(eligibilityData.selectedVehicleName, '奔驰 S级');
-    assert.equal(eligibilityData.selectedVehicleImage, '/assets/vehicles/vehicle-mercedes-s.png');
-    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-eligibility-mercedes-s.png') });
+    assert.equal(eligibilityData.selectedVehicleName, '斯巴鲁 森林人');
+    assert.equal(eligibilityData.selectedVehicleImage, `${assetBase}/assets/used-cars/owner-presentation-v2/vehicle-subaru-forester.webp`);
+    await miniProgram.screenshot({ path: path.join(artifactsDir, 'qa-eligibility-subaru-forester.png') });
 
     if (issues.length) throw new Error(`Captured mini-program issues: ${issues.join(', ')}`);
     console.log('Vehicle identity QA passed: picker preview, API persistence, home and eligibility stayed synchronized.');

@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-05",
+  "purpose": "Traceable real-series exterior photos for the owner vehicle catalog. Every entry was checked against its explicit catalog series id.",
+  "selectionPolicy": "Only an image whose Commons file page explicitly identifies the selected Subaru series is accepted. The image is a series reference and does not claim the owner's model year, trim, color, or exact vehicle.",
+  "runtimePolicy": "Optimized assets are served by the API and loaded lazily for the active brand. Unmapped catalog entries render a no-photo placeholder; no generic car photo is reused as a model image.",
+  "sources": [
+    {
+      "modelId": "vehicle-subaru-forester",
+      "displayName": "斯巴鲁 森林人",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:2015-2018 Subaru Forester XT.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3A2015-2018_Subaru_Forester_XT.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/1/13/2015-2018_Subaru_Forester_XT.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 4644,
+        "height": 2501
+      },
+      "author": "TTTNIS",
+      "credit": "Own work",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "description": "2015-2018 Subaru Forester 2.0XT EyeSight",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-forester/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-forester.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-outback",
+      "displayName": "斯巴鲁 傲虎",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:SUBARU LEGACY OUTBACK,SUBARU OUTBACK (BT) China.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASUBARU_LEGACY_OUTBACK%2CSUBARU_OUTBACK_%28BT%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b3/SUBARU_LEGACY_OUTBACK%2CSUBARU_OUTBACK_%28BT%29_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 5838,
+        "height": 3015
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "SUBARU LEGACY OUTBACK,SUBARU OUTBACK (BT) China",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-outback/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-outback.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-xv",
+      "displayName": "斯巴鲁 XV",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Subaru XV.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASubaru_XV.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/97/Subaru_XV.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3872,
+        "height": 2592
+      },
+      "author": "Autoviva",
+      "credit": "Flickr : Subaru XV",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "description": "More photos and info - a href=\" http://www.autoviva.com/subaru_xv/version/44012 \" rel=\"nofollow\" www.autoviva.com/subaru_xv/version/44012 /a",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-xv/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-xv.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-crosstrek",
+      "displayName": "斯巴鲁 旭豹",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Subaru Crosstrek (GU) Auto Zuerich 2023 1X7A0895.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASubaru_Crosstrek_%28GU%29_Auto_Zuerich_2023_1X7A0895.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Subaru_Crosstrek_%28GU%29_Auto_Zuerich_2023_1X7A0895.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 4615,
+        "height": 2609
+      },
+      "author": "Alexander-93",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Subaru Crosstrek (GU) at Auto Zuerich 2023",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-crosstrek/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-crosstrek.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-legacy",
+      "displayName": "斯巴鲁 力狮",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:SUBARU LEGACY SEDAN (BM) China (3).jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASUBARU_LEGACY_SEDAN_%28BM%29_China_%283%29.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e7/SUBARU_LEGACY_SEDAN_%28BM%29_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 7456,
+        "height": 3635
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "SUBARU LEGACY SEDAN (BM) China",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-legacy/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-legacy.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-impreza",
+      "displayName": "斯巴鲁 翼豹",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Subaru Impreza (GU) Automesse Ludwigsburg 2024 IMG 1597.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASubaru_Impreza_%28GU%29_Automesse_Ludwigsburg_2024_IMG_1597.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/55/Subaru_Impreza_%28GU%29_Automesse_Ludwigsburg_2024_IMG_1597.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 5282,
+        "height": 2720
+      },
+      "author": "Alexander-93",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Subaru Impreza (GU) at Automesse Ludwigsburg 2024",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-impreza/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-impreza.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-brz",
+      "displayName": "斯巴鲁 BRZ",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:SUBARU BRZ (ZD8) China.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASUBARU_BRZ_%28ZD8%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6a/SUBARU_BRZ_%28ZD8%29_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 7588,
+        "height": 4224
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "SUBARU BRZ (ZD8) China",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-brz/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-brz.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-tribeca",
+      "displayName": "斯巴鲁 驰鹏",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:SUBARU TRIBECA China.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASUBARU_TRIBECA_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/91/SUBARU_TRIBECA_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 6300,
+        "height": 3559
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "SUBARU TRIBECA China",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-tribeca/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-tribeca.webp"
+    },
+    {
+      "modelId": "vehicle-subaru-wrx",
+      "displayName": "斯巴鲁 WRX",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:SUBARU WRX (VB) China.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File%3ASUBARU_WRX_%28VB%29_China.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/98/SUBARU_WRX_%28VB%29_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 6823,
+        "height": 4039
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "SUBARU WRX (VB) China",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-subaru-wrx/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-subaru-wrx.webp"
+    }
+  ]
+}

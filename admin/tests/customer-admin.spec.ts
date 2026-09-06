@@ -205,7 +205,7 @@ test("洗车门店管理员没有客户中心入口且直达 URL 被拒绝", asy
   await page.route("**/api/backoffice/session", (route) => fulfill(route, providerSession));
   await page.route("**/api/admin/customers**", (route) => { customerRequests += 1; return fulfill(route, "无权访问", 403); });
   await page.goto("/customers");
-  await expect(page.getByText("403 · ACCESS DENIED")).toBeVisible();
+  await expect(page.getByText("403 · 无权访问")).toBeVisible();
   await expect(page.getByRole("button", { name: "客户中心" })).toHaveCount(0);
   expect(customerRequests).toBe(0);
 });

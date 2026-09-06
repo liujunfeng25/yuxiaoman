@@ -45,6 +45,10 @@ test("租车车型与品牌资源指向 API 静态目录，不误判为小程序
   assert.equal(rentalImageUrl(logoPath), `${apiOrigin}${logoPath}`);
   assert.equal(usedCarImageUrl(modelPath), `${apiOrigin}${modelPath}`);
   assert.equal(mediaUrl("/assets/driving-schools/c-class.webp"), `${apiOrigin}/assets/driving-schools/c-class.webp`);
+  assert.equal(
+    mediaUrl("/assets/used-cars/owner-presentation-v2/vehicle-example.webp"),
+    `${apiOrigin}/assets/used-cars/owner-presentation-v2/vehicle-example.webp`,
+  );
   assert.notEqual(rentalImageUrl(modelPath), rentalImageUrl(otherModelPath));
   assert.equal(rentalImageUrl("/assets/brand/hero-car-generic.png"), "/assets/brand/hero-car-generic.png");
 });

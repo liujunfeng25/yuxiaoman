@@ -115,7 +115,7 @@ test("维修门店管理员登录网页后台后只显示绑定门店与本人�
   await expect(page.getByRole("option", { name: "洗车服务" })).toHaveCount(0);
 
   await page.goto("/bookings");
-  await expect(page.getByText("403 · ACCESS DENIED")).toBeVisible();
+  await expect(page.getByText("403 · 无权访问")).toBeVisible();
 });
 
 test("服务商账号页面可创建并说明维修门店管理员账号", async ({ page }) => {
@@ -195,7 +195,7 @@ test("洗车店管理员的直接 URL 守卫与订单视图不渲染隐私或核
   }));
 
   await page.goto("/bookings");
-  await expect(page.getByText("403 · ACCESS DENIED")).toBeVisible();
+  await expect(page.getByText("403 · 无权访问")).toBeVisible();
   await page.getByRole("button", { name: "订单与核销" }).click();
   await expect(page.getByRole("heading", { name: "快速核销" })).toBeVisible();
   await expect(page.getByText("YXW-STORE-A-001")).toBeVisible();
@@ -301,7 +301,7 @@ test("服务商门店相册可从原位置连续上传同一图片并立即刷�
     const chooser = await chooserPromise;
     await chooser.setFiles({ name: "same-photo.png", mimeType: "image/png", buffer: pixel });
     await expect(page.getByText(`${expectedCount}/20 张`, { exact: true })).toBeVisible();
-    await expect(page.getByRole("status")).toContainText("门店图片已上传");
+    await expect(page.locator(".provider-image-feedback[role='status']")).toContainText("门店图片已上传");
   }
 
   const batchChooserPromise = page.waitForEvent("filechooser");

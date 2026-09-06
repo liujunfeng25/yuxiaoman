@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import { api, apiEnvelope, money, type AdminApiError } from "./adminApi";
+import { operatorErrorMessage } from "./operatorError";
 
 export type BackofficeRole = "platform_admin" | "wash_store_admin" | "inspection_station_admin" | "repair_shop_admin";
 
@@ -73,7 +74,7 @@ function LoginPage({ onSignedIn }: { onSignedIn: (session: BackofficeSession) =>
       onSignedIn(session);
     } catch (reason) {
       const apiError = reason as AdminApiError;
-      setError(apiError.status === 429 ? "登录尝试过于频繁，请稍后再试" : apiError.message);
+      setError(apiError.status === 429 ? "登录尝试过于频繁，请稍后再试" : operatorErrorMessage(reason, "登录失败，请核对账号、密码后重试"));
     } finally {
       setSubmitting(false);
     }
@@ -83,13 +84,13 @@ function LoginPage({ onSignedIn }: { onSignedIn: (session: BackofficeSession) =>
     <section className="backoffice-auth-card">
       <div className="backoffice-auth-intro">
         <div className="backoffice-auth-logo"><span><Storefront weight="fill" /></span><strong>驭小满</strong></div>
-        <small>YUXIAOMAN BACKOFFICE</small>
+        <small>驭小满运营后台</small>
         <h1>一套后台，清晰管理每一个服务主体</h1>
         <p>平台团队掌握全局，合作门店只处理自己的订单、号源与资料。每一次关键操作均由系统留痕。</p>
         <div className="backoffice-auth-promise"><ShieldCheck weight="fill" /><span><strong>服务端数据隔离</strong><small>页面菜单和请求参数都不能扩大账号的数据范围</small></span></div>
       </div>
       <form className="backoffice-login-form" onSubmit={submit}>
-        <header><span><LockKey weight="duotone" /></span><div><small>SECURE SIGN IN</small><h2>登录运营后台</h2></div></header>
+        <header><span><LockKey weight="duotone" /></span><div><small>安全登录</small><h2>登录运营后台</h2></div></header>
         <label><span>登录名</span><div><UserCircle /><input autoFocus autoComplete="username" aria-label="后台登录名" value={loginName} onChange={(event) => setLoginName(event.target.value)} placeholder="请输入平台分配的登录名" /></div></label>
         <label><span>密码</span><div><Key /><input autoComplete="current-password" aria-label="后台登录密码" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="请输入密码" /></div></label>
         {error ? <p className="backoffice-form-error"><WarningCircle weight="fill" />{error}</p> : null}
@@ -118,7 +119,7 @@ function ActivationPage({ token, onActivated }: { token: string; onActivated: (s
       });
       onActivated(session);
     } catch (reason) {
-      setError((reason as Error).message);
+      setError(operatorErrorMessage(reason, "账号激活失败，请稍后重试"));
     } finally {
       setSubmitting(false);
     }
@@ -126,7 +127,7 @@ function ActivationPage({ token, onActivated }: { token: string; onActivated: (s
 
   return <main className="backoffice-auth-shell"><section className="backoffice-activation-card">
     <span className="backoffice-auth-mark"><Key weight="duotone" /></span>
-    <small>ACCOUNT ACTIVATION</small><h1>激活你的后台账号</h1>
+    <small>账号激活</small><h1>激活你的后台账号</h1>
     <p>设置一个仅用于驭小满运营后台的密码。激活成功后，此链接将立即失效并自动登录。</p>
     {!token ? <div className="backoffice-form-error"><XCircle weight="fill" />激活链接缺少令牌，请联系平台重新生成。</div> : <form onSubmit={submit}>
       <label><span>设置密码</span><input aria-label="设置后台密码" autoComplete="new-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 12 位字符" /></label>
@@ -163,7 +164,7 @@ export function BackofficeGate({ children }: BackofficeGateProps) {
         setPhase("anonymous");
         if (window.location.pathname !== "/login") replacePath("/login");
       } else {
-        setError(apiError.message);
+        setError(operatorErrorMessage(reason, "后台会话确认失败，请稍后重新连接"));
         setPhase("error");
       }
     }
@@ -244,10 +245,10 @@ function ChangePasswordDialog({ close }: { close: () => void }) {
       const next = await api<BackofficeSession>("/backoffice/password", { method: "PUT", body: JSON.stringify({ currentPassword: form.currentPassword, newPassword: form.newPassword }) });
       window.dispatchEvent(new CustomEvent("yuxiaoman:backoffice-session-updated", { detail: next }));
       close();
-    } catch (reason) { setError((reason as Error).message); }
+    } catch (reason) { setError(operatorErrorMessage(reason, "密码修改失败，请稍后重试")); }
     finally { setSaving(false); }
   };
-  return <div className="backoffice-password-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}><form className="backoffice-password-dialog" onSubmit={submit}><header><span><Key weight="duotone" /></span><div><small>CHANGE PASSWORD</small><h2>修改后台密码</h2></div><button type="button" aria-label="关闭修改密码" onClick={close}><XCircle /></button></header><p>修改成功后，系统会撤销此账号在其他设备上的会话。</p><label><span>当前密码</span><input aria-label="当前后台密码" autoComplete="current-password" type="password" required value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} /></label><label><span>新密码</span><input aria-label="新的后台密码" autoComplete="new-password" type="password" required value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} placeholder="至少 12 位字符" /></label><label><span>确认新密码</span><input aria-label="确认新的后台密码" autoComplete="new-password" type="password" required value={form.confirmation} onChange={(event) => setForm({ ...form, confirmation: event.target.value })} /></label>{error ? <div className="backoffice-form-error"><WarningCircle weight="fill" />{error}</div> : null}<button className="backoffice-primary" disabled={saving}><Key />{saving ? "正在修改…" : "确认修改密码"}</button></form></div>;
+  return <div className="backoffice-password-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}><form className="backoffice-password-dialog" onSubmit={submit}><header><span><Key weight="duotone" /></span><div><small>密码设置</small><h2>修改后台密码</h2></div><button type="button" aria-label="关闭修改密码" onClick={close}><XCircle /></button></header><p>修改成功后，系统会撤销此账号在其他设备上的会话。</p><label><span>当前密码</span><input aria-label="当前后台密码" autoComplete="current-password" type="password" required value={form.currentPassword} onChange={(event) => setForm({ ...form, currentPassword: event.target.value })} /></label><label><span>新密码</span><input aria-label="新的后台密码" autoComplete="new-password" type="password" required value={form.newPassword} onChange={(event) => setForm({ ...form, newPassword: event.target.value })} placeholder="至少 12 位字符" /></label><label><span>确认新密码</span><input aria-label="确认新的后台密码" autoComplete="new-password" type="password" required value={form.confirmation} onChange={(event) => setForm({ ...form, confirmation: event.target.value })} /></label>{error ? <div className="backoffice-form-error"><WarningCircle weight="fill" />{error}</div> : null}<button className="backoffice-primary" disabled={saving}><Key />{saving ? "正在修改…" : "确认修改密码"}</button></form></div>;
 }
 
 export function BackofficeSubjectCard({ session }: { session: BackofficeSession }) {
@@ -280,7 +281,7 @@ export function BackofficeSubjectCard({ session }: { session: BackofficeSession 
 
 export function AccessDeniedPage({ home }: { home: () => void }) {
   return <section className="backoffice-state-page">
-    <span><ShieldCheck weight="duotone" /></span><small>403 · ACCESS DENIED</small>
+    <span><ShieldCheck weight="duotone" /></span><small>403 · 无权访问</small>
     <h2>这个账号没有访问权限</h2><p>当前页面不属于你被授权的业务模块。数据范围由登录账号绑定的经营主体决定。</p>
     <button onClick={home}><CaretLeft />返回我的工作台</button>
   </section>;
@@ -308,7 +309,11 @@ type ListPayload<T> = T[] | { items: T[]; total?: number; page?: number; pageSiz
 
 function listOf<T>(payload: ListPayload<T>): T[] { return Array.isArray(payload) ? payload : payload.items; }
 function accountSubject(account: AccountRecord) { return account.subject ?? account.subjectAssignment ?? null; }
-function localDate(value?: string | null) { return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—"; }
+function localDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "时间待核对" : date.toLocaleString("zh-CN", { hour12: false });
+}
 function serviceAccountRoleMeta(role: BackofficeRole) {
   if (role === "inspection_station_admin") return {
     roleLabel: "检测站管理员",
@@ -380,7 +385,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       setStores(listOf(storePayload));
       setStations(listOf(stationPayload));
       setRepairShops(listOf(repairShopPayload));
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "服务商账号资料读取失败，请稍后重试")); }
     finally { setLoading(false); }
   }, [onError]);
   useEffect(() => { void load(); }, [load]);
@@ -405,7 +410,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       if (result.activation) setActivation(result.activation);
       setForm({ loginName: "", displayName: "", password: "", role: form.role, subjectId: "" });
       await load();
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "账号邀请创建失败，请稍后重试")); }
     finally { setInviting(false); }
   };
 
@@ -419,7 +424,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       const result = await api<AccountMutationResult>(`/admin/backoffice/accounts/${account.id}/password-reset`, { method: "POST" });
       if (result.activation) setActivation(result.activation);
       await load();
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "密码重置失败，请稍后重试")); }
   };
   const submitDirectPasswordReset = async (event: FormEvent) => {
     event.preventDefault();
@@ -433,7 +438,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       setPasswordResetTarget(null);
       setPasswordResetValue("");
       await load();
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "密码重置失败，请稍后重试")); }
     finally { setInviting(false); }
   };
   const disable = async (account: AccountRecord) => {
@@ -441,7 +446,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
     try {
       await api(`/admin/backoffice/accounts/${account.id}/disable`, { method: "POST" });
       await load();
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "账号停用失败，请稍后重试")); }
   };
   const replace = async (event: FormEvent) => {
     event.preventDefault();
@@ -461,7 +466,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       if (result.activation) setActivation(result.activation);
       setReplacement(null);
       await load();
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "账号交接失败，请稍后重试")); }
     finally { setInviting(false); }
   };
 
@@ -485,7 +490,7 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
   return <div className="backoffice-management-layout">
     {activation ? <ActivationNotice activation={activation} close={() => setActivation(null)} /> : null}
     <section className="content-card backoffice-invite-card">
-      <header><div><small>NEW SERVICE ACCOUNT</small><h2>{directPasswordEnabled ? "创建服务主体管理员" : "邀请服务主体管理员"}</h2><p>{directPasswordEnabled ? "当前为本地演示模式：填写登录名和至少 12 位密码后，账号立即启用。" : "每个服务主体只能有一名有效管理员。创建后由对方通过一次性链接设置密码。"}</p></div><span><Users weight="duotone" /></span></header>
+      <header><div><small>新增服务商账号</small><h2>{directPasswordEnabled ? "创建服务主体管理员" : "邀请服务主体管理员"}</h2><p>{directPasswordEnabled ? "当前为本地演示模式：填写登录名和至少 12 位密码后，账号立即启用。" : "每个服务主体只能有一名有效管理员。创建后由对方通过一次性链接设置密码。"}</p></div><span><Users weight="duotone" /></span></header>
       <div className="backoffice-login-entry-guide" aria-label="账号类型与登录入口说明">
         <article><span><Storefront weight="duotone" /></span><div><strong>洗车店管理员</strong><em>电脑端服务商经营后台</em><small>登录当前网页后台，仅管理绑定洗车门店。</small></div></article>
         <article><span><DeviceMobile weight="duotone" /></span><div><strong>检测站管理员</strong><em>微信小程序检测站履约端</em><small>路径：我的 → 工作人员入口；网页后台仅查看本人操作记录。</small></div></article>
@@ -502,24 +507,24 @@ export function ServiceAccountsPage({ onError }: { onError: (message: string) =>
       </form>
     </section>
     <section className="content-card backoffice-account-list">
-      <header><div><small>{serviceAccounts.length} SERVICE ACCOUNTS</small><h2>服务商账号</h2></div><button onClick={() => void load()}><ArrowClockwise />刷新</button></header>
+      <header><div><small>{serviceAccounts.length} 个服务商账号</small><h2>服务商账号</h2></div><button onClick={() => void load()}><ArrowClockwise />刷新</button></header>
       <div className="table-wrap"><table><thead><tr><th>人员与登录名</th><th>账号类型与登录端</th><th>绑定主体</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{serviceAccounts.map((account) => { const subject = accountSubject(account); const roleMeta = serviceAccountRoleMeta(account.role); return <tr key={account.id}>
         <td><strong>{account.displayName}</strong><small>{account.loginName}</small></td>
         <td><strong>{roleMeta.roleLabel}</strong><small>{roleMeta.surfaceLabel}</small><em className="backoffice-account-entry-path">{roleMeta.surfaceHint}</em></td>
         <td><strong>{subject?.name || subjectFallback(subject) || "未绑定"}</strong><small>{subjectTypeLabel(subject?.type, account.role)}</small></td>
-        <td><span className={`backoffice-account-status ${account.status}`}>{account.status === "active" ? "已启用" : ["pending_activation", "invited"].includes(account.status) ? "待激活" : account.status === "disabled" ? "已停用" : account.status}</span><small>{account.activatedAt ? `激活于 ${localDate(account.activatedAt)}` : "尚未完成首次激活"}</small></td>
+        <td><span className={`backoffice-account-status ${account.status}`}>{account.status === "active" ? "已启用" : ["pending_activation", "invited"].includes(account.status) ? "待激活" : account.status === "disabled" ? "已停用" : "状态待核对"}</span><small>{account.activatedAt ? `激活于 ${localDate(account.activatedAt)}` : "尚未完成首次激活"}</small></td>
         <td><strong>{localDate(account.lastLoginAt)}</strong></td>
         <td><div className="backoffice-row-actions">{account.status !== "disabled" ? <><button onClick={() => void resetPassword(account)}><Key />{directPasswordEnabled ? "设置密码" : "重置密码"}</button><button onClick={() => { setReplacement(account); setReplacementForm({ loginName: "", displayName: "", password: "" }); }}><Users />更换管理员</button><button className="danger" onClick={() => void disable(account)}>停用</button></> : null}</div></td>
       </tr>; })}</tbody></table>{loading ? <div className="table-loading">正在读取账号…</div> : !serviceAccounts.length ? <div className="empty-table">还没有服务商账号</div> : null}</div>
     </section>
-    {replacement ? <div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && setReplacement(null)}><aside className="detail-drawer backoffice-replacement-drawer"><header><div><small>REPLACE ADMIN</small><h2>{replacement.role === "inspection_station_admin" ? "更换检测站管理员" : replacement.role === "repair_shop_admin" ? "更换维修门店管理员" : "更换洗车店管理员"}</h2><p>{accountSubject(replacement)?.name || replacement.displayName}</p></div><button aria-label="关闭更换管理员" onClick={() => setReplacement(null)}><XCircle /></button></header><form onSubmit={replace}>
+    {replacement ? <div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && setReplacement(null)}><aside className="detail-drawer backoffice-replacement-drawer"><header><div><small>更换管理员</small><h2>{replacement.role === "inspection_station_admin" ? "更换检测站管理员" : replacement.role === "repair_shop_admin" ? "更换维修门店管理员" : "更换洗车店管理员"}</h2><p>{accountSubject(replacement)?.name || replacement.displayName}</p></div><button aria-label="关闭更换管理员" onClick={() => setReplacement(null)}><XCircle /></button></header><form onSubmit={replace}>
       <div className="backoffice-replacement-note"><WarningCircle weight="fill" /><p>{directPasswordEnabled ? `填写新管理员信息并直接设置密码后，旧账号会立即失效；新管理员使用${serviceAccountRoleMeta(replacement.role).surfaceLabel}登录。` : `旧管理员会保持可用，直到新管理员完成激活。激活后旧账号与旧会话立即失效，新管理员使用${serviceAccountRoleMeta(replacement.role).surfaceLabel}登录。`}</p></div>
       <label><span>新管理员实名姓名</span><input aria-label="新管理员姓名" required value={replacementForm.displayName} onChange={(event) => setReplacementForm({ ...replacementForm, displayName: event.target.value })} /></label>
       <label><span>新登录名</span><input aria-label="新管理员登录名" required value={replacementForm.loginName} onChange={(event) => setReplacementForm({ ...replacementForm, loginName: event.target.value })} /></label>
       {directPasswordEnabled ? <label><span>新登录密码</span><input aria-label="新管理员登录密码" required minLength={12} type="password" autoComplete="new-password" value={replacementForm.password} onChange={(event) => setReplacementForm({ ...replacementForm, password: event.target.value })} placeholder="至少 12 位" /></label> : null}
       <button className="backoffice-primary" disabled={inviting || (directPasswordEnabled && replacementForm.password.trim().length < 12)}><Users />{directPasswordEnabled ? "更换并启用新管理员" : "生成替换激活链接"}</button>
     </form></aside></div> : null}
-    {passwordResetTarget ? <div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && setPasswordResetTarget(null)}><aside className="detail-drawer backoffice-replacement-drawer"><header><div><small>SET PASSWORD</small><h2>直接设置密码</h2><p>{passwordResetTarget.displayName} · {passwordResetTarget.loginName}</p></div><button aria-label="关闭设置密码" onClick={() => setPasswordResetTarget(null)}><XCircle /></button></header><form onSubmit={submitDirectPasswordReset}>
+    {passwordResetTarget ? <div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && setPasswordResetTarget(null)}><aside className="detail-drawer backoffice-replacement-drawer"><header><div><small>设置密码</small><h2>直接设置密码</h2><p>{passwordResetTarget.displayName} · {passwordResetTarget.loginName}</p></div><button aria-label="关闭设置密码" onClick={() => setPasswordResetTarget(null)}><XCircle /></button></header><form onSubmit={submitDirectPasswordReset}>
       <div className="backoffice-login-surface-reminder"><ShieldCheck weight="duotone" /><p>保存后旧会话立即失效，请使用新密码重新登录{serviceAccountRoleMeta(passwordResetTarget.role).surfaceLabel}。</p></div>
       <label><span>新登录密码</span><input aria-label="新登录密码" required minLength={12} type="password" autoComplete="new-password" value={passwordResetValue} onChange={(event) => setPasswordResetValue(event.target.value)} placeholder="至少 12 位" /></label>
       <button className="backoffice-primary" disabled={inviting || passwordResetValue.trim().length < 12}><Key />保存密码并启用账号</button>
@@ -648,7 +653,7 @@ export function AuditEventsPage({ selfOnly = false, selfRole, onError: _onError 
       const items = listOf(payload);
       setEvents(items);
       setTotal(response.meta?.total ?? (Array.isArray(payload) ? items.length : payload.total ?? items.length));
-    } catch (reason) { setLoadError((reason as Error).message); }
+    } catch (reason) { setLoadError(operatorErrorMessage(reason, "操作记录加载失败，请稍后重试")); }
     finally { setLoading(false); }
   }, [filters.accountId, filters.category, filters.dateFrom, filters.dateTo, filters.keyword, filters.outcome, filters.subjectId, page]);
   useEffect(() => { const timer = window.setTimeout(() => void load(), 180); return () => window.clearTimeout(timer); }, [load]);
@@ -674,7 +679,7 @@ export function AuditEventsPage({ selfOnly = false, selfRole, onError: _onError 
     setDetailError("");
     setDetailLoading(true);
     try { setDetail(await api<AuditEventDetail>(`/admin/audit-events/${encodeURIComponent(event.id)}`)); }
-    catch (reason) { setDetailError((reason as Error).message); }
+    catch (reason) { setDetailError(operatorErrorMessage(reason, "操作详情读取失败，请稍后重试")); }
     finally { setDetailLoading(false); }
   }, []);
   const clearFilters = () => { setPage(1); setFilters({ keyword: "", category: "", outcome: "", accountId: "", subjectId: "", dateFrom: "", dateTo: "" }); };
@@ -697,6 +702,17 @@ export function AuditEventsPage({ selfOnly = false, selfRole, onError: _onError 
 }
 
 type DashboardOrder = { id: string; orderNumber: string; appointmentDate: string; startTime: string; vehiclePlate: string; packageName?: string; status: string };
+const dashboardOrderStatusLabels: Record<string, string> = {
+  pending_payment: "待支付",
+  awaiting_redemption: "待人工核销",
+  paid: "已支付",
+  booked: "待到店",
+  redeemed: "已核销",
+  completed: "已完成",
+  cancelled: "已取消",
+  refunded: "已退款",
+  expired: "已过期",
+};
 type DashboardPayload = {
   metrics?: Record<string, number>;
   todayOrders?: number;
@@ -718,7 +734,7 @@ export function WashProviderDashboard({ onNavigate, onError }: { onNavigate: (pa
     try {
       setData(await api<DashboardPayload>("/admin/wash/dashboard"));
     }
-    catch (reason) { onError((reason as Error).message); }
+    catch (reason) { onError(operatorErrorMessage(reason, "门店经营数据读取失败，请稍后重试")); }
     finally { setLoading(false); }
   }, [onError]);
   useEffect(() => { void load(); }, [load]);
@@ -729,15 +745,15 @@ export function WashProviderDashboard({ onNavigate, onError }: { onNavigate: (pa
   const amount = data?.serviceAmountLast7DaysFen ?? data?.sevenDayServiceAmountFen ?? metrics.serviceAmountLast7DaysFen ?? metrics.sevenDayServiceAmountFen ?? 0;
   const events = data?.recentEvents ?? data?.recentAuditEvents ?? [];
   return <div className="wash-provider-dashboard">
-    <section className="provider-welcome-card"><div><small>STORE OPERATIONS</small><h2>今天的门店经营，从这里开始</h2><p>订单、号源和价格均已固定在当前登录门店范围内。</p></div><button onClick={() => onNavigate("/wash/orders")}><CalendarCheck />查看今日订单<CaretRight /></button></section>
+    <section className="provider-welcome-card"><div><small>门店运营</small><h2>今天的门店经营，从这里开始</h2><p>订单、号源和价格均已固定在当前登录门店范围内。</p></div><button onClick={() => onNavigate("/wash/orders")}><CalendarCheck />查看今日订单<CaretRight /></button></section>
     <section className="metric-strip provider-metric-strip">
       <button onClick={() => onNavigate("/wash/orders")}><span><CalendarCheck /></span><small>今日订单</small><strong>{todayOrders}<em> 笔</em></strong></button>
       <button onClick={() => onNavigate("/wash/orders")}><span><Key /></span><small>待核销</small><strong>{awaiting}<em> 笔</em></strong></button>
       <button onClick={() => onNavigate("/wash/slots")}><span><Storefront /></span><small>未来可用号源</small><strong>{futureSlots}<em> 个</em></strong></button>
       <button onClick={() => onNavigate("/wash/settlements")}><span><ShieldCheck /></span><small>近 7 日服务金额</small><strong>¥{money(amount)}</strong></button>
     </section>
-    <div className="provider-dashboard-grid"><section className="content-card provider-recent-orders"><header><div><small>UPCOMING SERVICES</small><h2>最近服务订单</h2></div><button onClick={() => onNavigate("/wash/orders")}>全部订单<CaretRight /></button></header>{data?.recentOrders?.length ? <div>{data.recentOrders.map((order) => <button key={order.id} onClick={() => onNavigate(`/wash/orders?order=${encodeURIComponent(order.id)}`)}><span><strong>{order.appointmentDate} {order.startTime}</strong><small>{order.orderNumber}</small></span><span><strong>{order.vehiclePlate}</strong><small>{order.packageName || "洗车服务"}</small></span><em>{order.status}</em><CaretRight /></button>)}</div> : <p className="provider-empty">{loading ? "正在读取最近订单…" : "暂无近期订单"}</p>}</section>
-      <section className="content-card provider-recent-audit"><header><div><small>RECENT ACTIVITY</small><h2>最近操作</h2></div><button onClick={() => onNavigate("/my-audit")}>我的记录<CaretRight /></button></header>{events.length ? <ol>{events.slice(0, 8).map((event) => <li key={event.id}><i /><span><strong>{event.actionLabel}</strong><small>{event.summary} · {localDate(auditTime(event))}</small></span><em className={`backoffice-audit-outcome ${event.outcome.code}`}>{event.outcome.label}</em></li>)}</ol> : <p className="provider-empty">{loading ? "正在读取最近操作…" : "暂无操作记录"}</p>}</section></div>
+    <div className="provider-dashboard-grid"><section className="content-card provider-recent-orders"><header><div><small>近期服务</small><h2>最近服务订单</h2></div><button onClick={() => onNavigate("/wash/orders")}>全部订单<CaretRight /></button></header>{data?.recentOrders?.length ? <div>{data.recentOrders.map((order) => <button key={order.id} onClick={() => onNavigate(`/wash/orders?order=${encodeURIComponent(order.id)}`)}><span><strong>{order.appointmentDate} {order.startTime}</strong><small>{order.orderNumber}</small></span><span><strong>{order.vehiclePlate}</strong><small>{order.packageName || "洗车服务"}</small></span><em>{dashboardOrderStatusLabels[order.status] || "状态待核对"}</em><CaretRight /></button>)}</div> : <p className="provider-empty">{loading ? "正在读取最近订单…" : "暂无近期订单"}</p>}</section>
+      <section className="content-card provider-recent-audit"><header><div><small>最近操作</small><h2>最近操作</h2></div><button onClick={() => onNavigate("/my-audit")}>我的记录<CaretRight /></button></header>{events.length ? <ol>{events.slice(0, 8).map((event) => <li key={event.id}><i /><span><strong>{event.actionLabel}</strong><small>{event.summary} · {localDate(auditTime(event))}</small></span><em className={`backoffice-audit-outcome ${event.outcome.code}`}>{event.outcome.label}</em></li>)}</ol> : <p className="provider-empty">{loading ? "正在读取最近操作…" : "暂无操作记录"}</p>}</section></div>
   </div>;
 }
 
@@ -759,11 +775,11 @@ export function WashProviderSettlementsPage({ onError }: { onError: (message: st
       const items = listOf(payload);
       setOrders(items);
       setTotalCount(Array.isArray(payload) ? items.length : payload.total ?? items.length);
-    }).catch((reason) => onError(reason.message)).finally(() => setLoading(false));
+    }).catch((reason) => onError(operatorErrorMessage(reason, "对账记录读取失败，请稍后重试"))).finally(() => setLoading(false));
   }, [onError, page, status]);
   const pageAmount = orders.reduce((sum, order) => sum + (order.amountFen ?? 0), 0);
   return <>
     <section className="provider-settlement-summary"><div><small>筛选结果</small><strong>{totalCount}<em> 笔</em></strong></div><div><small>本页对账金额</small><strong>¥{money(pageAmount)}</strong></div><p><ShieldCheck weight="duotone" /><span><strong>只读对账记录</strong><small>平台负责登记与修正，本门店只能核对结果。</small></span></p></section>
-    <section className="content-card provider-settlement-card"><header><div><small>OFFLINE RECONCILIATION</small><h2>对账记录</h2></div><label><span>结算状态</span><select aria-label="服务商对账状态" value={status} onChange={(event) => { setPage(1); setStatus(event.target.value); }}><option value="">全部状态</option><option value="unsettled">待对账</option><option value="settled">已对账</option><option value="void">不适用</option></select></label></header><div className="table-wrap"><table><thead><tr><th>订单</th><th>服务日期</th><th>服务时段</th><th>订单金额</th><th>对账金额</th><th>状态</th><th>对账时间</th></tr></thead><tbody>{orders.map((order) => <tr key={order.orderId}><td><strong>{order.orderNumber}</strong></td><td><strong>{order.appointmentDate}</strong></td><td><strong>{order.startTime}–{order.endTime}</strong></td><td><strong>¥{money(order.orderAmountFen)}</strong></td><td><strong>{order.amountFen == null ? "—" : `¥${money(order.amountFen)}`}</strong></td><td><span className={`settlement-pill settlement-${order.status}`}>{order.status === "settled" ? "已对账" : order.status === "void" ? "不适用" : "待对账"}</span></td><td><strong>{localDate(order.settledAt)}</strong></td></tr>)}</tbody></table>{loading ? <div className="table-loading">正在读取对账记录…</div> : !orders.length ? <div className="empty-table">当前没有对账记录</div> : null}</div><footer className="backoffice-pagination"><span>共 <strong>{totalCount}</strong> 条本店记录</span><div><button disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}><CaretLeft />上一页</button><span>第 {page} 页</span><button disabled={page * pageSize >= totalCount || loading} onClick={() => setPage((value) => value + 1)}>下一页<CaretRight /></button></div></footer></section>
+    <section className="content-card provider-settlement-card"><header><div><small>线下对账</small><h2>对账记录</h2></div><label><span>结算状态</span><select aria-label="服务商对账状态" value={status} onChange={(event) => { setPage(1); setStatus(event.target.value); }}><option value="">全部状态</option><option value="unsettled">待对账</option><option value="settled">已对账</option><option value="void">不适用</option></select></label></header><div className="table-wrap"><table><thead><tr><th>订单</th><th>服务日期</th><th>服务时段</th><th>订单金额</th><th>对账金额</th><th>状态</th><th>对账时间</th></tr></thead><tbody>{orders.map((order) => <tr key={order.orderId}><td><strong>{order.orderNumber}</strong></td><td><strong>{order.appointmentDate}</strong></td><td><strong>{order.startTime}–{order.endTime}</strong></td><td><strong>¥{money(order.orderAmountFen)}</strong></td><td><strong>{order.amountFen == null ? "—" : `¥${money(order.amountFen)}`}</strong></td><td><span className={`settlement-pill settlement-${order.status}`}>{order.status === "settled" ? "已对账" : order.status === "void" ? "不适用" : "待对账"}</span></td><td><strong>{localDate(order.settledAt)}</strong></td></tr>)}</tbody></table>{loading ? <div className="table-loading">正在读取对账记录…</div> : !orders.length ? <div className="empty-table">当前没有对账记录</div> : null}</div><footer className="backoffice-pagination"><span>共 <strong>{totalCount}</strong> 条本店记录</span><div><button disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}><CaretLeft />上一页</button><span>第 {page} 页</span><button disabled={page * pageSize >= totalCount || loading} onClick={() => setPage((value) => value + 1)}>下一页<CaretRight /></button></div></footer></section>
   </>;
 }

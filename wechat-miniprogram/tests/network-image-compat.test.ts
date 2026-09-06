@@ -15,7 +15,7 @@ const cases: ImageCase[] = [
   { file: "miniprogram/packages/wash/pages/wash-booking/wash-booking.wxml", binding: "{{selectedStoreCoverUrl}}", fallback: "selectedStoreCoverError" },
   { file: "miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", binding: "{{selectedModelImage}}", fallback: "vehicleImageError" },
   { file: "miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", binding: "{{item.logoUrl}}" },
-  { file: "miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", binding: "{{item.imageUrl}}" },
+  { file: "miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", binding: "{{item.imageUrl}}", fallback: "catalogModelImageError" },
   { file: "miniprogram/packages/vehicle/pages/vehicles/vehicles.wxml", binding: "{{item.vehicleImage}}", fallback: "vehicleImageError" },
   { file: "miniprogram/packages/annual/pages/eligibility/eligibility.wxml", binding: "{{selectedVehicleImage}}", fallback: "selectedVehicleImageError" },
   { file: "miniprogram/packages/car-rental/pages/car-rental-home/car-rental-home.wxml", binding: "{{item.model.imageUrl}}", fallback: "hotImageError" },
@@ -70,4 +70,37 @@ test("rental home never disguises multiple failed model images as the same vehic
   assert.match(logic, /imageLoadFailed/u);
   assert.doesNotMatch(logic, /hotOffers\[\$\{index\}\]\.model\.imageUrl[^\n]+hero-car-generic/u);
   assert.match(markup, /车型图片暂不可用/u);
+});
+
+test("owner vehicle surfaces omit failed presentation art instead of rendering empty photo cards", () => {
+  const files = [
+    "miniprogram/pages/home/home.ts",
+    "miniprogram/packages/annual/pages/eligibility/eligibility.ts",
+    "miniprogram/packages/vehicle/pages/vehicles/vehicles.ts",
+  ];
+  for (const file of files) {
+    const logic = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+    assert.match(logic, /visual\?\.imageUrl \|\| ""/u, file);
+  }
+  const markupFiles = [
+    "miniprogram/pages/home/home.wxml",
+    "miniprogram/packages/annual/pages/eligibility/eligibility.wxml",
+    "miniprogram/packages/vehicle/pages/vehicles/vehicles.wxml",
+  ];
+  for (const file of markupFiles) {
+    const markup = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(markup, /暂无实车图/u, file);
+  }
+});
+
+test("vehicle picker keeps a lightweight, non-navigating fallback when a network image fails", () => {
+  const logic = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.ts", import.meta.url), "utf8");
+  const markup = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", import.meta.url), "utf8");
+  assert.match(logic, /catalogModelImageError\(event\)[\s\S]*imageLoadFailed: true/u);
+  const handlerStart = logic.indexOf("catalogModelImageError(event)");
+  const handlerEnd = logic.indexOf("\n  },", handlerStart);
+  assert.ok(handlerStart >= 0 && handlerEnd > handlerStart);
+  assert.doesNotMatch(logic.slice(handlerStart, handlerEnd), /navigateBack|redirectTo|reLaunch|switchTab/u);
+  assert.match(markup, /class="model-image-fallback"[\s\S]*图片暂不可用/u);
+  assert.match(markup, /class="identity-image-fallback"[\s\S]*车型图片暂不可用/u);
 });

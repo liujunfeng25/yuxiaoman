@@ -464,6 +464,10 @@ td small { margin-top: 4px; color: #8a98a6; font-size: 9px; }
 .option-grid label.selected { border-color: #9bc8e9; color: #1f6fae; background: #edf8ff; }
 .option-grid input { width: 13px; height: 13px; }
 .item-options { grid-template-columns: repeat(2, 1fr); }
+.condition-panel.category-conditions { grid-template-columns: 1fr; }
+.category-conditions .option-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.category-conditions .option-grid label { min-height: 54px; padding: 10px; font-size: 12px; line-height: 1.5; }
+.category-conditions .option-grid input { flex-shrink: 0; }
 .compliance-note { display: flex; gap: 10px; margin-top: 14px; padding: 13px; border: 1px solid #cfe4f3; border-radius: 10px; color: #2773ad; background: #f0f8fe; }
 .compliance-note strong { color: #2a587b; font-size: 10px; }
 .compliance-note p { margin: 4px 0 0; color: #678297; font-size: 8px; line-height: 1.5; }

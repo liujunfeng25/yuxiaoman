@@ -23,6 +23,10 @@
   "packOptions": {
     "ignore": [
       {
+        "type": "prefix",
+        "value": "assets/vehicles/vehicle-"
+      },
+      {
         "type": "file",
         "value": "assets/brand/hero-car-generic.webp"
       },

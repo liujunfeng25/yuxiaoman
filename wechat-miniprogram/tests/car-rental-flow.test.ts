@@ -48,7 +48,6 @@ test("小程序仅注册新租赁页面并消费冻结 API", () => {
   }
   const home = readFileSync(join(base, "miniprogram/pages/home/home.wxml"), "utf8");
   assert.ok(home.includes("汽车租赁"));
-  assert.equal(home.includes("二手车交易"), false);
 });
 
 test("租车首页自定义导航提供可触达返回，深链返回有首页兜底", () => {

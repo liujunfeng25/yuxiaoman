@@ -10,9 +10,9 @@
 .card-title { display: block; margin-bottom: 26rpx; color: #17304d; font-size: 29rpx; font-weight: 850; }
 .field-label { display: block; margin: 18rpx 0 10rpx; color: #506780; font-size: 20rpx; font-weight: 750; }
 input { height: 84rpx; padding: 0 23rpx; border: 1rpx solid #ceddea; border-radius: 17rpx; color: #17304d; background: #f8fbfe; font-size: 24rpx; box-sizing: border-box; }
-.primary, .secondary { width: 100%; min-height: 84rpx; margin-top: 28rpx; border-radius: 18rpx; font-size: 23rpx; font-weight: 800; }
+.login-card > button.primary, .login-card > button.secondary { display: flex; width: 100%; max-width: none; min-width: 0; min-height: 88rpx; margin: 28rpx 0 0; padding: 0 20rpx; align-items: center; justify-content: center; border-radius: 18rpx; font-size: 23rpx; font-weight: 800; line-height: 1.25; box-sizing: border-box; }
 .primary { color: #fff; background: #0868df; box-shadow: 0 12rpx 24rpx rgba(8, 104, 223, .18); }
-.secondary { margin-top: 14rpx; color: #1768cf; border: 1rpx solid #b8d3ec; background: #f2f8fe; }
+.login-card > button.secondary { margin-top: 14rpx; color: #1768cf; border: 1rpx solid #b8d3ec; background: #f2f8fe; }
 .login-error { display: flex; margin-top: 18rpx; padding: 14rpx 16rpx; align-items: flex-start; gap: 9rpx; border-radius: 13rpx; color: #b5443c; background: #fff3f1; font-size: 19rpx; line-height: 1.45; }
 .login-error image { width: 25rpx; height: 25rpx; flex: 0 0 auto; }
 .signed-account { display: flex; padding: 22rpx; align-items: center; gap: 17rpx; border-radius: 18rpx; background: #f1f7fd; }

@@ -120,7 +120,7 @@ async function installRentalApiMock(page: Page) {
   return trace;
 }
 
-test("汽车租赁品牌车型支持启停、Logo 和真实车型图片上传", async ({ page }) => {
+test("汽车租赁品牌车型支持启停、车标和真实车型图片上传", async ({ page }) => {
   const trace = await installRentalApiMock(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -130,7 +130,7 @@ test("汽车租赁品牌车型支持启停、Logo 和真实车型图片上传", 
 
   await page.getByLabel("编辑品牌 理想").click();
   await page.getByLabel("租赁热门品牌").uncheck();
-  await page.getByLabel("租赁品牌 Logo").setInputFiles("../public/assets/inspection/vehicle-front.png");
+  await page.getByLabel("租赁品牌标志").setInputFiles("../public/assets/inspection/vehicle-front.png");
   await page.getByRole("button", { name: "保存品牌" }).click();
   await expect.poll(() => trace.brandPut?.isHot).toBe(false);
   await expect.poll(() => trace.brandLogoContentType).toContain("multipart/form-data");

@@ -1,9 +1,10 @@
 import { api } from "../../services/api";
+import { refreshOwnerWorkflowUnreadBadge } from "../../services/workflow";
 import type { Booking, RepairRequestSummary, WashOrder } from "../../types";
 import { statusLabel, washStatusLabel } from "../../utils/format";
 
 type ServiceOrder = { id: string; serviceLabel: string; status: string; number: string; name: string; storeName: string; appointment: string; priceFen: number; showPrice: boolean; priceText: string; createdAt: string; detailUrl: string };
-type Data = { orders: ServiceOrder[]; loading: boolean };
+type Data = { orders: ServiceOrder[]; loading: boolean; unreadCount: number };
 
 function inspectionOrder(item: Booking): ServiceOrder {
   const currentStatus = statusLabel(item.status);
@@ -41,8 +42,13 @@ function repairOrder(item: RepairRequestSummary): ServiceOrder {
 }
 
 Page<Data>({
-  data: { orders: [], loading: true },
-  onShow() { void this.load(); },
+  data: { orders: [], loading: true, unreadCount: 0 },
+  onShow() { void this.load(); void this.loadWorkflowSummary(); },
+  async loadWorkflowSummary() {
+    const summary = await refreshOwnerWorkflowUnreadBadge();
+    if (summary) this.setData({ unreadCount: summary.unreadCount });
+  },
+  openMessages() { wx.navigateTo({ url: "/packages/notifications/pages/messages/messages" }); },
   async load() {
     this.setData({ loading: true });
     try {

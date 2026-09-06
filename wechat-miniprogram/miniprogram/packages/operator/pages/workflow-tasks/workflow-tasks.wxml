@@ -1,0 +1,11 @@
+<view class="workflow-page">
+  <view class="workflow-hero"><view><text>检测站 · 履约督办</text><text>待办与时限</text><text>完成对应业务动作后，待办会自动关闭。</text></view><view class="hero-metrics"><view><text>{{summary.openCount}}</text><text>待处理</text></view><view><text>{{summary.dueSoonCount}}</text><text>即将超时</text></view><view><text>{{summary.overdueCount}}</text><text>已超时</text></view></view></view>
+  <view class="scope-note"><image src="/assets/icons/shield-check.png"/><text>只展示当前检测站范围内的履约任务；系统提醒不会替代预检、接车、检测或报告发布动作。</text></view>
+  <view wx:if="{{loading && !loaded}}" class="loading-state"><view></view><view></view><text>正在同步履约待办…</text></view>
+  <view wx:elif="{{error}}" class="state-card"><image src="/assets/icons/warning-circle.png"/><text>待办读取失败</text><text>{{error}}</text><button bindtap="retry" loading="{{loading}}">重新加载</button></view>
+  <block wx:else>
+    <view wx:if="{{items.length}}" class="task-list"><button wx:for="{{items}}" wx:key="id" class="{{item.className}}" data-id="{{item.id}}" bindtap="openTask" aria-label="{{item.ariaLabel}}"><view class="task-head"><view><text class="task-dot"></text><text>{{item.urgencyLabel}}</text></view><text>{{item.dueLabel}}</text></view><text class="task-title">{{item.title}}</text><text class="task-description">{{item.description}}</text><view class="task-foot"><text>{{item.businessNoMasked ? '业务编号 ' + item.businessNoMasked : '履约节点 ' + item.nodeCode}}</text><view><text>{{item.actionLabel}}</text><image wx:if="{{item.actionable}}" src="/assets/icons/caret-right.png"/></view></view></button></view>
+    <view wx:elif="{{isEmpty}}" class="state-card empty-state"><image src="/assets/icons/check-circle.png"/><text>当前没有待处理事项</text><text>新的履约节点产生后会按策略进入这里。</text><button bindtap="retry">刷新看看</button></view>
+    <view wx:if="{{loadingMore}}" class="list-state">正在加载更多待办…</view><view wx:elif="{{loadMoreError && items.length}}" class="list-state load-error"><text>{{loadMoreError}}</text><button bindtap="loadMore">重试</button></view><button wx:elif="{{hasMore}}" class="load-more" bindtap="loadMore">加载更多待办</button><view wx:elif="{{items.length}}" class="list-state">已展示全部待办</view>
+  </block>
+</view>

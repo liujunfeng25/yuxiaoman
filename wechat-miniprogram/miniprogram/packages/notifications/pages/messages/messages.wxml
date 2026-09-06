@@ -1,0 +1,66 @@
+<view class="messages-page">
+  <view class="message-hero">
+    <view class="hero-orbit orbit-one"></view><view class="hero-orbit orbit-two"></view>
+    <view class="hero-copy"><text>履约提醒</text><text>消息中心</text><text>年检进度、检测报告和维修报价集中查看</text></view>
+    <view class="hero-summary">
+      <view><text>{{summary.unreadCount}}</text><text>未读</text></view>
+      <view><text>{{summary.attentionCount}}</text><text>待关注</text></view>
+      <view><text>{{summary.overdueCount}}</text><text>已超时</text></view>
+    </view>
+  </view>
+
+  <view class="privacy-note"><image src="/assets/icons/shield-check.png" mode="aspectFit"/><text>消息只展示必要的脱敏业务信息；完整地址、手机号和故障详情不会出现在短信摘要中。</text></view>
+
+  <view wx:if="{{wechatSubscriptionAvailable}}" class="wechat-reminder-card">
+    <view class="wechat-reminder-copy">
+      <text>开启微信提醒</text>
+      <text>报告生成、预约处理等重要节点可通过微信服务通知提醒。授权仅在你点击后发起。</text>
+      <text wx:if="{{wechatSubscriptionStatus}}" class="wechat-reminder-status">{{wechatSubscriptionStatus}}</text>
+    </view>
+    <button bindtap="enableWechatReminders" loading="{{wechatSubscribing}}" disabled="{{wechatSubscribing}}" aria-label="开启微信履约提醒">{{wechatSubscribing ? '正在授权…' : '立即开启'}}</button>
+  </view>
+
+  <view class="message-toolbar">
+    <view class="filter-tabs" aria-label="消息筛选">
+      <button class="{{filter === 'all' ? 'active' : ''}}" data-filter="all" bindtap="selectFilter" disabled="{{loading || loadingMore}}">全部消息</button>
+      <button class="{{filter === 'unread' ? 'active' : ''}}" data-filter="unread" bindtap="selectFilter" disabled="{{loading || loadingMore}}">未读 {{summary.unreadCount}}</button>
+    </view>
+    <button class="read-all" bindtap="markAllRead" loading="{{markingAll}}" disabled="{{!summary.unreadCount || markingAll}}" aria-label="将全部消息标为已读">全部已读</button>
+  </view>
+
+  <view wx:if="{{loading && !loaded}}" class="message-skeleton" aria-label="正在读取消息">
+    <view></view><view></view><view></view><text>正在同步最新业务进度…</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="state-card error-state">
+    <image src="/assets/icons/warning-circle.png" mode="aspectFit"/><text>消息读取失败</text><text>{{error}}</text>
+    <button bindtap="retry" loading="{{loading}}" disabled="{{loading}}">{{loading ? '正在加载…' : '重新加载'}}</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{inlineError}}" class="inline-error"><image src="/assets/icons/warning-circle.png"/><text>{{inlineError}}</text><button bindtap="retry" disabled="{{loading || loadingMore}}">刷新重试</button></view>
+
+    <view wx:if="{{items.length}}" class="message-list">
+      <button wx:for="{{items}}" wx:key="id" class="{{item.className}}" data-id="{{item.id}}" bindtap="openMessage" disabled="{{activeMessageId === item.id}}" aria-label="{{item.ariaLabel}}">
+        <view class="message-icon"><image src="{{item.iconPath}}" mode="aspectFit"/><text wx:if="{{item.readState === 'unread'}}"></text></view>
+        <view class="message-content">
+          <view class="message-meta"><view><text>{{item.categoryLabel}}</text><text class="urgency urgency-{{item.urgency}}">{{item.urgencyLabel}}</text></view><text>{{item.timeLabel}}</text></view>
+          <text class="message-title">{{item.title}}</text>
+          <text class="message-body">{{item.body}}</text>
+          <view wx:if="{{item.businessNoMasked || item.dueLabel}}" class="message-facts"><text wx:if="{{item.businessNoMasked}}">业务编号 {{item.businessNoMasked}}</text><text wx:if="{{item.dueLabel}}" class="due-{{item.urgency}}">{{item.dueLabel}}</text></view>
+          <view class="message-action"><text>{{item.actionLabel}}</text><image wx:if="{{item.actionable}}" src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
+        </view>
+      </button>
+    </view>
+
+    <view wx:elif="{{isEmpty}}" class="state-card empty-state">
+      <image src="/assets/icons/receipt.png" mode="aspectFit"/><text>{{filter === 'unread' ? '没有未读消息' : '暂无履约消息'}}</text><text>{{filter === 'unread' ? '当前消息都已处理，可切换到全部消息查看历史记录。' : '产生新的年检进度或维修报价后会在这里通知你。'}}</text>
+      <button bindtap="retry" loading="{{loading}}" disabled="{{loading}}">刷新看看</button>
+    </view>
+
+    <view wx:if="{{loadingMore}}" class="list-state">正在加载更多消息…</view>
+    <view wx:elif="{{loadMoreError && items.length}}" class="list-state load-error"><text>更多消息加载失败：{{loadMoreError}}</text><button bindtap="loadMore">重试</button></view>
+    <button wx:elif="{{hasMore}}" class="load-more" bindtap="loadMore" disabled="{{loading || loadingMore}}">加载更多消息</button>
+    <view wx:elif="{{items.length}}" class="list-state">已展示当前筛选下的全部消息</view>
+  </block>
+</view>

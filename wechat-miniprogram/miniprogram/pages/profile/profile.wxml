@@ -1,11 +1,11 @@
 <view class="profile-page">
-  <view class="profile-heading"><text class="heading-eyebrow">MY GARAGE</text><text class="heading-title">我的</text><text class="heading-copy">车辆档案与服务设置</text></view>
+  <view class="profile-heading-row"><view class="profile-heading"><text class="heading-eyebrow">MY GARAGE</text><text class="heading-title">我的</text><text class="heading-copy">车辆档案与服务设置</text></view><workflow-bell compact="{{true}}" unread-count="{{unreadCount}}" bind:open="openMessages" /></view>
 
   <view wx:if="{{loading}}" class="loading">正在读取车主档案…</view>
   <block wx:else>
     <button class="profile-vehicle-card" data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go">
       <view class="profile-car-icon"><image src="../../assets/icons/car.png"/></view>
-      <view class="profile-vehicle-copy"><text>默认车辆</text><text>{{vehicle ? vehicle.plateNumber : '添加您的爱车'}}</text><text>{{vehicle ? vehicle.vehicleType + ' · ' + vehicle.seats + ' 座' : '用于年检测算、预约和车型匹配'}}</text></view>
+      <view class="profile-vehicle-copy"><text>默认车辆</text><text>{{vehicle ? vehicle.plateNumber : '添加您的爱车'}}</text><text>{{vehicle ? vehicle.vehicleType + ' · ' + vehicle.seats + ' 座' + (vehicle.exteriorColor ? ' · ' + vehicle.exteriorColor : '') : '用于年检测算、预约和车型匹配'}}</text></view>
       <image class="row-caret" src="../../assets/icons/caret-right.png"/>
     </button>
 

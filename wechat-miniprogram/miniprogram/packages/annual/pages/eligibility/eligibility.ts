@@ -129,9 +129,9 @@ const powertrainLabels: Record<InspectionPowertrainType, string> = {
 
 function vehiclePresentation(vehicle: Vehicle | null) {
   return {
-    selectedVehicleImage: vehicle?.visual?.imageUrl || "/assets/brand/hero-car-generic.png",
+    selectedVehicleImage: vehicle?.visual?.imageUrl || "",
     selectedVehicleName: vehicle?.brand && vehicle.model ? `${vehicle.brand.name} ${vehicle.model.name}` : vehicle?.vehicleType || "车辆档案",
-    selectedVehicleDetail: vehicle ? `${vehicle.vehicleType} · ${vehicle.usageNature} · ${vehicle.seats}座` : "",
+    selectedVehicleDetail: vehicle ? `${vehicle.vehicleType} · ${vehicle.usageNature} · ${vehicle.seats}座${vehicle.exteriorColor ? ` · ${vehicle.exteriorColor}` : ""}` : "",
   };
 }
 
@@ -447,8 +447,8 @@ Page<Data>({
     wx.navigateTo({ url: `/packages/vehicle/pages/vehicle-form/vehicle-form?id=${encodeURIComponent(this.data.selectedVehicle.id)}` });
   },
   selectedVehicleImageError() {
-    if (this.data.selectedVehicleImage !== "/assets/brand/hero-car-generic.png") {
-      this.setData({ selectedVehicleImage: "/assets/brand/hero-car-generic.png" });
+    if (this.data.selectedVehicleImage) {
+      this.setData({ selectedVehicleImage: "" });
     }
   },
   registrationChange(event) {

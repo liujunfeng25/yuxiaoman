@@ -35,13 +35,14 @@ function shutdown(code = 0) {
 }
 
 start("api", ["run", "api:dev"]);
+start("workflow-worker", ["run", "workflow:worker"]);
 start(
   "web",
   ["run", "dev", "--", "--host", "127.0.0.1", "--port", "4173", "--strictPort"],
   {
     ...process.env,
     VITE_API_BASE_URL:
-      process.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787/api",
+      process.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8792/api",
   },
 );
 

@@ -1,0 +1,4 @@
+<button class="workflow-bell {{compact ? 'is-compact' : ''}}" bindtap="open" aria-label="消息中心，{{unreadCount > 0 ? unreadCount + '条未读消息' : '暂无未读消息'}}">
+  <view class="bell-icon"><image src="/assets/icons/clock.png" mode="aspectFit"/><text wx:if="{{unreadCount > 0}}">{{unreadCount > 99 ? '99+' : unreadCount}}</text></view>
+  <text wx:if="{{!compact}}">消息</text>
+</button>

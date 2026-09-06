@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "维修接单大厅",
   "enablePullDownRefresh": true,
-  "backgroundColor": "#f6f9fc"
+  "backgroundColor": "#f6f9fc",
+  "usingComponents": {
+    "workflow-task-summary": "/components/workflow-task-summary/workflow-task-summary"
+  }
 }

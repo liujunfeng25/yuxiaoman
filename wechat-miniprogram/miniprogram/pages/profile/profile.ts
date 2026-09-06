@@ -1,5 +1,6 @@
 import { api } from "../../services/api";
 import { operatorLoginRequired } from "../../services/operator-session";
+import { refreshOwnerWorkflowUnreadBadge } from "../../services/workflow";
 import { getStoredRole, storeRole } from "../../services/storage";
 import type { AppRole, RepairRequestSummary, Vehicle, WashOrder } from "../../types";
 
@@ -11,11 +12,17 @@ type Data = {
   inspectionCount: number;
   washCount: number;
   repairCount: number;
+  unreadCount: number;
 };
 
 Page<Data>({
-  data: { role: getStoredRole(), loading: true, vehicle: null, vehicleCount: 0, inspectionCount: 0, washCount: 0, repairCount: 0 },
-  onShow() { void this.load(); },
+  data: { role: getStoredRole(), loading: true, vehicle: null, vehicleCount: 0, inspectionCount: 0, washCount: 0, repairCount: 0, unreadCount: 0 },
+  onShow() { void this.load(); void this.loadWorkflowSummary(); },
+  async loadWorkflowSummary() {
+    const summary = await refreshOwnerWorkflowUnreadBadge();
+    if (summary) this.setData({ unreadCount: summary.unreadCount });
+  },
+  openMessages() { wx.navigateTo({ url: "/packages/notifications/pages/messages/messages" }); },
   async load() {
     this.setData({ loading: true, role: getStoredRole() });
     try {

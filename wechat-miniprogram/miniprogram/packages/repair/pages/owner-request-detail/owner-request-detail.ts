@@ -20,7 +20,7 @@ type FaultView = RepairFault & {
   title: string;
   locationText: string;
   severityText: string;
-  severityTone: "minor" | "moderate" | "severe";
+  severityTone: "minor" | "moderate" | "severe" | "pending";
   descriptionText: string;
 };
 
@@ -92,13 +92,13 @@ Page<Data>({
     const sortedQuotes = sortOwnerQuotes(request.quotes || []);
     const activeQuotes = sortedQuotes.filter((quote) => quote.status === "active");
     const status = ownerRepairStatusView(request.status, activeQuotes.length);
-    const faultViews = request.faults.map((fault, index) => ({
+    const faultViews: FaultView[] = request.faults.map((fault, index) => ({
       ...fault,
       number: index + 1,
-      title: `${regionLabel(fault.regionCode)} · ${faultTypeLabel(fault.faultType)}`,
-      locationText: `${viewLabel(fault.viewId)}定位`,
+      title: request.sourceType === "precheck" ? `${regionLabel(fault.regionCode)} · 维修` : `${regionLabel(fault.regionCode)} · ${faultTypeLabel(fault.faultType)}`,
+      locationText: request.sourceType === "precheck" ? "年检预检原始照片" : `${viewLabel(fault.viewId)}定位`,
       severityText: severityLabel(fault.severity),
-      severityTone: severityTone(fault.severity),
+      severityTone: fault.severity === "unassessed" ? "pending" : severityTone(fault.severity),
       descriptionText: fault.description || "检测报告未填写补充描述",
     }));
     const allPhotoUrls = request.media.map((media) => media.url).filter(Boolean);
@@ -149,6 +149,7 @@ Page<Data>({
   },
 
   openReport() {
+    if (this.data.request?.sourceType === "precheck") { wx.navigateTo({ url: `/packages/annual/pages/precheck-actions/precheck-actions?id=${encodeURIComponent(this.data.request.sourceBookingId || "")}` }); return; }
     const bookingId = this.data.request?.report.bookingId;
     if (!bookingId) return;
     wx.navigateTo({ url: `/packages/inspection/pages/checkup-report/checkup-report?id=${encodeURIComponent(bookingId)}` });

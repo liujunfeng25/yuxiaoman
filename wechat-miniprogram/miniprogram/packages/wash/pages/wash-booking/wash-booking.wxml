@@ -14,17 +14,18 @@
   </view>
 
   <block wx:else>
-    <picker range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" bindchange="changeVehicle">
+    <picker range="{{vehicles}}" range-key="plateNumber" value="{{vehicleIndex}}" disabled="{{!!precheckBookingId}}" bindchange="changeVehicle">
       <view class="vehicle-card surface">
         <view class="vehicle-icon"><image src="/assets/icons/car.png" mode="aspectFit" /></view>
         <view class="vehicle-copy">
-          <text class="vehicle-label">服务车辆</text>
+          <text class="vehicle-label">{{precheckBookingId ? '年检预检关联车辆' : '服务车辆'}}</text>
           <view><text>{{selectedVehicle.plateNumber}}</text><text>· {{selectedVehicle.vehicleType}}</text></view>
           <text>{{selectedVehicle.seats}} 座 · {{selectedVehicleCategoryLabel}}价类</text>
         </view>
-        <image class="caret" src="/assets/icons/caret-right.png" mode="aspectFit" />
+        <image wx:if="{{!precheckBookingId}}" class="caret" src="/assets/icons/caret-right.png" mode="aspectFit" />
       </view>
     </picker>
+    <view wx:if="{{precheckBookingId}}" class="wash-category-warning"><image src="/assets/icons/warning-circle.png"/><text>清洗后请返回年检订单补拍照片并提交复核。洗车单独计费。</text></view>
     <view wx:if="{{selectedVehicle.washVehicleCategoryLegacy}}" class="wash-category-warning"><image src="/assets/icons/warning-circle.png"/><text>历史 SUV/MPV 合并档已按 SUV 兼容，可到车辆管理确认独立价类。</text></view>
 
     <view class="wash-intro">

@@ -129,6 +129,22 @@ const regionAnchors: RegionAnchor[] = [
 
 const viewLabels: Record<CheckupView, string> = { top: "俯视", left: "左侧", right: "右侧" };
 const regionLabels = Object.fromEntries(regionAnchors.map((item) => [item.regionCode, item.label]));
+const checkupVehicleTypeLabels: Record<string, string> = {
+  sedan: "轿车",
+  suv: "SUV",
+  mpv: "MPV",
+  suv_mpv: "SUV / MPV",
+  hatchback: "两厢车",
+  coupe: "跑车",
+  pickup: "皮卡",
+  van: "面包车",
+};
+function checkupVehicleTypeLabel(value?: string | null) {
+  if (!value) return "";
+  const normalized = value.trim();
+  if (/[\u3400-\u9fff]/u.test(normalized)) return normalized;
+  return checkupVehicleTypeLabels[normalized.toLowerCase()] || "车型待核对";
+}
 const faultLabels: Record<VehicleCheckupFault["faultType"], string> = {
   scratch: "划痕",
   dent: "凹陷",
@@ -183,7 +199,7 @@ function annualFailureDetails(summary: Record<string, unknown> | null | undefine
   const source = summary || {};
   const categoryValues = Array.isArray(source.itemCategories) ? source.itemCategories.map(String) : [];
   return {
-    categories: categoryValues.map((value) => annualFailureCategoryLabels[value] || value),
+    categories: categoryValues.map((value) => annualFailureCategoryLabels[value] || "其他官方检验项目"),
     reason: typeof source.reason === "string" ? source.reason.trim() : "",
     retestAdvice: typeof source.reinspectionAdvice === "string" ? source.reinspectionAdvice.trim() : "",
   };
@@ -343,7 +359,7 @@ export function VehicleCheckupReportPanel({
   const preview = previewState ? previewItems[previewState.index] ?? null : null;
   const previewFaultNumber = previewFault ? report.faults.findIndex((item) => item.id === previewFault.id) + 1 : 0;
   const previewTitle = previewState?.group === "fault" && previewFault
-    ? `故障 #${previewFaultNumber} · ${regionLabels[previewFault.regionCode] || previewFault.regionCode}特写`
+    ? `故障 #${previewFaultNumber} · ${regionLabels[previewFault.regionCode] || "其他位置"}特写`
     : preview ? mediaLabel(preview) : "报告照片";
 
   const closePreview = () => {
@@ -408,7 +424,7 @@ export function VehicleCheckupReportPanel({
 
   return <section className="checkup-report" aria-label="车辆体检报告">
     <header className="checkup-report-head">
-      <div><small>VEHICLE CONDITION REPORT</small><h3>车辆体检报告</h3><p>{report.reportNo}</p></div>
+      <div><small>车辆体检报告</small><h3>车辆体检报告</h3><p>{report.reportNo}</p></div>
       <div className="checkup-report-actions"><span className={`checkup-conclusion conclusion-${report.status === "published" ? conclusionTone(report.annualInspection?.conclusion) : "pending"}`}>{report.status === "published" ? conclusionLabel(report.annualInspection?.conclusion, report.annualInspection?.conclusionStatus) : "报告草稿"}</span><button type="button" onClick={() => window.print()}><Printer />打印报告</button></div>
     </header>
 
@@ -425,11 +441,11 @@ export function VehicleCheckupReportPanel({
     {legacyUnconfirmedConclusion ? <section className="checkup-material-alert legacy" role="alert" aria-label="历史年检结果待重新录入"><WarningCircle weight="fill" /><div><strong>历史结果待重新录入</strong><p>旧版“待复核”结论已停用。本次正式年检结果尚未确认，需由检测站重新录入“通过”或“未通过”；该历史值不会自动算作未通过。</p></div></section> : null}
 
     <section className="checkup-report-section checkup-report-meta" aria-label="报告基本信息">
-      <header><div><small>REPORT PROFILE</small><h4>报告基本信息</h4></div><span>车身状况为检测站人工记录</span></header>
+      <header><div><small>报告基本信息</small><h4>报告基本信息</h4></div><span>车身状况为检测站人工记录</span></header>
       <dl>
         <div><dt>平台报告编号</dt><dd>{report.reportNo}</dd></div>
         <div><dt>预约编号</dt><dd>{booking.bookingNumber}</dd></div>
-        <div><dt>车辆</dt><dd>{vehicle?.plateNumber || "待核验"} · {[vehicleCatalogName(vehicle?.brand), vehicleCatalogName(vehicle?.model), vehicle?.vehicleType].filter(Boolean).join(" ") || "车型未记录"}</dd></div>
+        <div><dt>车辆</dt><dd>{vehicle?.plateNumber || "待核验"} · {[vehicleCatalogName(vehicle?.brand), vehicleCatalogName(vehicle?.model), checkupVehicleTypeLabel(vehicle?.vehicleType)].filter(Boolean).join(" ") || "车型未记录"}</dd></div>
         <div><dt>服务方式</dt><dd>{serviceMode === "valet" ? "上门往返取送" : "车主自驾到站"}</dd></div>
         <div><dt>检测站</dt><dd>{station?.name || "站点未记录"}{station?.district ? ` · ${station.district}` : ""}</dd></div>
         <div><dt>预约时段</dt><dd>{booking.appointmentDate} {booking.startTime}–{booking.endTime}</dd></div>
@@ -443,10 +459,10 @@ export function VehicleCheckupReportPanel({
       <div><small>检测说明</small><p>{reportSummaryText(report.summary)}</p><em>年检结论与车身状况分别展示；车况记录不会自动改变年检结论。</em></div>
     </section>
 
-    {report.annualInspection?.conclusion === "failed" ? <section className="checkup-report-section checkup-annual-failure" aria-label="年检未通过明细"><header><div><small>FAILED INSPECTION DETAILS</small><h4>未通过项目与复检安排</h4></div><span>检测站回传</span></header><dl><div><dt>未通过项目类别</dt><dd>{failureDetails.categories.length ? failureDetails.categories.join("、") : "未录入"}</dd></div><div><dt>具体原因 / 检测说明</dt><dd>{failureDetails.reason || "未录入"}</dd></div><div><dt>整改与复检建议</dt><dd>{failureDetails.retestAdvice || "未录入"}</dd></div></dl></section> : null}
+    {report.annualInspection?.conclusion === "failed" ? <section className="checkup-report-section checkup-annual-failure" aria-label="年检未通过明细"><header><div><small>年检未通过明细</small><h4>未通过项目与复检安排</h4></div><span>检测站回传</span></header><dl><div><dt>未通过项目类别</dt><dd>{failureDetails.categories.length ? failureDetails.categories.join("、") : "未录入"}</dd></div><div><dt>具体原因 / 检测说明</dt><dd>{failureDetails.reason || "未录入"}</dd></div><div><dt>整改与复检建议</dt><dd>{failureDetails.retestAdvice || "未录入"}</dd></div></dl></section> : null}
 
     <section className="checkup-report-section checkup-condition-copy" aria-label="车身状况文字结论">
-      <small>VEHICLE CONDITION</small><h4>车身状况文字结论</h4><p>{conditionConclusion(report)}</p><span>{report.observationMode === "faults_recorded" ? "以下故障位置、描述及照片由检测站人工确认。" : "检测站已完成现场环车确认。"}</span>
+      <small>车辆状况</small><h4>车身状况文字结论</h4><p>{conditionConclusion(report)}</p><span>{report.observationMode === "faults_recorded" ? "以下故障位置、描述及照片由检测站人工确认。" : "检测站已完成现场环车确认。"}</span>
     </section>
 
     <div className="checkup-tech-panel">
@@ -467,31 +483,31 @@ export function VehicleCheckupReportPanel({
         })}
         {activeFault && activeFault.viewId === viewId ? <div className="checkup-callout" role="status">
           <small>故障 #{report.faults.findIndex((item) => item.id === activeFault.id) + 1}</small>
-          <strong>{regionLabels[activeFault.regionCode] || activeFault.regionCode} · {faultLabels[activeFault.faultType]}</strong>
-          <span>{severityLabels[activeFault.severity]}{activeFault.description ? ` · ${activeFault.description}` : ""}</span>
+          <strong>{regionLabels[activeFault.regionCode] || "其他位置"} · {faultLabels[activeFault.faultType] || "其他问题"}</strong>
+          <span>{severityLabels[activeFault.severity] || "程度待核对"}{activeFault.description ? ` · ${activeFault.description}` : ""}</span>
         </div> : null}
       </div>
       <p className="checkup-diagram-note">通用车身示意，不代表实车车型；故障以位置文字和现场照片为准</p>
       {activeFault && activeFault.viewId === viewId ? <section className={`checkup-active-evidence ${faultEvidenceComplete(activeFault) ? "complete" : "incomplete"}`} aria-label={`故障 #${activeFaultNumber} 影像证据`}>
-        <header><div><small>FAULT EVIDENCE</small><strong>故障 #{activeFaultNumber} · {regionLabels[activeFault.regionCode] || activeFault.regionCode}</strong></div><span>{activeFaultPhotos.length ? `${activeFaultPhotos.length} 张特写` : report.schemaVersion === "vehicle-checkup-v1" ? "历史记录无特写" : "特写缺失"}</span></header>
-        {activeFaultPhotos.length ? <div className="checkup-active-evidence-grid">{activeFaultPhotos.map((photo, photoIndex) => <button type="button" key={photo.id} onClick={(event) => previewFaultMedia(activeFault, photoIndex, event.currentTarget)} aria-label={`查看故障 #${activeFaultNumber} ${regionLabels[activeFault.regionCode] || activeFault.regionCode}特写 ${photoIndex + 1}`}><AuthenticatedEvidenceImage url={photo.url} alt={`故障 #${activeFaultNumber} 特写 ${photoIndex + 1}`} /><span><MagnifyingGlass />查看特写 {photoIndex + 1}</span></button>)}</div> : <div className="checkup-evidence-missing"><WarningCircle weight="fill" /><span><strong>{report.schemaVersion === "vehicle-checkup-v1" ? "旧版报告未采集故障特写" : "故障特写缺失"}</strong><small>{report.schemaVersion === "vehicle-checkup-v1" ? "仅保留原有文字记录，不补造影像" : "材料闭环不完整，请核对检测站原始报告"}</small></span></div>}
+        <header><div><small>故障留证</small><strong>故障 #{activeFaultNumber} · {regionLabels[activeFault.regionCode] || "其他位置"}</strong></div><span>{activeFaultPhotos.length ? `${activeFaultPhotos.length} 张特写` : report.schemaVersion === "vehicle-checkup-v1" ? "历史记录无特写" : "特写缺失"}</span></header>
+        {activeFaultPhotos.length ? <div className="checkup-active-evidence-grid">{activeFaultPhotos.map((photo, photoIndex) => <button type="button" key={photo.id} onClick={(event) => previewFaultMedia(activeFault, photoIndex, event.currentTarget)} aria-label={`查看故障 #${activeFaultNumber} ${regionLabels[activeFault.regionCode] || "其他位置"}特写 ${photoIndex + 1}`}><AuthenticatedEvidenceImage url={photo.url} alt={`故障 #${activeFaultNumber} 特写 ${photoIndex + 1}`} /><span><MagnifyingGlass />查看特写 {photoIndex + 1}</span></button>)}</div> : <div className="checkup-evidence-missing"><WarningCircle weight="fill" /><span><strong>{report.schemaVersion === "vehicle-checkup-v1" ? "旧版报告未采集故障特写" : "故障特写缺失"}</strong><small>{report.schemaVersion === "vehicle-checkup-v1" ? "仅保留原有文字记录，不补造影像" : "材料闭环不完整，请核对检测站原始报告"}</small></span></div>}
       </section> : null}
       <div className="checkup-fault-list">
-        {report.faults.map((fault, index) => <button type="button" key={fault.id} className={activeFaultId === fault.id ? "active" : ""} onClick={() => activateFault(fault)}><span>{index + 1}</span><div><strong>{regionLabels[fault.regionCode] || fault.regionCode}</strong><small>{faultLabels[fault.faultType]} · {severityLabels[fault.severity]}</small></div>{fault.severity === "severe" ? <WarningCircle weight="fill" /> : null}</button>)}
+        {report.faults.map((fault, index) => <button type="button" key={fault.id} className={activeFaultId === fault.id ? "active" : ""} onClick={() => activateFault(fault)}><span>{index + 1}</span><div><strong>{regionLabels[fault.regionCode] || "其他位置"}</strong><small>{faultLabels[fault.faultType] || "其他问题"} · {severityLabels[fault.severity] || "程度待核对"}</small></div>{fault.severity === "severe" ? <WarningCircle weight="fill" /> : null}</button>)}
         {!report.faults.length ? <div className="checkup-no-fault"><span><CheckCircle weight="fill" /></span><div><strong>未发现明显车身异常</strong><small>检测站已完成车辆外观确认</small></div></div> : null}
       </div>
     </div>
 
     <section className="checkup-report-section checkup-fault-detail" aria-label="故障明细">
-      <header><div><small>FAULT DETAILS</small><h4>故障明细</h4></div><span>{report.faults.length} 项</span></header>
+      <header><div><small>故障明细</small><h4>故障明细</h4></div><span>{report.faults.length} 项</span></header>
       {report.faults.length ? <div className="checkup-fault-cards" role="list" aria-label="车辆故障明细列表">{report.faults.map((fault, index) => {
         const photos = faultPhotos(fault);
-        const region = regionLabels[fault.regionCode] || fault.regionCode;
+        const region = regionLabels[fault.regionCode] || "其他位置";
         const evidenceComplete = faultEvidenceComplete(fault);
         return <article className={`checkup-fault-card ${evidenceComplete ? "complete" : "incomplete"}`} role="listitem" aria-label={`故障 #${index + 1} ${region}`} key={fault.id}>
-          <header><span>#{index + 1}</span><div><strong>{region} · {faultLabels[fault.faultType]}</strong><small>{viewLabels[fault.viewId]}定位 · 检测站人工记录</small></div><i className={`severity-${fault.severity}`}>{severityLabels[fault.severity]}</i><button type="button" className="checkup-fault-card-locate" onClick={() => activateFault(fault)}>在三视图定位</button></header>
+          <header><span>#{index + 1}</span><div><strong>{region} · {faultLabels[fault.faultType] || "其他问题"}</strong><small>{viewLabels[fault.viewId] || "其他视角"}定位 · 检测站人工记录</small></div><i className={`severity-${fault.severity}`}>{severityLabels[fault.severity] || "程度待核对"}</i><button type="button" className="checkup-fault-card-locate" onClick={() => activateFault(fault)}>在三视图定位</button></header>
           <div className="checkup-fault-card-copy"><div><small>现场描述</small><p>{fault.description || "检测站未补充描述"}</p></div><div><small>处理建议</small><p>{faultRecommendation(fault)}</p></div></div>
-          <section className="checkup-fault-evidence" aria-label={`故障 #${index + 1} 特写照片`}><header><div><small>FAULT CLOSE-UP</small><strong>故障特写</strong></div><span>{photos.length ? `${photos.length} 张 · 已关联故障 #${index + 1}` : report.schemaVersion === "vehicle-checkup-v1" ? "历史记录无特写" : "证据缺失"}</span></header>
+          <section className="checkup-fault-evidence" aria-label={`故障 #${index + 1} 特写照片`}><header><div><small>故障特写</small><strong>故障特写</strong></div><span>{photos.length ? `${photos.length} 张 · 已关联故障 #${index + 1}` : report.schemaVersion === "vehicle-checkup-v1" ? "历史记录无特写" : "证据缺失"}</span></header>
             {photos.length ? <div className="checkup-fault-photo-grid">{photos.map((photo, photoIndex) => <figure key={photo.id}><button type="button" onClick={(event) => previewFaultMedia(fault, photoIndex, event.currentTarget)} aria-label={`查看故障 #${index + 1} ${region}特写 ${photoIndex + 1}`}><AuthenticatedEvidenceImage url={photo.url} alt={`故障 #${index + 1} ${region}特写 ${photoIndex + 1}`} /><span><MagnifyingGlass />查看大图</span></button><figcaption>特写 {photo.sequence ?? photoIndex + 1} · {photo.width} × {photo.height}</figcaption></figure>)}</div> : <div className={`checkup-fault-photo-missing ${report.schemaVersion === "vehicle-checkup-v1" ? "legacy" : ""}`}><WarningCircle weight="fill" /><span><strong>{report.schemaVersion === "vehicle-checkup-v1" ? "旧版报告未采集故障特写" : "未形成该故障的影像证据"}</strong><small>{report.schemaVersion === "vehicle-checkup-v1" ? "历史材料仅保留文字与固定现场照片；系统不会补造图片。" : "材料闭环不完整，请核对检测站原始报告与现场资料。"}</small></span></div>}
           </section>
         </article>;
@@ -499,7 +515,7 @@ export function VehicleCheckupReportPanel({
     </section>
 
     <section className="checkup-print-locator" aria-label="打印版故障位置总览">
-      <header><div><small>FAULT LOCATION INDEX</small><h4>故障位置总览</h4></div><span>编号与故障明细一致</span></header>
+      <header><div><small>故障位置索引</small><h4>故障位置总览</h4></div><span>编号与故障明细一致</span></header>
       <div>{(Object.keys(viewLabels) as CheckupView[]).map((printView) => <figure key={printView}><div className={`checkup-print-stage view-${printView}`}><img src={`/assets/inspection-checkup/car-${printView}.webp`} alt={`${viewLabels[printView]}车辆打印示意图`} />{regionAnchors.filter((anchor) => anchor.viewId === printView).map((anchor) => {
         const numbers = report.faults.flatMap((fault, faultIndex) => fault.regionCode === anchor.regionCode && fault.viewId === printView ? [faultIndex + 1] : []);
         return numbers.length ? <span className="checkup-print-marker" key={anchor.regionCode} style={{ left: `${anchor.x}%`, top: `${anchor.y}%` }}><b>{numbers.join("、")}</b></span> : null;
@@ -507,21 +523,21 @@ export function VehicleCheckupReportPanel({
     </section>
 
     <section className="checkup-report-section checkup-advice" aria-label="汇总处理建议">
-      <small>ACTION SUGGESTION</small><h4>汇总处理建议</h4><p>{summaryRecommendation(report)}</p><span>建议为平台依据人工车况记录生成的履约提示，具体维修方案由客户与专业维修机构确认。</span>
+      <small>处理建议</small><h4>汇总处理建议</h4><p>{summaryRecommendation(report)}</p><span>建议为平台依据人工车况记录生成的履约提示，具体维修方案由客户与专业维修机构确认。</span>
     </section>
 
     <section className="checkup-report-section checkup-remarks" aria-label="报告备注">
-      <small>REMARKS</small><h4>备注</h4><ul><li>机动车安全技术检验报告、排放检验报告及检验合格标志/电子凭证均作为法定检测材料留证，与平台车辆体检留证分开。</li><li>车身故障位置、程度与描述由检测站人员现场人工记录，并与现场照片共同留存。</li><li>本平台车辆体检报告只呈现履约信息，不替代法定检测报告，不生成检测机构签章或监管系统凭证。</li></ul>
+      <small>备注说明</small><h4>备注</h4><ul><li>机动车安全技术检验报告、排放检验报告及检验合格标志/电子凭证均作为法定检测材料留证，与平台车辆体检留证分开。</li><li>车身故障位置、程度与描述由检测站人员现场人工记录，并与现场照片共同留存。</li><li>本平台车辆体检报告只呈现履约信息，不替代法定检测报告，不生成检测机构签章或监管系统凭证。</li></ul>
     </section>
 
     <section className="checkup-media-section checkup-result-material-section" aria-label="法定检测材料">
-      <div className="checkup-media-head"><div><small>STATUTORY INSPECTION MATERIALS</small><h4>法定检测材料</h4></div><span>{legalMaterials.length} 件 · {hasSafetyInspectionReport ? "安全报告已归档" : "安全报告缺失"}</span></div>
+      <div className="checkup-media-head"><div><small>法定检测材料</small><h4>法定检测材料</h4></div><span>{legalMaterials.length} 件 · {hasSafetyInspectionReport ? "安全报告已归档" : "安全报告缺失"}</span></div>
       <div className="checkup-legal-material-status" role="list" aria-label="法定检测材料完整性"><div className={hasSafetyInspectionReport ? "available" : "missing"}><strong>机动车安全技术检验报告</strong><span>{hasSafetyInspectionReport ? "已归档" : report.status === "published" ? "历史报告未采集" : "必传 · 待上传"}</span></div><div className={hasEmissionsInspectionReport ? "available" : "optional"}><strong>排放检验报告</strong><span>{hasEmissionsInspectionReport ? "已归档" : "选填 · 未提供"}</span></div><div className={hasAnnualInspectionMark ? "available" : report.annualInspection?.conclusion === "passed" ? "missing" : "optional"}><strong>检验合格标志/电子凭证留证</strong><span>{hasAnnualInspectionMark ? "已归档" : report.annualInspection?.conclusion === "passed" ? report.status === "published" ? "历史报告未采集" : "必传 · 待上传" : "未通过 · 不适用"}</span></div></div>
       {legalMaterials.length ? <div className="checkup-media-grid checkup-result-material-grid">{legalMaterials.map((item, index) => <figure key={item.id}><button type="button" onClick={(event) => previewFixedMedia("result", index, event.currentTarget)} aria-label={`查看${mediaLabel(item)}大图`}><AuthenticatedEvidenceImage url={item.url} alt={mediaLabel(item)} /><span><MagnifyingGlass />查看</span></button><figcaption><strong>法定材料 {String(index + 1).padStart(2, "0")} · {mediaLabel(item)}</strong><small>{item.width} × {item.height} · {item.status === "bound" ? "已归档" : "待绑定"}</small></figcaption></figure>)}</div> : <div className="checkup-result-material-empty"><span><strong>{report.status === "published" ? "历史报告未采集法定检测材料" : "法定检测材料尚未上传"}</strong><small>{report.status === "published" ? "系统不会为历史记录补造附件。" : "发布结果前必须补齐机动车安全技术检验报告；排放检验报告为选填。"}</small></span></div>}
     </section>
 
     <section className="checkup-media-section" aria-label="平台车辆体检留证">
-      <div className="checkup-media-head"><div><small>PLATFORM VEHICLE CONDITION EVIDENCE</small><h4>平台车辆体检留证</h4></div><span>{sitePhotoCount} / 5 · 固定 5 张</span></div>
+      <div className="checkup-media-head"><div><small>平台车辆体检留证</small><h4>平台车辆体检留证</h4></div><span>{sitePhotoCount} / 5 · 固定 5 张</span></div>
       <div className="checkup-media-grid">{siteMedia.map((item, index) => <figure key={item.id}><button type="button" onClick={(event) => previewFixedMedia("site", index, event.currentTarget)} aria-label={`查看${mediaLabel(item)}大图`}><AuthenticatedEvidenceImage url={item.url} alt={mediaLabel(item)} /><span><MagnifyingGlass />查看</span></button><figcaption><strong>平台留证 {String(index + 1).padStart(2, "0")} · {mediaLabel(item)}</strong><small>{item.width} × {item.height} · {item.status === "bound" ? "已归档" : "待绑定"}</small></figcaption></figure>)}</div>
     </section>
 

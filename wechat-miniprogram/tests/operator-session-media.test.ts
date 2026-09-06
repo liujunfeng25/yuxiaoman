@@ -163,7 +163,9 @@ test("检测站预审队列和详情注册完整，并固定核对七类照片�
   assert.match(detailSource, /wx\.previewImage/u);
   assert.match(detailSource, /approveIdempotencyKey/u);
   assert.match(detailSource, /rejectIdempotencyKey/u);
-  assert.match(detailSource, /确认不通过并退款/u);
+  assert.match(detailSource, /确认发送问题处理清单/u);
+  assert.doesNotMatch(detailSource, /确认不通过并退款/u);
+  assert.match(detailTemplate, /车损 \/ 故障灯/u);
   assert.match(detailTemplate, /booking\.precheck\.status === 'pending'/u);
   assert.match(ownerDetail, /检测站预审已通过/u);
   assert.match(ownerDetail, /模拟退款已完成/u);

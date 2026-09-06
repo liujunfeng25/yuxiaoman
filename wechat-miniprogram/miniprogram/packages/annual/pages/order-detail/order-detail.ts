@@ -91,6 +91,7 @@ type Data = {
   precheckReasonText: string;
   precheckIssueText: string;
   precheckReviewedAt: string;
+  precheckSupervisionNote: string;
 };
 
 const precheckReasonLabels: Record<string, string> = {
@@ -99,6 +100,7 @@ const precheckReasonLabels: Record<string, string> = {
   vehicle_information_mismatch: "车牌或车辆信息不一致",
   booking_information_mismatch: "预约车型、动力或用途不一致",
   materials_cannot_be_verified: "现有资料无法完成核对",
+  body_dirty: "车身脏污", body_damage: "车损需处理", dashboard_warning: "仪表盘故障灯",
   other: "其他",
 };
 const precheckPhotoLabels: Record<string, string> = {
@@ -173,6 +175,18 @@ function inspectionResultText(booking: Booking): string {
   return "";
 }
 
+function precheckSupervisionNote(booking: Booking): string {
+  const supervision = booking.precheck?.supervision;
+  if (!supervision) return "预审通过后才会开始车辆履约；该订单未启用主动督办。";
+  if (supervision.status !== "open") return `预审通过后才会开始车辆履约；本单第 ${supervision.policyVersion} 版督办已结束。`;
+  const schedule = [
+    supervision.firstReminderAt ? `首次提醒 ${formatShanghaiDateTime(supervision.firstReminderAt)}` : "",
+    supervision.dueAt ? `处理截止 ${formatShanghaiDateTime(supervision.dueAt)}` : "",
+  ].filter(Boolean).join("，");
+  const reminded = supervision.reminderCount > 0 ? `；系统已提醒检测站 ${supervision.reminderCount} 次` : "";
+  return `预审通过后才会开始车辆履约；本单执行第 ${supervision.policyVersion} 版督办规则${schedule ? `，${schedule}` : ""}${reminded}。`;
+}
+
 function checkupMaterialView(booking: Booking) {
   const report = booking.vehicleCheckupReport;
   if (!report) return { legal: "报告尚未生成", platform: "平台留证待生成", missing: false };
@@ -242,7 +256,7 @@ Page<Data>({
     inspectionResultText: "", checkupLegalMaterialsText: "", checkupPlatformEvidenceText: "", checkupLegalMaterialsMissing: false,
     evidenceStages: [], legacyEvidence: false,
     viewerOpen: false, viewerItems: [], viewerIndex: 0, viewerUrl: "", viewerLabel: "", viewerCounter: "", viewerHasPrevious: false, viewerHasNext: false,
-    precheckReasonText: "", precheckIssueText: "", precheckReviewedAt: "",
+    precheckReasonText: "", precheckIssueText: "", precheckReviewedAt: "", precheckSupervisionNote: "",
   },
   onLoad(query) {
     const id = query.id || "";
@@ -316,6 +330,7 @@ Page<Data>({
         precheckReasonText: (booking.precheck?.reasonCodes || []).map((code) => precheckReasonLabels[code] || code).join("、"),
         precheckIssueText: (booking.precheck?.issuePhotoKinds || []).map((kind) => precheckPhotoLabels[kind] || kind).join("、"),
         precheckReviewedAt: booking.precheck?.reviewedAt ? formatShanghaiDateTime(booking.precheck.reviewedAt) : "",
+        precheckSupervisionNote: precheckSupervisionNote(booking),
       });
       this.startQuoteClock();
       const localizedStages = await localizedEvidenceViews(evidenceStages);
@@ -568,12 +583,13 @@ Page<Data>({
       this.setData({ requoting: false });
     }
   },
+  openPrecheckActions() { wx.navigateTo({ url: `/packages/annual/pages/precheck-actions/precheck-actions?id=${encodeURIComponent(this.data.id)}` }); },
   cancel() {
     const booking = this.data.booking;
     if (!booking || this.data.cancelling || this.data.paying || this.data.requoting) return;
     wx.showModal({
-      title: "取消预约",
-      content: "取消后将释放该时段号源。",
+      title: booking.paymentStatus === "paid" ? "申请退款并取消预约" : "取消预约",
+      content: booking.paymentStatus === "paid" ? "由你主动取消本次年检，按订单规则办理模拟退款并释放号源。洗车及维修独立订单不受影响。" : "取消后将释放该时段号源。",
       confirmColor: "#d84646",
       success: async ({ confirm }) => {
         if (!confirm) return;

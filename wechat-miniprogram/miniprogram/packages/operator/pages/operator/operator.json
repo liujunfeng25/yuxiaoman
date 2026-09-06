@@ -1,1 +1,7 @@
-{ "navigationBarTitleText": "检测站工作台", "enablePullDownRefresh": true }
+{
+  "navigationBarTitleText": "检测站工作台",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "workflow-task-summary": "/components/workflow-task-summary/workflow-task-summary"
+  }
+}

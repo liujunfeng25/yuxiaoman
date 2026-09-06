@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-05",
+  "purpose": "Traceable real-series and vehicle-body-form photos for owner commercial-vehicle selection.",
+  "selectionPolicy": "Every truck and bus image is tied to the named series. Trailer images identify the selected body form. Images do not claim a model year, trim, axle configuration, color or the owner's exact vehicle.",
+  "runtimePolicy": "Optimized assets are served by the API and loaded lazily. No passenger-car or generic truck image is reused as a commercial model image.",
+  "sources": [
+    {
+      "modelId": "vehicle-yutong-bus-zk6126hg",
+      "displayName": "宇通客车 ZK6126HG",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Yutong ZK6126HG, Almaty (P1180157).jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Yutong_ZK6126HG,_Almaty_(P1180157).jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/20/Yutong_ZK6126HG%2C_Almaty_%28P1180157%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 4495,
+        "height": 2997
+      },
+      "author": "Matti Blume",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+      "description": "Yutong ZK6126HG at the end of a line near Almaty-1 railway station. Zhetisu district, Almaty, Kazakhtan.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-yutong-bus-zk6126hg/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-yutong-bus-zk6126hg.webp"
+    },
+    {
+      "modelId": "vehicle-faw-jiefang-j7",
+      "displayName": "一汽解放 J7",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:20220709 Jiefang J7 truck on Shangdu Road.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:20220709_Jiefang_J7_truck_on_Shangdu_Road.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/20220709_Jiefang_J7_truck_on_Shangdu_Road.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1800,
+        "height": 1200
+      },
+      "author": "Windmemories",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Jiefang J7 truck on Shangdu Road",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-faw-jiefang-j7/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-faw-jiefang-j7.webp"
+    },
+    {
+      "modelId": "vehicle-dongfeng-commercial-tianlong-kl",
+      "displayName": "东风商用车 天龙KL",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Dongfeng Tianlong KL IMG001.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Dongfeng_Tianlong_KL_IMG001.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Dongfeng_Tianlong_KL_IMG001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 4000,
+        "height": 3000
+      },
+      "author": "Anonymousfox36",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Dongfeng Tianlong KL",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-dongfeng-commercial-tianlong-kl/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-dongfeng-commercial-tianlong-kl.webp"
+    },
+    {
+      "modelId": "vehicle-dongfeng-commercial-tianjin-kr",
+      "displayName": "东风商用车 天锦KR",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Dongfeng Tianjin KR 001.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Dongfeng_Tianjin_KR_001.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/89/Dongfeng_Tianjin_KR_001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3747,
+        "height": 2810
+      },
+      "author": "Jengtingchen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Dongfeng Tianjin KR",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-dongfeng-commercial-tianjin-kr/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-dongfeng-commercial-tianjin-kr.webp"
+    },
+    {
+      "modelId": "vehicle-sinotruk-howo-howo",
+      "displayName": "中国重汽豪沃 HOWO",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Sinotruk Howo Truck.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Sinotruk_Howo_Truck.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Sinotruk_Howo_Truck.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 2500,
+        "height": 1827
+      },
+      "author": "Kruglovsasha",
+      "credit": "Own work",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "description": "Sinotruk Howo, Chinese heavy truck",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-sinotruk-howo-howo/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-sinotruk-howo-howo.webp"
+    },
+    {
+      "modelId": "vehicle-sinotruk-howo-a7",
+      "displayName": "中国重汽豪沃 HOWO A7",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:HOWO A7 SINOTRUK Prime Mover 0325.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:HOWO_A7_SINOTRUK_Prime_Mover_0325.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6d/HOWO_A7_SINOTRUK_Prime_Mover_0325.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3088,
+        "height": 2144
+      },
+      "author": "33Loading",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "HOWO A7 SINOTRUK Prime Mover 0325",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-sinotruk-howo-a7/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-sinotruk-howo-a7.webp"
+    },
+    {
+      "modelId": "vehicle-sinotruk-howo-hanjiang",
+      "displayName": "中国重汽豪沃 悍将",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Sinotruk Howo Hanjiang flatbed 001.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Sinotruk_Howo_Hanjiang_flatbed_001.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Sinotruk_Howo_Hanjiang_flatbed_001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 2985,
+        "height": 2239
+      },
+      "author": "JustAnotherCarDesigner",
+      "credit": "Own work",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "description": "Sinotruk Howo Hanjiang (豪沃 悍将) flatbed",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-sinotruk-howo-hanjiang/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-sinotruk-howo-hanjiang.webp"
+    },
+    {
+      "modelId": "vehicle-shacman-x6000",
+      "displayName": "陕汽重卡 X6000",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Moscow, Sushchyovsky Val 63, Shacman X6000, May 2026 01.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Moscow,_Sushchyovsky_Val_63,_Shacman_X6000,_May_2026_01.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/04/Moscow%2C_Sushchyovsky_Val_63%2C_Shacman_X6000%2C_May_2026_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 5200,
+        "height": 3156
+      },
+      "author": "Retired electrician",
+      "credit": "Own work",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "description": "Москва, Сущёвский Вал. Да, тут живут люди.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-shacman-x6000/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-shacman-x6000.webp"
+    },
+    {
+      "modelId": "vehicle-shacman-x3000",
+      "displayName": "陕汽重卡 X3000",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Shacman X3000 (53512619610).jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Shacman_X3000_(53512619610).jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Shacman_X3000_%2853512619610%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 5184,
+        "height": 3888
+      },
+      "author": "Jason Lawrence from New York",
+      "credit": "Shacman X3000",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "description": "Seen near Ocho Rios, Jamaica, this new X3000 is transporting some Kias for ATL Automotive, which is the official distributor of Kia vehicles in Jamaica.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-shacman-x3000/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-shacman-x3000.webp"
+    },
+    {
+      "modelId": "vehicle-foton-auman-gtl",
+      "displayName": "福田欧曼 GTL",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:20220102 Foton Auman GTL refrigerated truck.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:20220102_Foton_Auman_GTL_refrigerated_truck.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bb/20220102_Foton_Auman_GTL_refrigerated_truck.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1800,
+        "height": 1200
+      },
+      "author": "Windmemories",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Foton Auman GTL refrigerated truck",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-foton-auman-gtl/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-foton-auman-gtl.webp"
+    },
+    {
+      "modelId": "vehicle-foton-auman-etx",
+      "displayName": "福田欧曼 ETX",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:Foton Auman ETX.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Foton_Auman_ETX.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Foton_Auman_ETX.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 5184,
+        "height": 3888
+      },
+      "author": "Jason Lawrence",
+      "credit": "https://www.flickr.com/photos/27665395@N05/42509158470/",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "description": "Chinese investment in Jamaica has increased dramatically in recent years and with that has come a rise in the number of Chinese vehicles on Jamaican roads. This is particularly true with the trucks and buses - in the case of the trucks, many of the Chinese construction companies that are working intensely on many projects ongoing across Jamaica have brought their own equipment. This has led to a large influx of Chinese trucks on the island, with many companies subsequently establishing dealerships and beginning to import vehicles not just for the Chinese construction companies, but also local consumers to purchase. Foton is one of these brands. They have been officially imported to Jamaica for a couple of years now and have a dealership in Kingston, but are also being brought in numbers by CHEC to work on road projects. The truck in this photo is working at the intersection of Hagley Park Road and Spanish Town Road (Three Mile) in Kingston, where a new overpass/bypass is being constructed to alleviate heavy traffic flow. Many of these machines can be seen working every day on this and other projects. Private buyers have also acquired many Fotons for hauling ore and aggregates in more rural parts of the island. This truck is known as the Auman ETX, and is the mainline do-it-all medium duty commercial model for Foton. They are a common sight in many parts of the developing world. Aside from Fotons, Shacmans are also becoming a relatively more common site in Jamaica, with an official dealership (headquartering Shacmans Jamaica and broader Caribbean operations) established in Spring of 2018. New Shacmans have, like the Fotons, found plenty of local buyers, and many more continue to work on projects around the island. Construction isn't slowing down soon and local demand from Jamaican businessmen for these vehicles is high, so expect many more.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-foton-auman-etx/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-foton-auman-etx.webp"
+    },
+    {
+      "modelId": "vehicle-jac-shuailing-n55",
+      "displayName": "江淮帅铃 N55",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:JAC N55, SHUAILING.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:JAC_N55,_SHUAILING.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/98/JAC_N55%2C_SHUAILING.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 7110,
+        "height": 5099
+      },
+      "author": "Dinkun Chen",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "JAC N55, SHUAILING",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-jac-shuailing-n55/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-jac-shuailing-n55.webp"
+    },
+    {
+      "modelId": "vehicle-jac-shuailing-shuailing-ii",
+      "displayName": "江淮帅铃 II",
+      "identityScope": "series_reference_not_specific_model_year",
+      "sourceTitle": "File:JAC Shuailing II box truck medical waste unit, front 8.8.18.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:JAC_Shuailing_II_box_truck_medical_waste_unit,_front_8.8.18.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4d/JAC_Shuailing_II_box_truck_medical_waste_unit%2C_front_8.8.18.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3771,
+        "height": 2580
+      },
+      "author": "Kevauto",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "A JAC Shuailing II box truck photographed in Xigong District , Luoyang , Henan province , China. This is a medical waste transport unit.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-jac-shuailing-shuailing-ii/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-jac-shuailing-shuailing-ii.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-flatbed",
+      "displayName": "平板半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Flatbed semi-trailer truck, Russia.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Flatbed_semi-trailer_truck,_Russia.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b1/Flatbed_semi-trailer_truck%2C_Russia.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 4160,
+        "height": 1856
+      },
+      "author": "Georg Pik",
+      "credit": "Own work",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "description": "Пустой трал-прицеп",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-flatbed/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-flatbed.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-drop-side",
+      "displayName": "栏板半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Drop side semi-trailer.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Drop_side_semi-trailer.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c7/Drop_side_semi-trailer.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1024,
+        "height": 768
+      },
+      "author": "Summit666",
+      "credit": "Own work",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "description": "",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-drop-side/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-drop-side.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-car-carrier",
+      "displayName": "车辆运输半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Chinese car transporter.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Chinese_car_transporter.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Chinese_car_transporter.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3224,
+        "height": 2146
+      },
+      "author": "Unau",
+      "credit": "Own work",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "description": "This photo was taken in close to China and Russian border.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-car-carrier/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-car-carrier.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-curtain-side",
+      "displayName": "侧帘半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:WieltonCurtainSider.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:WieltonCurtainSider.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/27/WieltonCurtainSider.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 3890,
+        "height": 2358
+      },
+      "author": "Cekay",
+      "credit": "Own work",
+      "license": "CC0",
+      "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+      "description": "Curtainsider semi-trailer from the Polish manufacturer Wielton.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-curtain-side/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-curtain-side.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-container",
+      "displayName": "集装箱运输半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Cosco Shipping container semi-trailer.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Cosco_Shipping_container_semi-trailer.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/57/Cosco_Shipping_container_semi-trailer.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1253,
+        "height": 1921
+      },
+      "author": "Eric Polk",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Cosco Shipping container semi-trailer",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-container/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-container.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-tanker",
+      "displayName": "罐式半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Tanker semi-trailer hauling crude oil.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Tanker_semi-trailer_hauling_crude_oil.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Tanker_semi-trailer_hauling_crude_oil.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1520,
+        "height": 1924
+      },
+      "author": "Eric Polk",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Tanker semi-trailer hauling crude oil as noted by the UN hazard number, 1267.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-tanker/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-tanker.webp"
+    },
+    {
+      "modelId": "vehicle-trailer-body-box",
+      "displayName": "厢式半挂车",
+      "identityScope": "vehicle_body_form_reference",
+      "sourceTitle": "File:Premier Trailer leasing semi-trailer.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Premier_Trailer_leasing_semi-trailer.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/94/Premier_Trailer_leasing_semi-trailer.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "originalDimensions": {
+        "width": 1118,
+        "height": 1487
+      },
+      "author": "Eric Polk",
+      "credit": "Own work",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "description": "Semi-trailer belonging to Premier Trailer Leasing on Interstate 605 in Downey, California, USA.",
+      "localSource": "public/assets/used-cars/real-sources/owner-models/vehicle-trailer-body-box/cover.webp",
+      "optimizedAsset": "public/assets/used-cars/owner-model-photos/vehicle-trailer-body-box.webp"
+    }
+  ]
+}

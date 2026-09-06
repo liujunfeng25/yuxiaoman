@@ -18,6 +18,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { api, apiBlob, money } from "./adminApi";
+import { operatorErrorMessage } from "./operatorError";
 
 type ConsultationStatus = "new" | "handled" | "withdrawn" | "expired";
 type HandleResult = "consultation_completed" | "customer_declined" | "unable_to_contact" | "invalid_submission" | "compliance_rejected";
@@ -279,7 +280,7 @@ function normalizeConsultation(value: unknown): Consultation {
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "时间待核对";
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
     month: "2-digit",
@@ -297,8 +298,8 @@ function formatValue(fen = 0): string {
 
 function formatBytes(value = 0): string {
   if (!value) return "—";
-  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} 千字节`;
+  return `${(value / 1024 / 1024).toFixed(1)} 兆字节`;
 }
 
 function planPayload(plan: FeePlan) {
@@ -343,7 +344,7 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
     const normalized = normalizePlanState(value);
     setPlanState(normalized);
     setDraft(normalized.draft);
-  }).catch((reason: Error) => onError(reason.message));
+  }).catch((reason: Error) => onError(operatorErrorMessage(reason, "咨询价格方案读取失败，请稍后重试")));
 
   const loadConsultations = (requestedPage = pagination.page) => {
     const generation = ++listRequestGeneration.current;
@@ -365,7 +366,7 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
         total: Math.max(0, Math.trunc(numberValue(source.total, rows.length))),
       });
     }).catch((reason: Error) => {
-      if (generation === listRequestGeneration.current && !isAbortError(reason)) onError(reason.message);
+      if (generation === listRequestGeneration.current && !isAbortError(reason)) onError(operatorErrorMessage(reason, "补贴咨询列表读取失败，请稍后重试"));
     }).finally(() => {
       if (generation !== listRequestGeneration.current) return;
       if (listRequestController.current === controller) listRequestController.current = null;
@@ -395,8 +396,9 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
       setDetail(normalizeConsultation(value));
     }).catch((reason: Error) => {
       if (generation !== detailRequestGeneration.current || isAbortError(reason)) return;
-      setDetailError(reason.message);
-      onError(reason.message);
+      const message = operatorErrorMessage(reason, "补贴咨询详情读取失败，请稍后重试");
+      setDetailError(message);
+      onError(message);
     }).finally(() => {
       if (generation === detailRequestGeneration.current && detailRequestController.current === controller) {
         detailRequestController.current = null;
@@ -512,7 +514,7 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
       setPlanState((current) => ({ ...current, draft: savedDraft }));
       setNotice("草稿已保存，尚未影响小程序报价");
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "保存价格草稿失败");
+      onError(operatorErrorMessage(reason, "保存价格草稿失败，请稍后重试"));
     } finally {
       setSaving("");
     }
@@ -536,7 +538,7 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
       setDraft(normalized.draft);
       setNotice(`价格已发布${normalized.published?.version != null ? ` · 版本 ${normalized.published.version}` : ""}`);
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "发布价格失败");
+      onError(operatorErrorMessage(reason, "发布价格失败，请稍后重试"));
     } finally {
       setSaving("");
     }
@@ -567,11 +569,11 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
           <table><thead><tr><th>提交时间 / 编号</th><th>车辆</th><th>联系人（脱敏）</th><th>自报估值</th><th>过户费用合计（参考）</th><th>状态</th><th /></tr></thead>
             <tbody>{consultations.map((item) => <tr key={item.id} onClick={() => openDetail(item.id)}>
               <td><strong>{formatDateTime(item.submittedAt)}</strong><small>{item.consultationCode}</small></td>
-              <td><strong>{item.vehicle?.plateNumber || "待核对"}</strong><small>{item.vehicle?.modelName || item.vehicle?.vehicleType || "车型待核对"}</small></td>
+              <td><strong>{item.vehicle?.plateNumber || "待核对"}</strong><small>{item.vehicle?.modelName || "车型待核对"}</small></td>
               <td><strong>{item.contactNameMasked || "已脱敏"}</strong><small>{item.contactPhoneMasked || "—"}</small></td>
               <td><strong>{formatValue(item.declaredValueFen)}</strong><small>车主自报 · 非平台估值</small></td>
               <td><strong>¥{money(item.totalTransferCostFen)}</strong><small>咨询 ¥{money(item.consultationFeeFen)} + 行政性收费 ¥{money(item.administrativeFeeFen)}</small></td>
-              <td><span className={`status-pill subsidy-status-${item.status}`}>{statusLabels[item.status] || item.status}</span></td>
+              <td><span className={`status-pill subsidy-status-${item.status}`}>{statusLabels[item.status] || "状态待核对"}</span></td>
               <td><CaretRight /></td>
             </tr>)}</tbody>
           </table>
@@ -588,7 +590,7 @@ export function SubsidyConsultationAdminPage({ onError }: { onError: (message: s
       </section>
     </> : <form className="content-card subsidy-pricing-card" onSubmit={saveDraft}>
       <header className="subsidy-pricing-head">
-        <div><small>CONSULTATION FEE PLAN</small><h2>咨询价格维护</h2><p>新增、删除或修改估值档位；只有“发布生效”才会影响新的小程序报价。</p></div>
+        <div><small>咨询费用方案</small><h2>咨询价格维护</h2><p>新增、删除或修改估值档位；只有“发布生效”才会影响新的小程序报价。</p></div>
         <label className="switch"><input type="checkbox" aria-label="启用补贴咨询报价" checked={draft.active} onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))} /><span /><strong>{draft.active ? "报价方案启用" : "报价方案停用"}</strong></label>
       </header>
       <div className="subsidy-version-row"><span><ShieldCheck />当前生效版本 <strong>{planState.published?.version ?? "尚未发布"}</strong></span><span>发布时间 {formatDateTime(planState.published?.publishedAt)}</span></div>
@@ -662,7 +664,7 @@ function ConsultationDrawer({ consultationId, detail, detailError, close, onUpda
       const url = URL.createObjectURL(blob);
       setMediaUrls((urls) => ({ ...urls, [material.id]: url }));
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "资料读取失败");
+      onError(operatorErrorMessage(reason, "资料读取失败，请稍后重试"));
     } finally {
       setMediaLoading("");
     }
@@ -691,7 +693,7 @@ function ConsultationDrawer({ consultationId, detail, detailError, close, onUpda
         events: detail.events,
       });
     } catch (reason) {
-      onError(reason instanceof Error ? reason.message : "处理咨询失败");
+      onError(operatorErrorMessage(reason, "处理咨询失败，请稍后重试"));
     } finally {
       setHandling(false);
     }
@@ -701,13 +703,13 @@ function ConsultationDrawer({ consultationId, detail, detailError, close, onUpda
 
   return <div className="drawer-layer subsidy-drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <aside className="detail-drawer subsidy-detail-drawer" aria-label="补贴咨询详情">
-      <header><div><small>SENSITIVE CONSULTATION · AUDITED READ</small><h2>{detail?.consultationCode || "咨询详情"}</h2><p>{detail ? `${formatDateTime(detail.submittedAt)} · ${statusLabels[detail.status] || detail.status}` : "正在读取敏感资料"}</p></div><button type="button" aria-label="关闭咨询详情" onClick={close}><X /></button></header>
+      <header><div><small>敏感咨询 · 查看留痕</small><h2>{detail?.consultationCode || "咨询详情"}</h2><p>{detail ? `${formatDateTime(detail.submittedAt)} · ${statusLabels[detail.status] || "状态待核对"}` : "正在读取敏感资料"}</p></div><button type="button" aria-label="关闭咨询详情" onClick={close}><X /></button></header>
       <div className="drawer-scroll">
         {!detail ? <div className={`subsidy-detail-loading ${detailError ? "error" : ""}`}>{detailError ? <WarningCircle /> : <ShieldCheck />}<strong>{detailError ? "敏感详情读取失败" : "正在读取咨询详情"}</strong><small>{detailError || "敏感详情读取由服务端留痕"}</small>{detailError ? <button type="button" onClick={close}>关闭后重试</button> : null}</div> : <>
           <div className="subsidy-sensitive-notice"><Eye /><div><strong>敏感资料按需查看并留痕</strong><p>姓名、手机号及每一项影像只用于本次合法咨询，禁止另行下载、传播或用于申报。</p></div></div>
-          <section className="drawer-status"><span className={`status-pill subsidy-status-${detail.status}`}>{statusLabels[detail.status] || detail.status}</span><strong>{detail.vehicle?.plateNumber || "车辆待核对"}</strong><small>车主自报估值 {formatValue(detail.declaredValueFen)} · 过户费用合计（参考）¥{money(detail.totalTransferCostFen)}</small></section>
+          <section className="drawer-status"><span className={`status-pill subsidy-status-${detail.status}`}>{statusLabels[detail.status] || "状态待核对"}</span><strong>{detail.vehicle?.plateNumber || "车辆待核对"}</strong><small>车主自报估值 {formatValue(detail.declaredValueFen)} · 过户费用合计（参考）¥{money(detail.totalTransferCostFen)}</small></section>
           <section className="detail-section"><h3>咨询人与价格快照 <em>历史不可改写</em></h3><dl>
-            <div><dt>姓名</dt><dd>{detail.contact?.name || detail.contactNameMasked || "—"}</dd></div><div><dt>手机号</dt><dd>{detail.contact?.phone || detail.contactPhoneMasked || "—"}</dd></div><div><dt>车辆</dt><dd>{detail.vehicle?.modelName || detail.vehicle?.vehicleType || "—"}</dd></div><div><dt>命中档位</dt><dd>{detail.tierLabel || "—"}</dd></div><div><dt>价格版本</dt><dd>{detail.feePlanVersion ?? "—"}</dd></div><div><dt>咨询服务费</dt><dd>¥{money(detail.consultationFeeFen)}</dd></div><div><dt>牌照费</dt><dd>¥{money(detail.administrativeFees.plateFeeFen)}</dd></div><div><dt>邮寄费</dt><dd>¥{money(detail.administrativeFees.mailingFeeFen)}</dd></div><div><dt>制作工本费</dt><dd>¥{money(detail.administrativeFees.productionFeeFen)}</dd></div><div><dt>行政性收费小计</dt><dd>¥{money(detail.administrativeFeeFen)}</dd></div><div className="total"><dt>过户费用合计（参考）</dt><dd>¥{money(detail.totalTransferCostFen)}</dd></div>
+            <div><dt>姓名</dt><dd>{detail.contact?.name || detail.contactNameMasked || "—"}</dd></div><div><dt>手机号</dt><dd>{detail.contact?.phone || detail.contactPhoneMasked || "—"}</dd></div><div><dt>车辆</dt><dd>{detail.vehicle?.modelName || "车型待核对"}</dd></div><div><dt>命中档位</dt><dd>{detail.tierLabel || "—"}</dd></div><div><dt>价格版本</dt><dd>{detail.feePlanVersion ?? "—"}</dd></div><div><dt>咨询服务费</dt><dd>¥{money(detail.consultationFeeFen)}</dd></div><div><dt>牌照费</dt><dd>¥{money(detail.administrativeFees.plateFeeFen)}</dd></div><div><dt>邮寄费</dt><dd>¥{money(detail.administrativeFees.mailingFeeFen)}</dd></div><div><dt>制作工本费</dt><dd>¥{money(detail.administrativeFees.productionFeeFen)}</dd></div><div><dt>行政性收费小计</dt><dd>¥{money(detail.administrativeFeeFen)}</dd></div><div className="total"><dt>过户费用合计（参考）</dt><dd>¥{money(detail.totalTransferCostFen)}</dd></div>
           </dl><p className="subsidy-fee-boundary">费用快照仅供参考，以办理机构实际收取及所选服务为准；本模块不收款、不代办理。</p></section>
           <section className="detail-section subsidy-material-section"><h3>九项咨询资料 <em>点击小眼睛后读取</em></h3><div className="subsidy-material-grid">{materialOrder.map((kind) => {
             const material = materialByKind.get(kind);
@@ -718,7 +720,7 @@ function ConsultationDrawer({ consultationId, detail, detailError, close, onUpda
               <button type="button" disabled={!material || mediaLoading === material.id || detail.status === "withdrawn" || detail.status === "expired"} onClick={() => material && void toggleMaterial(material)}>{url ? <EyeSlash /> : <Eye />}{mediaLoading === material?.id ? "读取中…" : url ? "隐藏资料" : "查看资料"}</button>
             </article>;
           })}</div><p className="subsidy-material-boundary">车辆四角与启动后仪表盘仅作咨询参考，不是官方申报材料、估值证明或资格核验结果。</p></section>
-          <section className="detail-section subsidy-handle-panel"><h3>咨询处理 <em>简单两状态</em></h3>{detail.status === "new" ? <><label><span>处理结果</span><select aria-label="咨询处理结果" value={result} onChange={(event) => setResult(event.target.value as HandleResult | "")}><option value="">请选择固定结果</option>{resultOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>内部备注（最多300字）</span><textarea aria-label="咨询内部备注" maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="仅记录必要处理信息，不要重复粘贴证件内容" /></label><button type="button" disabled={!result || handling} onClick={() => void handle()}><CheckCircle />{handling ? "提交中…" : "标记为已处理"}</button></> : <div className="subsidy-handle-complete"><CheckCircle /><span><strong>{detail.result ? resultOptions.find((item) => item.value === detail.result)?.label || detail.result : statusLabels[detail.status]}</strong><small>{detail.internalNote || formatDateTime(detail.handledAt || detail.withdrawnAt)}</small></span></div>}</section>
+          <section className="detail-section subsidy-handle-panel"><h3>咨询处理 <em>简单两状态</em></h3>{detail.status === "new" ? <><label><span>处理结果</span><select aria-label="咨询处理结果" value={result} onChange={(event) => setResult(event.target.value as HandleResult | "")}><option value="">请选择固定结果</option>{resultOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>内部备注（最多300字）</span><textarea aria-label="咨询内部备注" maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="仅记录必要处理信息，不要重复粘贴证件内容" /></label><button type="button" disabled={!result || handling} onClick={() => void handle()}><CheckCircle />{handling ? "提交中…" : "标记为已处理"}</button></> : <div className="subsidy-handle-complete"><CheckCircle /><span><strong>{detail.result ? resultOptions.find((item) => item.value === detail.result)?.label || "结果待核对" : statusLabels[detail.status] || "状态待核对"}</strong><small>{detail.internalNote || formatDateTime(detail.handledAt || detail.withdrawnAt)}</small></span></div>}</section>
         </>}
       </div>
     </aside>

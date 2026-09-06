@@ -1,0 +1,6 @@
+button::after { border: 0; }
+.workflow-bell { display: inline-flex; min-width: 88rpx; min-height: 88rpx; margin: 0; padding: 0 14rpx; align-items: center; justify-content: center; gap: 8rpx; color: #38546e; border: 1rpx solid #d8e5f1; border-radius: 18rpx; background: rgba(255,255,255,.9); font-size: 17rpx; font-weight: 800; line-height: 1; box-sizing: border-box; }
+.workflow-bell.is-compact { width: 88rpx; padding: 0; border-radius: 50%; }
+.bell-icon { position: relative; display: flex; width: 38rpx; height: 38rpx; align-items: center; justify-content: center; }
+.bell-icon image { width: 31rpx; height: 31rpx; }
+.bell-icon text { position: absolute; top: -14rpx; right: -20rpx; display: flex; min-width: 30rpx; height: 30rpx; padding: 0 7rpx; align-items: center; justify-content: center; color: #fff; border: 3rpx solid #fff; border-radius: 999rpx; background: #e34e45; font-size: 15rpx; font-weight: 900; line-height: 30rpx; box-sizing: border-box; }

@@ -65,9 +65,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768
     await expect(page.getByRole("heading", { name: "受控车型与检验价格方案" })).toBeVisible();
     await expect(page.locator(".plan-editor label").filter({ hasText: "后台排序" }).locator('input[type="number"]')).toBeVisible();
     await expect(page.getByText("匹配优先级", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("法规分类由系统保护", { exact: true })).toBeVisible();
+    await expect(page.getByText("按所选类别和实际动力匹配报价", { exact: true })).toBeVisible();
     await expect(page.getByText(/纯电方案不能包含尾气|不能把纯电车辆误配尾气检测/)).toBeVisible();
-    await expect(page.getByText(/规则重叠或无法匹配时停止自动报价/)).toBeVisible();
+    await expect(page.getByText(/没有匹配或同时匹配多个方案时停止自动报价/)).toBeVisible();
 
     await page.getByRole("button", { name: "取送计价规则" }).click();
     await expect(page.getByRole("heading", { name: "上门往返取送计价" })).toBeVisible();
@@ -75,7 +75,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768
     await expect(page.getByText(/已包含送回，不另收返程费/)).toBeVisible();
     await page.getByLabel("配置范围").selectOption({ label: "华洋机动车检测站" });
     await expect(page.locator(".rule-editor h2")).toHaveText("华洋机动车检测站");
-    await expect(page.locator(".formula")).toContainText(/11\.7km → ¥99(?:\.00)? \+ 2km × ¥8(?:\.00)? = ¥115(?:\.00)?/);
+    await expect(page.locator(".formula")).toContainText(/11\.7 公里 → ¥99(?:\.00)? \+ 2 公里 × ¥8(?:\.00)? = ¥115(?:\.00)?/);
     await expect(page.locator(".example-card")).toContainText("仅腾讯真实驾车路线可生成取送报价");
     await expect(page.getByRole("button", { name: "保存计价规则" })).toBeVisible();
     await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");

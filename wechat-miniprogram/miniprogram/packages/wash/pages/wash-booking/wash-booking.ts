@@ -9,6 +9,7 @@ import { washStoreFallbackCover } from "../../utils/wash-store-picker";
 type DateOption = { date: string; label: string; caption: string };
 
 type Data = {
+  precheckBookingId: string;
   vehicles: Vehicle[];
   vehicleIndex: number;
   selectedVehicle: Vehicle | null;
@@ -116,6 +117,7 @@ function nearestVerifiedSuggestion(
 
 Page<Data>({
   data: {
+    precheckBookingId: "",
     vehicles: [], vehicleIndex: 0, selectedVehicle: null, selectedVehicleCategoryLabel: "小轿车",
     stores: [], storeIndex: 0, selectedStore: null, selectedStoreCoverUrl: washStoreFallbackCover(0),
     packages: [], selectedPackageId: "", selectedPackage: null,
@@ -142,6 +144,7 @@ Page<Data>({
     const sequence = Number(this.pageLoadSequence || 0) + 1;
     this.pageLoadSequence = sequence;
     const draft = getWashDraft() || {};
+    this.setData({ precheckBookingId: draft.precheckBookingId || "" });
     const serviceMode = draft.serviceMode === "valet" ? "valet" : "self_drive";
     const pickupAddress = normalizePickupAddress(draft.pickupAddress);
     this.setData({ loading: true, error: "", quote: null, quoteError: "", quoteErrorCode: "", quoteBlocked: false, serviceMode, pickupAddress, addressQuery: "" });
@@ -149,6 +152,7 @@ Page<Data>({
       const [vehicles, stores] = await Promise.all([api.vehicles(), api.washStores()]);
       if (this.pageLoadSequence !== sequence) return;
       const activeStores = stores.filter((item) => item.isActive !== false);
+      if (draft.precheckBookingId && !vehicles.some((item) => item.id === draft.vehicleId)) throw new Error("预检车辆已不可用，请返回年检订单查看");
       const vehicleIndex = Math.max(0, vehicles.findIndex((item) => item.id === draft.vehicleId));
       const selectedVehicle = vehicles[vehicleIndex] || null;
       const storeIndex = Math.max(0, activeStores.findIndex((item) => item.id === draft.storeId));
@@ -347,6 +351,7 @@ Page<Data>({
   pickupBlur() { void this.refreshQuote(); },
 
   async changeVehicle(event) {
+    if (this.data.precheckBookingId) return;
     const vehicleIndex = Number(event.detail.value);
     const selectedVehicle = this.data.vehicles[vehicleIndex] || null;
     const store = this.data.selectedStore;
@@ -412,6 +417,7 @@ Page<Data>({
     try {
       storeRecentContact({ name: contactName, phone: contactPhone });
       const order = await api.createWashOrder({
+        precheckBookingId: getWashDraft()?.precheckBookingId,
         quoteSnapshotId: quote.quoteSnapshotId, idempotencyKey, contactName, contactPhone,
         notes: this.data.notes.trim() || undefined,
       });

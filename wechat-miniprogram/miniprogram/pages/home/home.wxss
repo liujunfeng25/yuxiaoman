@@ -29,6 +29,7 @@
 
 .brand-lockup,
 .city { display: flex; align-items: center; }
+.home-brand-actions { display: flex; align-items: center; gap: 14rpx; }
 .brand-lockup { gap: 13rpx; color: #102039; font-size: 40rpx; font-weight: 800; letter-spacing: 1rpx; white-space: nowrap; }
 .brand-lockup image { width: 50rpx; height: 50rpx; }
 .city { gap: 7rpx; color: #122037; font-size: 29rpx; font-weight: 650; white-space: nowrap; }

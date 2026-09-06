@@ -1,4 +1,4 @@
-export type PlateKind = "blue" | "green_small" | "green_large";
+export type PlateKind = "blue" | "yellow" | "green_small" | "green_large";
 
 export type EnergyCategory = "none" | "pure_electric" | "non_pure_electric";
 
@@ -90,19 +90,20 @@ export type ParsedPlate =
       reason: PlateInvalidReason;
     };
 
+export type EditablePlateValue = {
+  /** Stable separator-free value used for equality and uniqueness checks. */
+  normalized: string;
+  /** Safe owner-entered value used for display; standard plates are formatted consistently. */
+  formatted: string;
+};
+
 const provinceSet: ReadonlySet<string> = new Set(PROVINCE_ABBREVIATIONS);
 const agencySet: ReadonlySet<string> = new Set(AGENCY_LETTERS);
-const BLUE_SERIAL_PATTERN = /^[A-HJ-NP-Z0-9]{5}$/;
-/** 8 位绿牌序号：6 位字母或数字，仅排除 I/O。 */
-const GREEN_SMALL_SERIAL_PATTERN = /^[A-HJ-NP-Z0-9]{6}$/;
-const GREEN_LARGE_SERIAL_PATTERN = /^\d{5}[DF]$/;
-
-function energyCategoryFromSerial(serial: string): EnergyCategory {
-  if (serial[0] === "D") return "pure_electric";
-  if (serial[0] === "F") return "non_pure_electric";
-  return "none";
-}
+const ORDINARY_SERIAL_PATTERN = /^[A-Z0-9]{4}[A-Z0-9挂]$/;
+const NEW_ENERGY_SERIAL_PATTERN = /^[A-Z0-9]{6}$/;
 const REMOVABLE_SEPARATORS_PATTERN = /[\s·•・.\-]/gu;
+const EDITABLE_PLATE_PATTERN = /^[\p{L}\p{N}\s·•・.\-]+$/u;
+export const MAX_EDITABLE_PLATE_INPUT_LENGTH = 32;
 
 /**
  * Produces the stable value used for comparison and persistence.
@@ -139,27 +140,21 @@ export function parsePlate(value: string): ParsedPlate {
     serial,
   };
 
-  if (normalized.length === 7 && BLUE_SERIAL_PATTERN.test(serial)) {
+  if (normalized.length === 7 && ORDINARY_SERIAL_PATTERN.test(serial)) {
     return {
       ...base,
-      plateKind: "blue",
+      plateKind: serial.endsWith("挂") ? "yellow" : "blue",
       energyCategory: "none",
     };
   }
 
-  if (normalized.length === 8 && GREEN_LARGE_SERIAL_PATTERN.test(serial)) {
-    return {
-      ...base,
-      plateKind: "green_large",
-      energyCategory: serial[5] === "D" ? "pure_electric" : "non_pure_electric",
-    };
-  }
-
-  if (normalized.length === 8 && GREEN_SMALL_SERIAL_PATTERN.test(serial)) {
+  // Number syntax cannot determine vehicle size or powertrain. Explicit profile
+  // categories supply the plate style; energyCategory stays neutral for legacy callers.
+  if (normalized.length === 8 && NEW_ENERGY_SERIAL_PATTERN.test(serial)) {
     return {
       ...base,
       plateKind: "green_small",
-      energyCategory: energyCategoryFromSerial(serial),
+      energyCategory: "none",
     };
   }
 
@@ -176,3 +171,29 @@ export function validatePlate(value: string): boolean {
   return parsePlate(value).valid;
 }
 
+/**
+ * Normalizes an owner-editable plate without treating one regional syntax as a
+ * complete registry of real Chinese plates. This deliberately permits special
+ * suffixes such as 学、警、港、澳、挂 and does not inspect D/F for powertrain.
+ *
+ * The fixed-shape parser above remains useful for extracting province/agency
+ * metadata from common civilian plates. Vehicle-profile writes should use this
+ * function instead and persist the explicit plate category independently.
+ */
+export function editablePlateValue(value: string): EditablePlateValue | null {
+  const prepared = value.normalize("NFKC").trim().toUpperCase();
+  if (!prepared || prepared.length > MAX_EDITABLE_PLATE_INPUT_LENGTH || !EDITABLE_PLATE_PATTERN.test(prepared)) {
+    return null;
+  }
+  const normalized = normalizePlate(prepared);
+  if (!normalized) return null;
+  const parsed = parsePlate(prepared);
+  return {
+    normalized,
+    formatted: parsed.valid ? parsed.formatted : prepared.replace(/\s+/gu, ""),
+  };
+}
+
+export function validateEditablePlate(value: string): boolean {
+  return editablePlateValue(value) !== null;
+}

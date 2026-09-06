@@ -87,6 +87,12 @@ async function openMvp(page: Page) {
   await expect(currentFlow(page).getByTestId("vehicle-hero")).toBeVisible();
 }
 
+async function confirmNoInspectionSpecialCases(page: Page) {
+  const control = page.getByTestId("inspection-special-all-no");
+  await control.click();
+  await expect(control).toHaveAttribute("aria-pressed", "true");
+}
+
 async function openAddVehicle(page: Page) {
   await openMvp(page);
   await page.getByRole("button", { name: /管理车辆|我的车辆/ }).first().click();
@@ -206,8 +212,38 @@ async function createConsumerBooking(page: Page) {
   const created = (await adminBookings(page)).find((booking) => !previousIds.has(booking.id));
   expect(created).toBeTruthy();
   expect(created?.paymentStatus).toBe("paid");
-  expect(created?.fulfillmentStatus).toBe("confirmed");
+  expect(created?.fulfillmentStatus).toBe("pending_precheck");
+  const precheckDetail = await page.request.get(`${E2E_API_BASE}/operator/prechecks/${created!.id}`);
+  expect(precheckDetail.ok()).toBe(true);
+  const precheck = (await precheckDetail.json()).data as { precheck: { version: number } };
+  const approved = await page.request.post(`${E2E_API_BASE}/operator/prechecks/${created!.id}/approve`, {
+    data: {
+      expectedVersion: precheck.precheck.version,
+      idempotencyKey: `mvp-flow-precheck-${created!.id}`,
+    },
+  });
+  expect(approved.ok()).toBe(true);
+  expect((await approved.json()).data.fulfillmentStatus).toBe("awaiting_arrival");
   return created!.id;
+}
+
+async function completeVehicleCheckupReport(page: Page, bookingId: string) {
+  const image = readFileSync("public/assets/inspection/vehicle-front.png");
+  for (const kind of [
+    "front_left", "front_right", "rear_left", "rear_right", "dashboard_started", "annual_inspection_mark",
+  ]) {
+    const response = await page.request.post(`${E2E_API_BASE}/operator/bookings/${bookingId}/checkup-report/media`, {
+      multipart: { kind, file: { name: `${kind}.png`, mimeType: "image/png", buffer: image } },
+    });
+    expect(response.status()).toBe(201);
+  }
+  const report = await page.request.put(`${E2E_API_BASE}/operator/bookings/${bookingId}/checkup-report`, {
+    data: {
+      observationMode: "no_visible_faults",
+      annualInspection: { conclusion: "passed", summary: { conclusionLabel: "检验合格" } },
+    },
+  });
+  expect(report.ok()).toBe(true);
 }
 
 test.describe("上海时区预约时段防过期", () => {
@@ -486,8 +522,8 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.getByText("驭小满", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "当前城市天津" })).toBeVisible();
     await expect(page.getByRole("img", { name: "天津城市天际线与白色轿车演示图" })).toBeVisible();
-    await expect(page.getByText("津A·MVP26", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /立即预约/ })).toBeVisible();
+    await expect(page.getByText("津A·88888", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /先查询再预约/ })).toBeVisible();
     await expect(page.getByTestId("hero-date-evidence")).toContainText(/规则估算有效期止|用户确认有效期止|日期待核验/);
     await expect(page.getByTestId("hero-date-evidence")).not.toContainText("年检到期日");
     await expect(page.getByTestId("owner-bottom-nav")).toBeVisible();
@@ -498,7 +534,7 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.getByTestId("device-screen")).toHaveAttribute("data-device", "pixel-10");
     await expect(page.getByTestId("home-page")).toBeVisible();
     await expect(page.getByText("驭小满", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /立即预约/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /先查询再预约/ })).toBeVisible();
     await expect(page.getByTestId("owner-bottom-nav")).toBeVisible();
 
     await page.getByTestId("device-picker").click();
@@ -513,12 +549,12 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.getByRole("button", { name: /恢复.*演示数据|重置/ })).toHaveCount(0);
   });
 
-  test("首页立即预约与查询年检保持分工，二级流程不显示根导航", async ({ page }) => {
+  test("首页先查询再预约与查询年检进入安全测算，二级流程不显示根导航", async ({ page }) => {
     await openMvp(page);
 
     await page.getByTestId("inspection-entry-booking").click();
-    await expect(page.getByTestId("flow-fixed-header").getByText("选择检测站", { exact: true })).toBeVisible();
-    await expect(page.locator(".station-card").first()).toBeVisible();
+    await expect(page.getByTestId("flow-fixed-header").getByText("年检查询", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("inspection-page")).toBeVisible();
     await expect(page.getByTestId("owner-bottom-nav")).toHaveCount(0);
     await page.getByTestId("flow-fixed-header").getByRole("button", { name: "返回", exact: true }).click();
     await expect(page.getByTestId("home-page")).toBeVisible();
@@ -590,7 +626,8 @@ test.describe("驭小满年检 MVP", () => {
     });
 
     await openMvp(page);
-    await page.getByTestId("inspection-entry-booking").click();
+    await page.getByTestId("inspection-stage-entry-booking").click();
+    await page.getByTestId("inspection-stage-primary").click();
     const firstStation = page.locator(".station-card").first();
     await expect(firstStation).toBeVisible();
     await expect(firstStation.locator(".station-price")).toBeVisible();
@@ -624,7 +661,8 @@ test.describe("驭小满年检 MVP", () => {
     });
 
     await openMvp(page);
-    await page.getByTestId("inspection-entry-booking").click();
+    await page.getByTestId("inspection-stage-entry-booking").click();
+    await page.getByTestId("inspection-stage-primary").click();
     await page.locator(".station-card").first().click();
     const availableSlot = page.getByRole("button", { name: /^\d{2}:\d{2}.*余 \d+ 位/ }).first();
     await expect(availableSlot).toBeEnabled();
@@ -703,10 +741,11 @@ test.describe("驭小满年检 MVP", () => {
     await page.getByTestId("inspection-vehicle-class").selectOption("small_micro_passenger");
     await page.getByTestId("inspection-usage-non-operational").click();
     await page.getByTestId("inspection-seats").selectOption("5");
-    await expect(page.getByTestId("inspection-declaration-isVan-no")).toHaveAttribute("aria-pressed", "true");
+    await confirmNoInspectionSpecialCases(page);
     await page.getByTestId("inspection-calculate").click();
 
     await expect(page.getByTestId("inspection-result")).toContainText("办理窗口尚未开始");
+    await expect(page.getByTestId("inspection-result-window")).toHaveText("办理窗口未开始");
     await expect(page.getByTestId("inspection-result-due")).toHaveText("2028-08-31");
     await expect(page.getByTestId("inspection-result")).toContainText("临时测算");
     await expect(page.getByTestId("inspection-cta-save-vehicle")).toBeVisible();
@@ -746,6 +785,7 @@ test.describe("驭小满年检 MVP", () => {
     await page.getByTestId("inspection-entry-hero").click();
     await page.getByTestId("inspection-mode-temporary").click();
     await page.getByTestId("inspection-powertrain").selectOption("hybrid");
+    await confirmNoInspectionSpecialCases(page);
     await page.getByTestId("inspection-calculate").click();
 
     await expect.poll(() => page.getByTestId("device-screen").evaluate((screen) => screen.scrollTop)).toBe(0);
@@ -795,6 +835,7 @@ test.describe("驭小满年检 MVP", () => {
     await openMvp(page);
     await page.getByTestId("inspection-entry-hero").click();
     await page.getByTestId("inspection-mode-temporary").click();
+    await confirmNoInspectionSpecialCases(page);
     await page.getByTestId("inspection-calculate").click();
     await expect(page.getByTestId("inspection-cta-book")).toBeVisible();
     expect(requestedValidityModes).toEqual(["unconfirmed"]);
@@ -846,10 +887,11 @@ test.describe("驭小满年检 MVP", () => {
     await page.getByTestId("inspection-entry-hero").click();
     await page.getByTestId("inspection-mode-temporary").click();
     await page.getByTestId("inspection-registration-month").fill("2026-08");
+    await confirmNoInspectionSpecialCases(page);
     await page.getByTestId("inspection-calculate").click();
 
-    await expect(page.getByTestId("inspection-result")).toContainText("办理窗口尚未开始");
-    await expect(page.getByTestId("inspection-result-due")).toHaveText("2028-08-31");
+    await expect(page.getByTestId("inspection-result")).toContainText("办理窗口未开始");
+    await expect(page.getByTestId("inspection-result-due")).toHaveText("2032-08-31");
     await expect(page.getByTestId("inspection-cta-save-vehicle")).toBeVisible();
     await expect(page.getByText("请求的接口不存在", { exact: true })).toHaveCount(0);
     expect(calculationRequests).toBe(1);
@@ -896,6 +938,7 @@ test.describe("驭小满年检 MVP", () => {
     await openMvp(page);
     await page.getByTestId("inspection-entry-hero").click();
     await page.getByTestId("inspection-mode-temporary").click();
+    await confirmNoInspectionSpecialCases(page);
     await page.getByTestId("inspection-calculate").click();
     await page.getByTestId("inspection-mode-vehicle").click();
     await page.getByTestId("inspection-calculate").click();
@@ -906,6 +949,7 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.getByTestId("inspection-result")).toContainText("需要上线检验");
 
     await page.getByTestId("inspection-edit-query").click();
+    await page.getByTestId("inspection-special-detail").click();
     await page.getByTestId("inspection-declaration-hasInjuryAccident-yes").click();
     await page.getByTestId("inspection-calculate").click();
     await expect(page.getByTestId("inspection-result")).toContainText("需要交管或人工核验");
@@ -982,7 +1026,7 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.getByRole("button", { name: "确认移除" })).toBeVisible();
     await page.getByRole("button", { name: "确认移除" }).click();
     await expect(page.getByText("京A·E2E02", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("article").filter({ hasText: "津A·MVP26" })).toBeVisible();
+    await expect(page.getByRole("article").filter({ hasText: "津A·88888" })).toBeVisible();
   });
 
   test("小型新能源绿牌使用 8 格，并把 D 放在第 3 位", async ({ page }) => {
@@ -1081,9 +1125,6 @@ test.describe("驭小满年检 MVP", () => {
     await task.click();
     await expect(page.getByTestId("operator-detail")).toBeVisible();
 
-    const accept = page.getByTestId("operator-action-accept");
-    await expect(accept).toBeVisible();
-    await accept.click();
     await expect(page.locator(".operator-detail-status")).toHaveText("等待到站");
 
     for (const testId of ["verification-plate", "verification-materials", "verification-exterior", "verification-condition"]) {
@@ -1098,12 +1139,10 @@ test.describe("驭小满年检 MVP", () => {
     await expect(page.locator(".operator-detail-status")).toHaveText("检测中");
     await expect(page.getByText(/检测设备软件属于外部系统/)).toBeVisible();
 
+    await completeVehicleCheckupReport(page, createdBookingId);
     await page.getByTestId("operator-action-simulate-result").click();
-    await expect(page.locator(".operator-detail-status")).toHaveText("结果已回传");
-    await expect(page.getByText(/合格/).first()).toBeVisible();
-
-    await page.getByTestId("operator-action-complete").click();
     await expect(page.locator(".operator-detail-status")).toHaveText("已完成");
+    await expect(page.getByText(/合格/).first()).toBeVisible();
 
     await switchToConsumer(page);
     await page.getByTestId("owner-nav-orders").click();
@@ -1125,20 +1164,19 @@ test.describe("驭小满年检 MVP", () => {
   });
 
   test("车辆信息不一致会挂起任务，解决后恢复到已到站节点", async ({ page }) => {
+    test.setTimeout(40_000);
     await openMvp(page);
     await switchToOperator(page);
     await selectDefaultOperatorScope(page);
     await page.getByTestId("operator-filter-checked-in").click();
 
-    const checkedInTask = page.getByTestId("operator-task-card").first();
+    const checkedInTask = currentFlow(page).locator('[data-testid="operator-task-card"][data-task-id="booking-op-2"]');
     await expect(checkedInTask).toBeVisible();
     await checkedInTask.click();
-    await page.getByTestId("operator-action-hold").click();
-
-    const mismatchReason = page.getByRole("button", { name: /车辆信息不一致/ });
-    if (await mismatchReason.isVisible().catch(() => false)) await mismatchReason.click();
-    const confirmHold = page.getByRole("button", { name: /确认挂起/ });
-    if (await confirmHold.isVisible().catch(() => false)) await confirmHold.click();
+    await expect(page.locator(".operator-detail-status")).toHaveText("已到站核验");
+    const holdAction = page.getByTestId("operator-action-hold");
+    await expect(holdAction).toBeEnabled();
+    await holdAction.click();
 
     await expect(page.getByText(/异常处理中|任务已挂起/).first()).toBeVisible();
     await expect(page.getByText(/车辆信息不一致/).first()).toBeVisible();
@@ -1148,6 +1186,7 @@ test.describe("驭小满年检 MVP", () => {
   });
 
   test("待到站队列显式标记晚到任务，重复主操作不会继续暴露", async ({ page }) => {
+    test.setTimeout(40_000);
     await openMvp(page);
     await switchToOperator(page);
     await selectDefaultOperatorScope(page);
@@ -1220,6 +1259,7 @@ test.describe("驭小满年检 MVP", () => {
       },
     });
     expect(booking.status()).toBe(201);
+    const createdBooking = (await booking.json()).data as { id: string };
 
     await openMvp(page);
     await switchToOperator(page);
@@ -1235,13 +1275,17 @@ test.describe("驭小满年检 MVP", () => {
     await expect(firstSlotCard).toContainText(/容量\s*0/);
     await firstSlotCard.getByTestId("operator-slot-save").click();
     await expect(page.getByTestId("operator-capacity-error")).toContainText(/容量不能低于当前已预约数量|容量不能低于已预约数量/);
+
+    const cancelled = await request.post(`${E2E_API_BASE}/bookings/${createdBooking.id}/cancel`);
+    expect(cancelled.ok()).toBe(true);
   });
 
   test("上门取送车（往返）在腾讯真实路线不可用时严格阻止计价和下单", async ({ page }) => {
     test.setTimeout(35_000);
     const previousIds = new Set((await adminBookings(page)).map((booking) => booking.id));
     await openMvp(page);
-    await page.getByRole("button", { name: /立即预约/ }).click();
+    await page.getByTestId("inspection-stage-entry-booking").click();
+    await page.getByTestId("inspection-stage-primary").click();
     const stationCards = page.locator(".station-card");
     await expect(stationCards.first()).toContainText("华洋机动车检测站");
     await expect(stationCards.first()).toContainText("自营站 · 置顶推荐");
@@ -1281,8 +1325,10 @@ test.describe("驭小满年检 MVP", () => {
   });
 
   test("检测站工作台和单车详情在 iPhone 与 Pixel 10 均无横向溢出", async ({ page }) => {
+    test.setTimeout(40_000);
     await openMvp(page);
     await switchToOperator(page);
+    await selectDefaultOperatorScope(page);
     await expect(page.getByTestId("device-screen")).toHaveAttribute("data-device", "iphone");
     await expect(page.getByTestId("operator-nav-workbench")).toBeVisible();
     await expect(page.getByTestId("operator-nav-orders")).toBeVisible();

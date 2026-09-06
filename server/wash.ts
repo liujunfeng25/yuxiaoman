@@ -486,6 +486,7 @@ const adminValetRuleSchema = z.object({
   maxRadiusKm: z.number().positive().max(1_000).nullable(),
 });
 const createOrderSchema = z.object({
+  precheckBookingId: idSchema.optional(),
   quoteSnapshotId: idSchema,
   idempotencyKey: z.string().trim().min(8).max(160),
   contactName: z.string().trim().min(2).max(30),
@@ -1381,6 +1382,7 @@ async function washStoreOrderFromRow(database: AppDatabase, row: Row) {
       plateNumber: vehicle.plateNumber == null ? null : String(vehicle.plateNumber),
       vehicleType: vehicle.vehicleType == null ? null : String(vehicle.vehicleType),
       seats: vehicle.seats == null ? null : Number(vehicle.seats),
+      exteriorColor: vehicle.exteriorColor == null ? null : String(vehicle.exteriorColor),
       washVehicleCategory: vehicleCategory,
     } : null,
     package: packageValue ? {
@@ -1661,6 +1663,7 @@ function vehicleSnapshot(row: Row, category: WashVehicleCategory) {
     plateNumber: String(row.plate_number),
     vehicleType: String(row.vehicle_type),
     seats: Number(row.seats),
+    exteriorColor: row.exterior_color == null ? null : String(row.exterior_color),
     washVehicleCategory: category,
   };
 }
@@ -2057,11 +2060,16 @@ async function registerWashRoutesAsync(
     if (!body) return;
     await expirePendingOrders(database);
     const existing = await database.prepare<Row>(`
-      SELECT * FROM wash_orders WHERE user_id = ? AND idempotency_key = ?
+      SELECT o.*, l.booking_id AS precheck_booking_id FROM wash_orders o
+      LEFT JOIN precheck_wash_links l ON l.wash_order_id = o.id
+      WHERE o.user_id = ? AND o.idempotency_key = ?
     `).get(currentUserId, body.idempotencyKey);
     if (existing) {
       if (String(existing.quote_snapshot_id) !== body.quoteSnapshotId) {
         throw problem(409, "WASH_ORDER_IDEMPOTENCY_CONFLICT", "下单幂等键已用于其他报价");
+      }
+      if ((existing.precheck_booking_id ?? null) !== (body.precheckBookingId ?? null)) {
+        throw problem(409, "WASH_ORDER_IDEMPOTENCY_CONFLICT", "下单幂等键已用于其他预检关联，请返回原订单查看");
       }
       return { data: await orderFromRow(database, existing) };
     }
@@ -2071,11 +2079,16 @@ async function registerWashRoutesAsync(
         `wash-order-idempotency:${currentUserId}:${body.idempotencyKey}`,
       );
       const duplicate = await tx.prepare<Row>(`
-        SELECT * FROM wash_orders WHERE user_id = ? AND idempotency_key = ?
+        SELECT o.*, l.booking_id AS precheck_booking_id FROM wash_orders o
+        LEFT JOIN precheck_wash_links l ON l.wash_order_id = o.id
+        WHERE o.user_id = ? AND o.idempotency_key = ?
       `).get(currentUserId, body.idempotencyKey);
       if (duplicate) {
         if (String(duplicate.quote_snapshot_id) !== body.quoteSnapshotId) {
           throw problem(409, "WASH_ORDER_IDEMPOTENCY_CONFLICT", "下单幂等键已用于其他报价");
+        }
+        if ((duplicate.precheck_booking_id ?? null) !== (body.precheckBookingId ?? null)) {
+          throw problem(409, "WASH_ORDER_IDEMPOTENCY_CONFLICT", "下单幂等键已用于其他预检关联，请返回原订单查看");
         }
         return String(duplicate.id);
       }
@@ -2084,6 +2097,14 @@ async function registerWashRoutesAsync(
         FOR UPDATE
       `).get(body.quoteSnapshotId, currentUserId);
       if (!quote) throw problem(404, "WASH_QUOTE_NOT_FOUND", "未找到该洗车报价");
+      if (body.precheckBookingId) {
+        const origin = await tx.prepare<Row>(`SELECT b.vehicle_id, b.fulfillment_status, p.reason_codes_json
+          FROM bookings b JOIN booking_prechecks p ON p.booking_id = b.id
+          WHERE b.id = ? AND b.user_id = ? FOR UPDATE OF b`).get(body.precheckBookingId, currentUserId);
+        if (!origin) throw problem(404, "PRECHECK_NOT_FOUND", "未找到预检记录");
+        if (origin.fulfillment_status !== "precheck_action_required" || origin.vehicle_id !== quote.vehicle_id
+          || !String(origin.reason_codes_json).includes('"body_dirty"')) throw problem(409, "PRECHECK_WASH_NOT_APPLICABLE", "该预检订单未记录洗车需求或车辆不一致");
+      }
       const now = new Date();
       const nowIso = now.toISOString();
       if (String(quote.expires_at) <= nowIso) throw problem(409, "WASH_QUOTE_EXPIRED", "洗车报价已过期，请重新获取");
@@ -2189,6 +2210,12 @@ async function registerWashRoutesAsync(
         { holdExpiresAt, serviceMode: String(quote.service_mode ?? "self_drive") },
         nowIso,
       );
+      if (body.precheckBookingId) {
+        await tx.prepare("INSERT INTO precheck_wash_links (wash_order_id, booking_id, created_at) VALUES (?, ?, ?)").run(nextId, body.precheckBookingId, nowIso);
+        await tx.prepare(`INSERT INTO booking_events (id, booking_id, status, title, description, actor_type, created_at, metadata_json)
+          VALUES (?, ?, 'precheck_action_required', '车主已预约洗车', '洗车单独计价和核销；清洁后由车主补充照片提交预检复核。', 'owner', ?, ?)`)
+          .run(randomUUID(), body.precheckBookingId, nowIso, JSON.stringify({ washOrderId: nextId }));
+      }
       return nextId;
     });
     const row = await findOrder(database, createdId, currentUserId);

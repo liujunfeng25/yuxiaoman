@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { PLATE_CATEGORIES, plateCategory, type PlateCategoryCode } from "../../wechat-miniprogram/miniprogram/utils/plate-categories";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
@@ -31,6 +32,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { api, money } from "./adminApi";
+import { operatorErrorMessage } from "./operatorError";
 import { AuthenticatedEvidenceImage } from "./AuthenticatedEvidenceImage";
 import {
   AccessDeniedPage,
@@ -51,6 +53,7 @@ import { WashCatalogPage, WashOrdersPage, WashStoresPage } from "./WashAdmin";
 import { ProviderWashCatalogPage, ProviderWashOrdersPage, ProviderWashSlotsPage, ProviderWashStorePage } from "./ProviderWashAdmin";
 import { VehicleCheckupReportPanel, type VehicleCatalogIdentity, type VehicleCheckupReport } from "./VehicleCheckupReportPanel";
 import { CustomerDetailPage, CustomersPage } from "./CustomerAdmin";
+import { WorkflowAdminPage } from "./WorkflowAdmin";
 
 type Page =
   | "bookings"
@@ -66,6 +69,11 @@ type Page =
   | "insurance_leads"
   | "driving_schools"
   | "subsidy_consultation"
+  | "workflow_tasks"
+  | "workflow_settings"
+  | "workflow_templates"
+  | "workflow_recipients"
+  | "workflow_releases"
   | "service_accounts"
   | "audit_events"
   | "wash_dashboard"
@@ -75,7 +83,7 @@ type Page =
   | "audit_self"
   | "forbidden";
 type PriceCategory = "fuel_small" | "new_energy_small" | "seven_seat";
-type PowertrainType = "gasoline" | "diesel" | "pure_electric" | "phev" | "erev" | "other";
+type PowertrainType = "gasoline" | "diesel" | "hybrid" | "pure_electric" | "phev" | "erev" | "other" | "unknown";
 type InspectionItem =
   | "safety_basic"
   | "safety_chassis_extended"
@@ -87,6 +95,7 @@ type FulfillmentStatus =
   | "pending_payment"
   | "paid_pending_confirmation"
   | "pending_precheck"
+  | "precheck_action_required"
   | "precheck_rejected"
   | "confirmed"
   | "driver_arranged"
@@ -150,6 +159,7 @@ type StationSlot = {
 };
 type PricePlan = {
   id: string;
+  plateCategories: PlateCategoryCode[];
   code: string;
   name: string;
   description: string;
@@ -260,7 +270,11 @@ type Booking = {
   payments?: Payment[];
   ledgerEntries?: LedgerEntry[];
   events?: BookingEvent[];
+  precheckServices?: Array<{ id: string; type: string; label: string; status: string }>;
+  precheckSlotReleased?: boolean;
   precheck?: {
+    resolutionNote?: string | null;
+    history?: Array<{ version: number; reasonText: string; reviewerName: string; reviewedAt: string }>;
     status: "pending" | "approved" | "rejected";
     submittedAt: string;
     reviewedAt: string | null;
@@ -274,6 +288,21 @@ type Booking = {
     version: number;
     reminderDue: boolean;
     overdue: boolean;
+    supervision: null | {
+      taskId: string;
+      status: string;
+      policyVersion: number;
+      firstReminderAt: string | null;
+      dueAt: string | null;
+      escalateAt: string | null;
+      lastRemindedAt: string | null;
+      reminderCount: number;
+      escalatedAt: string | null;
+      inAppCreatedAt: string | null;
+      externalDeliveryStatus: string | null;
+      externalAcceptedAt: string | null;
+      externalLastErrorCode: string | null;
+    };
   } | null;
   refundStatus?: "not_requested" | "refund_pending" | "refunded" | "refund_failed";
   internalDriverNote?: string | null;
@@ -336,10 +365,12 @@ const categoryLabels: Record<PriceCategory, string> = {
 const powertrainLabels: Record<PowertrainType, string> = {
   gasoline: "汽油",
   diesel: "柴油",
+  hybrid: "油电混合",
   pure_electric: "纯电",
   phev: "插电混动",
   erev: "增程",
-  other: "其他 / 暂不支持在线报价",
+  other: "其他动力",
+  unknown: "未确认动力",
 };
 const inspectionItemLabels: Record<InspectionItem, string> = {
   safety_basic: "基础安全技术检验",
@@ -375,7 +406,8 @@ const statusLabels: Record<string, string> = {
   pending_payment: "待支付",
   paid_pending_confirmation: "历史待确认（自动恢复）",
   pending_precheck: "待检测站预审",
-  precheck_rejected: "预审未通过",
+  precheck_action_required: "预检待处理",
+  precheck_rejected: "历史预审未通过",
   refund_pending: "退款处理中",
   refund_failed: "退款失败",
   confirmed: "已确认",
@@ -398,10 +430,19 @@ const paymentLabels: Record<string, string> = {
   partially_refunded: "部分退款",
   refunded: "已退款",
 };
+const deliveryStatusLabels: Record<string, string> = {
+  pending: "等待发送",
+  processing: "发送处理中",
+  retry: "等待重试",
+  accepted: "渠道已受理",
+  cancelled: "已取消发送",
+  dead_letter: "发送失败，待人工处理",
+};
 const fulfillmentOptions: FulfillmentStatus[] = [
   "pending_payment",
   "paid_pending_confirmation",
   "pending_precheck",
+  "precheck_action_required",
   "precheck_rejected",
   "confirmed",
   "driver_arranged",
@@ -564,9 +605,9 @@ function bookingMediaCountLabel(booking: Booking, count: number) {
 }
 
 function previewItemLabel(context: string, item: PreviewItem) {
-  if (context === "预约上传资料") return mediaLabels[item.kind] || item.kind;
+  if (context === "预约上传资料") return mediaLabels[item.kind] || "其他预约资料";
   const stageLabel = context.replace("履约留证 · ", "");
-  return `${stageLabel}${evidencePhotoLabels[item.kind as EvidencePhoto["kind"]] || item.kind}`;
+  return `${stageLabel}${evidencePhotoLabels[item.kind as EvidencePhoto["kind"]] || "其他留证照片"}`;
 }
 
 function shiftPreview(current: PreviewState | null, direction: number): PreviewState | null {
@@ -654,7 +695,7 @@ function BookingJourney({ booking }: { booking: Booking }) {
     })}</ol>
     {anomalyIndexes.size ? <p className="journey-data-warning" role="alert"><WarningCircle weight="fill" />检测到节点时间倒序、格式异常或超前状态记录。页面按服务端原始记录展示，不自动改写时间或推断业务已完成。</p> : null}
     {inferredWithoutEventCount ? <p className="journey-data-note"><CircleNotch />有 {inferredWithoutEventCount} 个已越过节点缺少独立事件记录，仅根据当前状态标示“流程已越过”，不会补造完成时间。</p> : null}
-    {exceptional ? <p className="journey-exception"><WarningCircle weight="fill" />当前业务处于“{statusLabels[currentStatus] || currentStatus}”，请结合事件记录处理；正常链路节点仍保留原始时间。</p> : null}
+    {exceptional ? <p className="journey-exception"><WarningCircle weight="fill" />当前业务处于“{statusLabels[currentStatus] || "待人工核对"}”，请结合事件记录处理；正常链路节点仍保留原始时间。</p> : null}
   </section>;
 }
 
@@ -684,7 +725,7 @@ function ServiceFulfillmentSnapshot({ booking }: { booking: Booking }) {
   }
   const pickup = booking.pickupAddress;
   return <section className="detail-section service-fulfillment-snapshot valet-snapshot" aria-label="代驾取送服务信息">
-    <header><div><small>VALET ROUND TRIP</small><h3>代驾取送履约信息</h3></div><span className="service-mode-tag valet"><SteeringWheel weight="fill" />往返取送</span></header>
+    <header><div><small>代驾履约</small><h3>代驾取送履约信息</h3></div><span className="service-mode-tag valet"><SteeringWheel weight="fill" />往返取送</span></header>
     <div className="service-snapshot-address"><MapPin weight="duotone" /><span><small>取车并送回同一地址</small><strong>{pickup ? `${pickup.title}${pickup.detail ? ` · ${pickup.detail}` : ""}` : "取送地址未回传"}</strong><em>{pickup?.address || "请核对原始订单地址快照"}</em>{pickup?.note ? <b>备注：{pickup.note}</b> : null}</span></div>
     <div className="valet-people-grid"><article><small>车主联系人</small><strong>{booking.contactName}</strong><span>{booking.contactPhone}</span></article><article><small>执行司机</small><strong>{driverName || (driverHasBeenArranged ? "司机信息未回传" : "司机尚未安排")}</strong><span>{driverPhone || (driverHasBeenArranged ? "请向调度核实联系方式" : "待调度安排")}</span></article><article><small>调度人员</small><strong>{dispatcherName || "调度人员未记录"}</strong><span>{dispatcherPhone || "联系电话未记录"}</span></article><article><small>送检站点</small><strong>{booking.station?.name || "检测站未回传"}</strong><span>{booking.station?.address || booking.station?.district || "站点地址未回传"}</span></article></div>
     <div className="dispatch-note"><SteeringWheel /><span><small>司机 / 调度备注</small><strong>{booking.internalDriverNote || "暂无司机与调度备注"}</strong></span></div>
@@ -697,6 +738,7 @@ const precheckReasonLabels: Record<string, string> = {
   vehicle_information_mismatch: "车牌或车辆信息不一致",
   booking_information_mismatch: "预约车型、动力或用途不一致",
   materials_cannot_be_verified: "现有资料无法完成核对",
+  body_dirty: "车身脏污", body_damage: "车损需处理", dashboard_warning: "仪表盘故障灯",
   other: "其他",
 };
 const precheckPhotoLabels: Record<string, string> = {
@@ -709,19 +751,34 @@ function PrecheckAuditPanel({ booking, onRetryRefund, retrying = false }: { book
   const precheck = booking.precheck;
   if (!precheck) return null;
   const fulfillmentStatus = bookingFulfillment(booking);
-  const statusText = precheck.status === "pending" && fulfillmentStatus === "cancelled"
+  const statusText = fulfillmentStatus === "precheck_action_required" ? "预检待车主处理" : precheck.status === "pending" && fulfillmentStatus === "cancelled"
     ? "车主已取消，预审终止"
     : precheck.status === "pending" ? "待检测站预审" : precheck.status === "approved" ? "预审已通过" : "预审未通过";
   const refundText = precheck.refundStatus === "refunded" ? "模拟退款已完成" : precheck.refundStatus === "refund_pending" ? "退款处理中" : precheck.refundStatus === "refund_failed" ? "退款失败，待平台处理" : "未发起退款";
+  const supervision = precheck.supervision;
+  const timingText = !supervision
+    ? "历史订单未启用督办"
+    : supervision.status !== "open"
+      ? "节点待办已关闭"
+      : precheck.overdue
+        ? `已超时 · 截止 ${shanghaiTime(supervision.dueAt) || "时间待记录"}`
+        : supervision.lastRemindedAt
+          ? `已提醒 ${supervision.reminderCount} 次 · 截止 ${shanghaiTime(supervision.dueAt) || "未设截止"}`
+          : supervision.firstReminderAt
+            ? `首次提醒 ${shanghaiTime(supervision.firstReminderAt)}`
+            : "已创建站内待办";
   return <section className={`detail-section precheck-audit-panel ${precheck.status}`} aria-label="检测站预约资料预审">
-    <header><div><small>PAYMENT PHOTO PRECHECK</small><h3>检测站预约资料预审</h3></div><span className={`status-pill status-${fulfillmentStatus}`}>{statusText}</span></header>
+    <header><div><small>预约资料审核</small><h3>检测站预约资料预审</h3></div><span className={`status-pill status-${fulfillmentStatus}`}>{statusText}</span></header>
+    {fulfillmentStatus === "precheck_action_required" ? <p className="journey-data-warning">订单与已付款保留，原时段已释放。车主处理后选择本站时段重新提交；退款只能由车主主动申请。车损与故障灯进入维修报价，脏污进入洗车预约。</p> : null}
     <dl>
       <div><dt>支付提交时间</dt><dd>{shanghaiTime(precheck.submittedAt) || "时间待记录"}</dd></div>
-      <div><dt>处理时效</dt><dd>{precheck.overdue ? "已超过 2 小时" : precheck.reminderDue ? "已超过 30 分钟" : "正常时限内"}</dd></div>
+      <div><dt>督办状态</dt><dd>{timingText}</dd></div>
+      {supervision ? <div><dt>策略与投递</dt><dd>第 {supervision.policyVersion} 版 · {supervision.externalDeliveryStatus ? `外发：${deliveryStatusLabels[supervision.externalDeliveryStatus] || "状态待核对"}` : supervision.inAppCreatedAt ? "站内消息已生成" : "待触发提醒"}</dd></div> : null}
       {precheck.reviewerName ? <div><dt>审核人员</dt><dd>{precheck.reviewerName} · {shanghaiTime(precheck.reviewedAt) || "时间待记录"}</dd></div> : null}
-      {precheck.reasonCodes.length ? <div><dt>问题类型</dt><dd>{precheck.reasonCodes.map((code) => precheckReasonLabels[code] || code).join("、")}</dd></div> : null}
-      {precheck.issuePhotoKinds.length ? <div><dt>涉及照片</dt><dd>{precheck.issuePhotoKinds.map((kind) => precheckPhotoLabels[kind] || kind).join("、")}</dd></div> : null}
+      {precheck.reasonCodes.length ? <div><dt>问题类型</dt><dd>{precheck.reasonCodes.map((code) => precheckReasonLabels[code] || "其他待核对问题").join("、")}</dd></div> : null}
+      {precheck.issuePhotoKinds.length ? <div><dt>涉及照片</dt><dd>{precheck.issuePhotoKinds.map((kind) => precheckPhotoLabels[kind] || "其他资料照片").join("、")}</dd></div> : null}
       {precheck.reasonText ? <div className="wide"><dt>具体说明</dt><dd>{precheck.reasonText}</dd></div> : null}
+      {precheck.resolutionNote ? <div className="wide"><dt>车主处理说明</dt><dd>{precheck.resolutionNote}</dd></div> : null}
       {precheck.status === "rejected" ? <div><dt>退款状态</dt><dd>{refundText} · ¥{money(precheck.refundAmountFen)}</dd></div> : null}
     </dl>
     {precheck.refundStatus === "refund_failed" ? <div className="precheck-refund-failed"><p className="journey-data-warning"><WarningCircle weight="fill" />退款失败，需要平台管理员核对支付通道后重试；订单不会恢复履约。</p><button type="button" disabled={retrying} onClick={onRetryRefund}><ArrowCounterClockwise />{retrying ? "重试中…" : "重试全额退款"}</button></div> : null}
@@ -781,7 +838,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
       setMessage(assignmentActive ? "司机任务验证码已重新生成，旧验证码已失效" : "司机已安排，验证码已生成并进入司机履约阶段");
       refresh();
     } catch (error) {
-      onError((error as Error).message);
+      onError(operatorErrorMessage(error, "司机任务创建失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -797,7 +854,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
       setMessage("司机任务验证码已失效，订单已恢复为等待安排司机");
       refresh();
     } catch (error) {
-      onError((error as Error).message);
+      onError(operatorErrorMessage(error, "司机任务撤销失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -815,7 +872,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
 
   if (booking.evidencePolicyVersion === "legacy") {
     return <section className="detail-section driver-assignment-panel legacy-evidence-notice" aria-label="代驾司机安排">
-      <header><div><small>LEGACY VALET ORDER</small><h3>历史代驾订单</h3></div><span className="assignment-status inactive">历史口径</span></header>
+      <header><div><small>历史订单</small><h3>历史代驾订单</h3></div><span className="assignment-status inactive">历史口径</span></header>
       <p><WarningCircle weight="fill" />该订单创建于一单一司机任务验证码上线前，继续保留原线下安排记录，后台不会补发或伪造司机任务。</p>
     </section>;
   }
@@ -849,7 +906,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
         ? `24小时内首次领取${assignment?.verificationCodeExpiresAt ? ` · 有效至 ${shanghaiTime(assignment.verificationCodeExpiresAt) || "时间未记录"}` : ""}`
         : "验证码当前不可领取";
   return <section className="detail-section driver-assignment-panel" aria-label="代驾司机安排">
-    <header><div><small>ONE ORDER · ONE DRIVER CODE</small><h3>一单一司机任务验证码</h3></div><span className={`assignment-status ${codeStatus === "active" || codeStatus === "bound" ? "active" : "inactive"}`}>{assignmentStatusLabel}</span></header>
+    <header><div><small>司机任务入口</small><h3>一单一司机任务验证码</h3></div><span className={`assignment-status ${codeStatus === "active" || codeStatus === "bound" ? "active" : "inactive"}`}>{assignmentStatusLabel}</span></header>
     <div className="driver-assignment-fields">
       <label><span>司机姓名</span><input aria-label="司机姓名" value={driverName} maxLength={30} onChange={(event) => setDriverName(event.target.value)} placeholder="例如：王师傅" disabled={busy || !assignmentEditable} /></label>
       <label><span>司机手机号</span><input aria-label="司机手机号" value={driverPhone} inputMode="numeric" maxLength={11} onChange={(event) => setDriverPhone(event.target.value)} placeholder="11位手机号" disabled={busy || !assignmentEditable} /></label>
@@ -947,6 +1004,7 @@ function emptyPricePlan(): PricePlan {
     minSeats: 1,
     maxSeats: 6,
     usageNatures: ["非营运"],
+    plateCategories: ["blue_small_passenger", "new_energy_small_passenger"],
     vehicleClassCodes: ["passenger_car"],
     excludeVans: true,
     inspectionItems: ["safety_basic", "emissions_gasoline"],
@@ -969,6 +1027,11 @@ const pagePaths: Record<Page, string> = {
   insurance_leads: "/insurance",
   driving_schools: "/driving-schools",
   subsidy_consultation: "/subsidy-consultation",
+  workflow_tasks: "/workflow",
+  workflow_settings: "/workflow/settings",
+  workflow_templates: "/workflow/templates",
+  workflow_recipients: "/workflow/recipients",
+  workflow_releases: "/workflow/releases",
   service_accounts: "/service-accounts",
   audit_events: "/audit",
   wash_dashboard: "/wash/dashboard",
@@ -1000,8 +1063,9 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
   const [pricePlans, setPricePlans] = useState<PricePlan[]>([]);
   const [error, setError] = useState("");
   const [apiOnline, setApiOnline] = useState(true);
-  const loadStations = () => api<Station[]>("/admin/stations").then((items) => { setStations(items); setApiOnline(true); }).catch((reason) => { setApiOnline(false); setError(reason.message); throw reason; });
-  const loadPricePlans = () => api<PricePlan[]>("/admin/inspection-price-plans").then((items) => { setPricePlans(items); setApiOnline(true); }).catch((reason) => { setApiOnline(false); setError(reason.message); throw reason; });
+  const showError = useCallback((reason: unknown) => setError(operatorErrorMessage(reason)), []);
+  const loadStations = () => api<Station[]>("/admin/stations").then((items) => { setStations(items); setApiOnline(true); }).catch((reason) => { setApiOnline(false); setError(operatorErrorMessage(reason, "检测站资料读取失败，请稍后重试")); throw reason; });
+  const loadPricePlans = () => api<PricePlan[]>("/admin/inspection-price-plans").then((items) => { setPricePlans(items); setApiOnline(true); }).catch((reason) => { setApiOnline(false); setError(operatorErrorMessage(reason, "检验价格方案读取失败，请稍后重试")); throw reason; });
   useEffect(() => {
     if (!scopedMode) void Promise.all([loadStations(), loadPricePlans()]).catch(() => undefined);
   }, [scopedMode]);
@@ -1023,6 +1087,11 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     ["insurance_leads", "车险线索", ShieldCheck],
     ["driving_schools", "驾校服务", Student],
     ["subsidy_consultation", "补贴咨询", ChatCenteredText],
+    ["workflow_tasks", "履约督办", Gauge],
+    ["workflow_settings", "督办策略", SlidersHorizontal],
+    ["workflow_templates", "通知模板", ChatCenteredText],
+    ["workflow_recipients", "通知联系人", Users],
+    ["workflow_releases", "发布记录", ShieldCheck],
     ["service_accounts", "服务商账号", Users],
     ["audit_events", "操作记录", ShieldCheck],
   ];
@@ -1036,6 +1105,8 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     ["audit_self", "我的操作记录", ShieldCheck],
   ];
   const stationNavigation: Array<[Page, string, typeof ClipboardText]> = [
+    ["workflow_tasks", "本主体待办", Gauge],
+    ["workflow_settings", "生效督办规则", SlidersHorizontal],
     ["audit_self", "我的操作记录", ShieldCheck],
   ];
   const navigation = providerMode ? providerNavigation : stationMode || repairMode ? stationNavigation : platformNavigation;
@@ -1053,6 +1124,11 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     insurance_leads: "车险线索与合规转交",
     driving_schools: "驾校服务资料、报价与咨询",
     subsidy_consultation: "补贴咨询与价格维护",
+    workflow_tasks: "履约督办与通知中心",
+    workflow_settings: "督办策略",
+    workflow_templates: "通知模板",
+    workflow_recipients: "通知联系人和值班组",
+    workflow_releases: "发布与审计记录",
     service_accounts: "服务商账号与主体绑定",
     audit_events: "操作记录",
     wash_dashboard: "洗车门店经营工作台",
@@ -1062,10 +1138,11 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     audit_self: "我的操作记录",
     forbidden: "无权访问",
   };
-  const platformOnlyPages: Page[] = ["bookings", "customers", "customer_detail", "stations", "price_plans", "valet", "wash_stores", "car_rental", "insurance_leads", "driving_schools", "subsidy_consultation", "service_accounts", "audit_events"];
+  const platformOnlyPages: Page[] = ["bookings", "customers", "customer_detail", "stations", "price_plans", "valet", "wash_stores", "car_rental", "insurance_leads", "driving_schools", "subsidy_consultation", "workflow_templates", "workflow_recipients", "workflow_releases", "service_accounts", "audit_events"];
   const providerCapabilities: Partial<Record<Page, string>> = {
     wash_dashboard: "wash.dashboard.read", wash_orders: "wash.orders.read", wash_slots: "wash.slots.read", wash_catalog: "wash.offers.read",
     wash_store_profile: "wash.store.read", wash_settlements: "wash.settlements.read", audit_self: "audit.self.read",
+    workflow_tasks: "workflow.tasks.read", workflow_settings: "workflow.tasks.read",
   };
   const allowed = page !== "forbidden" && (!scopedMode || (!platformOnlyPages.includes(page) && Boolean(providerCapabilities[page] && session.capabilities.includes(providerCapabilities[page]!))));
   const navigate = (next: Page | string) => {
@@ -1083,29 +1160,34 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
       <div className="demo-admin"><ShieldCheck size={20} /><div><strong>{scopedMode ? "单主体数据空间" : "平台全局数据空间"}</strong><small>{scopedMode ? "仅当前主体 · 服务端强制隔离" : "全部模块 · 全部经营主体"}</small></div></div>
     </aside>
     <main className="admin-main">
-      <header className="topbar"><div><small>{stationMode ? "YUXIAOMAN INSPECTION STATION" : repairMode ? "YUXIAOMAN REPAIR SHOP" : providerMode ? "YUXIAOMAN STORE OPERATIONS" : "YUXIAOMAN OPERATIONS"}</small><h1>{titles[page]}</h1></div><div className="topbar-actions"><span className={`system-state ${apiOnline ? "" : "offline"}`}><i />{apiOnline ? "安全会话已连接" : "后台 API 未连接"}</span><BackofficeAccountBadge session={session} logout={logout} /></div></header>
+      <header className="topbar"><div><small>{stationMode ? "检测站工作台" : repairMode ? "维修门店工作台" : providerMode ? "服务门店工作台" : "驭小满运营后台"}</small><h1>{titles[page]}</h1></div><div className="topbar-actions"><span className={`system-state ${apiOnline ? "" : "offline"}`}><i />{apiOnline ? "安全会话已连接" : "后台服务未连接"}</span><BackofficeAccountBadge session={session} logout={logout} /></div></header>
       {error ? <div className="admin-alert"><WarningCircle />{error}<button onClick={() => setError("")}><X /></button></div> : null}
       {!allowed ? <AccessDeniedPage home={() => navigate(defaultPage)} /> : null}
-      {allowed && page === "bookings" ? <BookingsPage stations={stations} onError={setError} /> : null}
-      {allowed && page === "customers" ? <CustomersPage onNavigate={navigate} onError={setError} /> : null}
-      {allowed && page === "customer_detail" ? <CustomerDetailPage customerId={customerId} onNavigate={navigate} onError={setError} /> : null}
-      {allowed && page === "stations" ? <StationsPage stations={stations} pricePlans={pricePlans} reload={loadStations} onError={setError} /> : null}
-      {allowed && page === "price_plans" ? <PricePlansPage plans={pricePlans} reload={() => Promise.all([loadPricePlans(), loadStations()]).then(() => undefined)} onError={setError} /> : null}
-      {allowed && page === "valet" ? <ValetPage stations={stations} onError={setError} /> : null}
-      {allowed && page === "wash_orders" ? providerMode ? <ProviderWashOrdersPage canRedeem={session.capabilities.includes("wash.orders.redeem")} onError={setError} /> : <WashOrdersPage onError={setError} /> : null}
-      {allowed && page === "wash_stores" ? <WashStoresPage onError={setError} /> : null}
-      {allowed && page === "wash_catalog" ? providerMode ? <ProviderWashCatalogPage subjectId={session.subject?.id || ""} onError={setError} /> : <WashCatalogPage onError={setError} /> : null}
-      {allowed && page === "car_rental" ? <CarRentalAdminPage onError={setError} /> : null}
-      {allowed && page === "insurance_leads" ? <InsuranceLeadsPage onError={setError} /> : null}
-      {allowed && page === "driving_schools" ? <DrivingSchoolAdminPage onError={setError} /> : null}
-      {allowed && page === "subsidy_consultation" ? <SubsidyConsultationAdminPage onError={setError} /> : null}
-      {allowed && page === "service_accounts" ? <ServiceAccountsPage onError={setError} /> : null}
-      {allowed && page === "audit_events" ? <AuditEventsPage onError={setError} /> : null}
-      {allowed && page === "wash_dashboard" ? <WashProviderDashboard onNavigate={navigate} onError={setError} /> : null}
-      {allowed && page === "wash_slots" ? <ProviderWashSlotsPage subjectId={session.subject?.id || ""} onError={setError} /> : null}
-      {allowed && page === "wash_store_profile" ? <ProviderWashStorePage subjectId={session.subject?.id || ""} onError={setError} /> : null}
-      {allowed && page === "wash_settlements" ? <WashProviderSettlementsPage onError={setError} /> : null}
-      {allowed && page === "audit_self" ? <AuditEventsPage selfOnly selfRole={session.account.role} onError={setError} /> : null}
+      {allowed && page === "bookings" ? <BookingsPage stations={stations} onError={showError} /> : null}
+      {allowed && page === "customers" ? <CustomersPage onNavigate={navigate} onError={showError} /> : null}
+      {allowed && page === "customer_detail" ? <CustomerDetailPage customerId={customerId} onNavigate={navigate} onError={showError} /> : null}
+      {allowed && page === "stations" ? <StationsPage stations={stations} pricePlans={pricePlans} reload={loadStations} onError={showError} /> : null}
+      {allowed && page === "price_plans" ? <PricePlansPage plans={pricePlans} reload={() => Promise.all([loadPricePlans(), loadStations()]).then(() => undefined)} onError={showError} /> : null}
+      {allowed && page === "valet" ? <ValetPage stations={stations} onError={showError} /> : null}
+      {allowed && page === "wash_orders" ? providerMode ? <ProviderWashOrdersPage canRedeem={session.capabilities.includes("wash.orders.redeem")} onError={showError} /> : <WashOrdersPage onError={showError} /> : null}
+      {allowed && page === "wash_stores" ? <WashStoresPage onError={showError} /> : null}
+      {allowed && page === "wash_catalog" ? providerMode ? <ProviderWashCatalogPage subjectId={session.subject?.id || ""} onError={showError} /> : <WashCatalogPage onError={showError} /> : null}
+      {allowed && page === "car_rental" ? <CarRentalAdminPage onError={showError} /> : null}
+      {allowed && page === "insurance_leads" ? <InsuranceLeadsPage onError={showError} /> : null}
+      {allowed && page === "driving_schools" ? <DrivingSchoolAdminPage onError={showError} /> : null}
+      {allowed && page === "subsidy_consultation" ? <SubsidyConsultationAdminPage onError={showError} /> : null}
+      {allowed && page === "workflow_tasks" ? <WorkflowAdminPage section="tasks" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
+      {allowed && page === "workflow_settings" ? <WorkflowAdminPage section="settings" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
+      {allowed && page === "workflow_templates" ? <WorkflowAdminPage section="templates" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
+      {allowed && page === "workflow_recipients" ? <WorkflowAdminPage section="recipients" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
+      {allowed && page === "workflow_releases" ? <WorkflowAdminPage section="releases" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
+      {allowed && page === "service_accounts" ? <ServiceAccountsPage onError={showError} /> : null}
+      {allowed && page === "audit_events" ? <AuditEventsPage onError={showError} /> : null}
+      {allowed && page === "wash_dashboard" ? <WashProviderDashboard onNavigate={navigate} onError={showError} /> : null}
+      {allowed && page === "wash_slots" ? <ProviderWashSlotsPage subjectId={session.subject?.id || ""} onError={showError} /> : null}
+      {allowed && page === "wash_store_profile" ? <ProviderWashStorePage subjectId={session.subject?.id || ""} onError={showError} /> : null}
+      {allowed && page === "wash_settlements" ? <WashProviderSettlementsPage onError={showError} /> : null}
+      {allowed && page === "audit_self" ? <AuditEventsPage selfOnly selfRole={session.account.role} onError={showError} /> : null}
     </main>
   </div>;
 }
@@ -1132,7 +1214,7 @@ function BookingsPage({ stations, onError }: { stations: Station[]; onError: (me
     const bookingId = booking.id;
     void api<Booking>(`/admin/bookings/${bookingId}`).then((detail) => {
       setSelected((current) => current?.id === bookingId ? detail : current);
-    }).catch((reason) => onError(reason.message));
+    }).catch((reason) => onError(operatorErrorMessage(reason, "预约详情读取失败，请稍后重试")));
   };
   useEffect(() => {
     const bookingId = new URLSearchParams(window.location.search).get("booking") || "";
@@ -1143,7 +1225,7 @@ function BookingsPage({ stations, onError }: { stations: Station[]; onError: (me
       if (deepLinkSelectionRef.current === bookingId) setSelected(booking);
     }).catch((reason) => {
       if (deepLinkSelectionRef.current === bookingId) deepLinkSelectionRef.current = "";
-      onError(reason.message);
+      onError(operatorErrorMessage(reason, "预约详情读取失败，请稍后重试"));
     });
   }, [onError]);
   const load = () => {
@@ -1162,7 +1244,7 @@ function BookingsPage({ stations, onError }: { stations: Station[]; onError: (me
         return items.some((item) => item.id === current.id) ? current : null;
       });
     }).catch((reason: Error) => {
-      if (generation === listRequestGeneration.current && reason.name !== "AbortError") onError(reason.message);
+      if (generation === listRequestGeneration.current && reason.name !== "AbortError") onError(operatorErrorMessage(reason, "预约列表读取失败，请稍后重试"));
     }).finally(() => {
       if (generation !== listRequestGeneration.current) return;
       if (listRequestController.current === controller) listRequestController.current = null;
@@ -1219,7 +1301,7 @@ function BookingsPage({ stations, onError }: { stations: Station[]; onError: (me
         const legacy = booking.fulfillmentStatus === "legacy";
         const plate = booking.vehicle?.plateNumber || "待核验车辆";
         const orderedAt = shanghaiTime(booking.createdAt);
-        return <tr key={booking.id} data-booking-id={booking.id}><td className="booking-created-cell"><strong>{orderedAt?.slice(0, 10) || "—"}</strong><small>{orderedAt?.slice(11) || "时间待补全"}</small></td><td><strong>{booking.appointmentDate}</strong><small>{booking.startTime}–{booking.endTime}</small></td><td><button type="button" className="booking-primary-link" aria-label={`打开${plate}预约详情`} onClick={() => openBooking(booking)}><strong>{plate}</strong><small>{booking.contactName} · {booking.contactPhone}</small></button></td><td><strong>{booking.station?.name}</strong><small>{booking.station?.district}</small></td><td><span className={`mode-pill ${booking.serviceMode}`}>{booking.serviceMode === "valet" ? legacy ? "历史单程口径" : "往返取送" : "自驾到站"}</span></td><td><strong>¥{money(booking.serviceFeeFen)}</strong><small>{bookingPaymentText(booking)}</small></td><td className="booking-status-cell"><span className={`status-pill status-${fulfillment}`}>{statusLabels[fulfillment] || fulfillment}</span>{legacy ? <small>历史订单</small> : null}</td><td className="booking-action-cell"><button type="button" className="booking-detail-button" aria-label={`查看${plate}预约详情`} onClick={() => openBooking(booking)}><span>查看详情</span><CaretRight aria-hidden="true" /></button></td></tr>;
+        return <tr key={booking.id} data-booking-id={booking.id}><td className="booking-created-cell"><strong>{orderedAt?.slice(0, 10) || "—"}</strong><small>{orderedAt?.slice(11) || "时间待补全"}</small></td><td><strong>{booking.appointmentDate}</strong><small>{booking.startTime}–{booking.endTime}</small></td><td><button type="button" className="booking-primary-link" aria-label={`打开${plate}预约详情`} onClick={() => openBooking(booking)}><strong>{plate}</strong><small>{booking.contactName} · {booking.contactPhone}</small></button></td><td><strong>{booking.station?.name}</strong><small>{booking.station?.district}</small></td><td><span className={`mode-pill ${booking.serviceMode}`}>{booking.serviceMode === "valet" ? legacy ? "历史单程口径" : "往返取送" : "自驾到站"}</span></td><td><strong>¥{money(booking.serviceFeeFen)}</strong><small>{bookingPaymentText(booking)}</small></td><td className="booking-status-cell"><span className={`status-pill status-${fulfillment}`}>{statusLabels[fulfillment] || "状态待核对"}</span>{legacy ? <small>历史订单</small> : null}</td><td className="booking-action-cell"><button type="button" className="booking-detail-button" aria-label={`查看${plate}预约详情`} onClick={() => openBooking(booking)}><span>查看详情</span><CaretRight aria-hidden="true" /></button></td></tr>;
       })}</tbody></table>{!bookings.length && !loading ? <div className="empty-table">没有符合条件的预约</div> : null}{loading ? <div className="table-loading">正在同步预约数据…</div> : null}</div>
     </section>
     {selected ? <BookingDrawer booking={selected} close={() => { deepLinkSelectionRef.current = ""; setSelected(null); const url = new URL(window.location.href); url.searchParams.delete("booking"); window.history.replaceState({}, "", `${url.pathname}${url.search}`); }} refresh={async () => {
@@ -1229,7 +1311,7 @@ function BookingsPage({ stations, onError }: { stations: Station[]; onError: (me
         const booking = await api<Booking>(`/admin/bookings/${bookingId}`);
         setSelected((current) => current?.id === bookingId ? booking : current);
       } catch (reason) {
-        onError((reason as Error).message);
+        onError(operatorErrorMessage(reason, "预约详情刷新失败，请稍后重试"));
       }
     }} onError={onError} /> : null}
   </>;
@@ -1269,7 +1351,7 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
       await Promise.resolve(refresh());
       window.setTimeout(() => setSaved(""), 2200);
     } catch (error) {
-      onError((error as Error).message);
+      onError(operatorErrorMessage(error, "预约退款重试失败，请稍后再试"));
     } finally {
       setSaving(false);
     }
@@ -1325,7 +1407,7 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
       refresh();
       window.setTimeout(() => setSaved(""), 2200);
     } catch (error) {
-      onError((error as Error).message);
+      onError(operatorErrorMessage(error, "预约履约信息保存失败，请稍后重试"));
     } finally {
       setSaving(false);
     }
@@ -1346,7 +1428,7 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
   const exceptionOptions = adminExceptionOptions(booking, initialStatus);
   const checkupReportExpected = (["result_received", "returning", "completed"] as FulfillmentStatus[]).includes(initialStatus);
   return <><div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}><aside className="detail-drawer wide-drawer booking-detail-drawer" aria-label="预约与账务详情">
-    <header><div><small>预约与账务详情</small><h2>{booking.vehicle?.plateNumber || "待核验车辆"}</h2><p>{booking.bookingNumber || booking.id}</p></div><div className="drawer-header-actions"><button type="button" onClick={handleRefresh} disabled={refreshing} aria-label="刷新预约详情" title="刷新详情"><ArrowClockwise className={refreshing ? "drawer-refresh-spin" : undefined} /></button><button type="button" onClick={close} aria-label="关闭预约详情"><X /></button></div></header>
+    <header><div><small>预约与账务详情</small><h2>{booking.vehicle?.plateNumber || "待核验车辆"}</h2><p>{booking.bookingNumber || "业务编号待补全"}</p></div><div className="drawer-header-actions"><button type="button" onClick={handleRefresh} disabled={refreshing} aria-label="刷新预约详情" title="刷新详情"><ArrowClockwise className={refreshing ? "drawer-refresh-spin" : undefined} /></button><button type="button" onClick={close} aria-label="关闭预约详情"><X /></button></div></header>
     <div className="drawer-scroll">
       <section className="drawer-status"><span className={`status-pill status-${status}`}>{statusLabels[status]}</span><strong>{booking.appointmentDate} · {booking.startTime}–{booking.endTime}</strong><small>{booking.station?.name} · {booking.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站"}</small></section>
       <BookingJourney booking={booking} />
@@ -1357,13 +1439,13 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
         previewTriggerRef.current = trigger;
         setPreview({ context: `履约留证 · ${stageLabel}`, label: `${stageLabel}${evidencePhotoLabels[photos[index].kind]}`, items: photos, index });
       }} /> : null}
-      <section className="detail-section"><h3>交易状态</h3><div className="payment-summary"><div><small>应付</small><strong>¥{money(chargedFen)}</strong></div><div><small>已收</small><strong>¥{money(paidFen)}</strong></div><div><small>已退</small><strong>¥{money(refundedFen)}</strong></div><span className={`payment-pill payment-${booking.paymentStatus || "unpaid"}`}>{paymentLabels[booking.paymentStatus || "unpaid"]}</span></div>{booking.pendingAdjustmentFen ? <p className="pending-money-note">另有 ¥{money(booking.pendingAdjustmentFen)} 附加费等待车主确认；确认或作废前，服务不能结束。</p> : null}{booking.amountDueFen ? <p className="pending-money-note">尚有 ¥{money(booking.amountDueFen)} 已确认费用待支付，结清后才能完成服务。</p> : null}<p className="muted">当前支付提供方为 mock，仅记录交易状态，不会发生真实扣款。</p></section>
+      <section className="detail-section"><h3>交易状态</h3><div className="payment-summary"><div><small>应付</small><strong>¥{money(chargedFen)}</strong></div><div><small>已收</small><strong>¥{money(paidFen)}</strong></div><div><small>已退</small><strong>¥{money(refundedFen)}</strong></div><span className={`payment-pill payment-${booking.paymentStatus || "unpaid"}`}>{paymentLabels[booking.paymentStatus || "unpaid"]}</span></div>{booking.pendingAdjustmentFen ? <p className="pending-money-note">另有 ¥{money(booking.pendingAdjustmentFen)} 附加费等待车主确认；确认或作废前，服务不能结束。</p> : null}{booking.amountDueFen ? <p className="pending-money-note">尚有 ¥{money(booking.amountDueFen)} 已确认费用待支付，结清后才能完成服务。</p> : null}<p className="muted">当前为模拟支付环境，仅记录交易状态，不会发生真实扣款。</p></section>
       <section className="detail-section"><h3>后台例外处理</h3><div className="ops-form"><label><span>当前状态 / 可用例外</span><select aria-label="后台例外处理" value={status} onChange={(event) => setStatus(event.target.value as FulfillmentStatus)}>{exceptionOptions.map((value) => <option key={value} value={value}>{statusLabels[value]}{value === "on_hold" && value !== initialStatus ? "（暂停履约）" : value === "cancelled" && value !== initialStatus ? "（终止订单）" : value !== initialStatus ? "（恢复原节点）" : ""}</option>)}</select></label><label className="wide"><span>线下司机协调备注（仅后台可见）</span><textarea value={driverNote} onChange={(event) => setDriverNote(event.target.value)} placeholder="例如：微信群已确认司机王师傅，预计 09:20 到达" /></label><button disabled={saving} onClick={() => void saveFulfillment(false)}><FloppyDisk />{saving ? "保存中…" : status === initialStatus ? "保存协调备注" : "保存例外处理"}</button>{saved ? <em className="saved-inline"><CheckCircle weight="fill" />{saved}</em> : null}</div><p className="protected-transition-note"><ShieldCheck />后台只处理挂起、恢复原节点、取消和协调备注。接单、到站核验、交接检测、结果发布及代驾留证由检测站或司机在对应业务端完成。</p>{initialStatus === "on_hold" && !holdRestoreStatus(booking) ? <p className="pending-money-note">该历史挂起记录缺少可验证的原节点，已禁止猜测恢复，请联系平台核对数据。</p> : null}</section>
-      <section className="detail-section"><h3>不可变价格快照</h3><dl><div><dt>年检服务费</dt><dd>¥{money(booking.inspectionFeeFen)}</dd></div><div><dt>{booking.fulfillmentStatus === "legacy" && booking.serviceMode === "valet" ? "历史单程服务费" : "往返取送费"}</dt><dd>¥{money(booking.valetFeeFen)}{distance ? `（${isTencentRoute ? "腾讯单程" : "历史估算/未核验"} ${distance} km）` : ""}</dd></div>{valetRule && booking.fulfillmentStatus !== "legacy" ? <div><dt>取送公式</dt><dd>¥{money(valetRule.baseFeeFen)} + 超出 {booking.extraKm ?? booking.quoteExtraKm ?? 0} km × ¥{money(valetRule.perKmFen)}</dd></div> : null}<div className="total"><dt>下单快照总价</dt><dd>¥{money(booking.serviceFeeFen)}</dd></div></dl></section>
-      <section className="detail-section"><h3>费用调整与退款</h3><div className="ledger-editor"><select value={adjustmentType} onChange={(event) => setAdjustmentType(event.target.value as "adjustment" | "refund")}><option value="adjustment">新增附加费</option><option value="refund">记录退款</option></select><div><i>¥</i><input type="number" min="0.01" step="0.01" value={adjustmentYuan} onChange={(event) => setAdjustmentYuan(event.target.value)} placeholder="0.00" /></div><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="必须填写收费或退款原因" /><button disabled={saving} onClick={() => void saveFulfillment(true)}>{adjustmentType === "refund" ? <ArrowCounterClockwise /> : <Plus />}{adjustmentType === "refund" ? "确认退款记录" : "提交附加费待车主确认"}</button></div><div className="ledger-list">{booking.ledgerEntries?.filter((entry) => !["booking_charge", "legacy_booking_charge"].includes(entry.kind)).map((entry) => <div key={entry.id}><span><Receipt />{entry.description}<small>{entry.confirmationStatus === "pending_owner_confirmation" ? "等待车主确认 · 尚未计入应付" : entry.confirmationStatus === "voided" ? "已作废" : new Date(entry.createdAt).toLocaleString("zh-CN")}</small></span><strong className={entry.amountFen < 0 ? "negative" : ""}>{entry.amountFen < 0 ? "−" : "+"}¥{money(Math.abs(entry.amountFen))}</strong></div>)}{!booking.ledgerEntries?.some((entry) => !["booking_charge", "legacy_booking_charge"].includes(entry.kind)) ? <p className="muted">暂无后续调整或退款</p> : null}</div></section>
-      {booking.vehicleCheckupReport ? <section className="detail-section checkup-detail-section"><VehicleCheckupReportPanel report={booking.vehicleCheckupReport} booking={{ bookingNumber: booking.bookingNumber, appointmentDate: booking.appointmentDate, startTime: booking.startTime, endTime: booking.endTime }} vehicle={booking.vehicle} station={booking.station} serviceMode={booking.serviceMode} /></section> : checkupReportExpected ? <section className="detail-section checkup-detail-section checkup-report-missing" role="alert" aria-label="车辆体检报告缺失"><span><WarningCircle weight="fill" /></span><div><small>REPORT MATERIAL MISSING</small><h3>未形成结构化车辆体检报告</h3><p>材料闭环不完整，请核对原始检测站报告和现场影像。系统不会伪造或自动补齐体检报告。</p></div></section> : null}
+      <section className="detail-section"><h3>不可变价格快照</h3><dl><div><dt>年检服务费</dt><dd>¥{money(booking.inspectionFeeFen)}</dd></div><div><dt>{booking.fulfillmentStatus === "legacy" && booking.serviceMode === "valet" ? "历史单程服务费" : "往返取送费"}</dt><dd>¥{money(booking.valetFeeFen)}{distance ? `（${isTencentRoute ? "腾讯单程" : "历史估算/未核验"} ${distance} 公里）` : ""}</dd></div>{valetRule && booking.fulfillmentStatus !== "legacy" ? <div><dt>取送公式</dt><dd>¥{money(valetRule.baseFeeFen)} + 超出 {booking.extraKm ?? booking.quoteExtraKm ?? 0} 公里 × ¥{money(valetRule.perKmFen)}</dd></div> : null}<div className="total"><dt>下单快照总价</dt><dd>¥{money(booking.serviceFeeFen)}</dd></div></dl></section>
+      <section className="detail-section"><h3>费用调整与退款</h3><div className="ledger-editor"><select value={adjustmentType} onChange={(event) => setAdjustmentType(event.target.value as "adjustment" | "refund")}><option value="adjustment">新增附加费</option><option value="refund" disabled={["pending_precheck", "precheck_action_required"].includes(initialStatus)}>记录退款</option></select><div><i>¥</i><input type="number" min="0.01" step="0.01" value={adjustmentYuan} onChange={(event) => setAdjustmentYuan(event.target.value)} placeholder="0.00" /></div><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="必须填写收费或退款原因" /><button disabled={saving} onClick={() => void saveFulfillment(true)}>{adjustmentType === "refund" ? <ArrowCounterClockwise /> : <Plus />}{adjustmentType === "refund" ? "确认退款记录" : "提交附加费待车主确认"}</button></div><div className="ledger-list">{booking.ledgerEntries?.filter((entry) => !["booking_charge", "legacy_booking_charge"].includes(entry.kind)).map((entry) => <div key={entry.id}><span><Receipt />{entry.description}<small>{entry.confirmationStatus === "pending_owner_confirmation" ? "等待车主确认 · 尚未计入应付" : entry.confirmationStatus === "voided" ? "已作废" : shanghaiTime(entry.createdAt) || "时间待核对"}</small></span><strong className={entry.amountFen < 0 ? "negative" : ""}>{entry.amountFen < 0 ? "−" : "+"}¥{money(Math.abs(entry.amountFen))}</strong></div>)}{!booking.ledgerEntries?.some((entry) => !["booking_charge", "legacy_booking_charge"].includes(entry.kind)) ? <p className="muted">暂无后续调整或退款</p> : null}</div></section>
+      {booking.vehicleCheckupReport ? <section className="detail-section checkup-detail-section"><VehicleCheckupReportPanel report={booking.vehicleCheckupReport} booking={{ bookingNumber: booking.bookingNumber, appointmentDate: booking.appointmentDate, startTime: booking.startTime, endTime: booking.endTime }} vehicle={booking.vehicle} station={booking.station} serviceMode={booking.serviceMode} /></section> : checkupReportExpected ? <section className="detail-section checkup-detail-section checkup-report-missing" role="alert" aria-label="车辆体检报告缺失"><span><WarningCircle weight="fill" /></span><div><small>报告材料缺失</small><h3>未形成结构化车辆体检报告</h3><p>材料闭环不完整，请核对原始检测站报告和现场影像。系统不会伪造或自动补齐体检报告。</p></div></section> : null}
       <section className="detail-section"><h3>上传资料 <em>{bookingMediaCountLabel(booking, media.length)}</em></h3><div className="media-gallery">{media.map((item, index) => {
-        const label = mediaLabels[item.kind] || item.kind;
+        const label = mediaLabels[item.kind] || "其他预约资料";
         return <figure key={item.id}><button type="button" className="media-preview-trigger" aria-label={`查看${label}大图`} title="点击查看大图" onClick={(event) => { previewTriggerRef.current = event.currentTarget; setPreview({ context: "预约上传资料", label, items: media, index }); }}><AuthenticatedEvidenceImage url={item.url} alt={label} /><span><MagnifyingGlass />查看大图</span></button><figcaption>{label}</figcaption></figure>;
       })}</div>{media.length === 0 ? <p className="muted">该订单没有上传资料</p> : null}</section>
     </div>
@@ -1375,7 +1457,7 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
         <AuthenticatedEvidenceImage url={previewMedia.url} alt={`${previewLabel}大图`} variant="preview" />
         {preview.items.length > 1 ? <button type="button" className="media-lightbox-nav next" onClick={() => setPreview((current) => shiftPreview(current, 1))} aria-label="下一张"><CaretRight /></button> : null}
       </div>
-      <footer><span>{previewMedia.width && previewMedia.height ? `${previewMedia.width} × ${previewMedia.height}` : "原始留证影像"}</span><small>可使用键盘 ← → 切换，Esc 关闭</small></footer>
+      <footer><span>{previewMedia.width && previewMedia.height ? `${previewMedia.width} × ${previewMedia.height}` : "原始留证影像"}</span><small>可使用键盘方向键切换，退出键关闭</small></footer>
     </div>
   </div> : null}</>;
 }
@@ -1450,7 +1532,7 @@ function StationsPage({ stations, pricePlans, reload, onError }: { stations: Sta
         if (controller.signal.aborted || requestId !== locationRequestId.current || (error as Error).name === "AbortError") return;
         setLocationSuggestions([]);
         setLocationSearchState("error");
-        setLocationSearchError((error as Error).message || "地址服务暂不可用，请稍后重试");
+        setLocationSearchError(operatorErrorMessage(error, "地址服务暂不可用，请稍后重试"));
       }
     }, 320);
 
@@ -1579,7 +1661,7 @@ function StationsPage({ stations, pricePlans, reload, onError }: { stations: Sta
       setSaving(false);
     }
   };
-  return <div className="station-layout"><section className="station-list"><header><div><small>共 {stations.length} 个站点</small><h2>检测站</h2></div><button className="icon-action" onClick={beginCreate}><Plus />新增</button></header>{stations.map((item) => <button className={!creating && item.id === draft.id ? "active" : ""} key={item.id} onClick={() => { setCreating(false); setSelectedId(item.id); }}><span className="station-icon"><Buildings /></span><span><strong>{item.name}</strong><small>{item.isDirectOperated ? "自营" : item.dataKind === "demo" ? "演示" : "合作"} · {item.isActive ? "已启用" : "已停用"}</small></span>{item.isPinned ? <em>置顶</em> : null}<CaretRight /></button>)}</section><form className="station-editor" onSubmit={save}><header><div><small>{creating ? "CREATE STATION" : "STATION CONFIGURATION"}</small><h2>{creating ? "新增检测站" : draft.name}</h2></div><div className="header-switches"><label className="switch"><input type="checkbox" checked={draft.isActive} onChange={(event) => update("isActive", event.target.checked)} /><span />{draft.isActive ? "已启用" : "已停用"}</label><label className="switch"><input type="checkbox" checked={Boolean(draft.isPinned)} onChange={(event) => update("isPinned", event.target.checked)} /><span />置顶</label></div></header><div className="form-grid">
+  return <div className="station-layout"><section className="station-list"><header><div><small>共 {stations.length} 个站点</small><h2>检测站</h2></div><button className="icon-action" onClick={beginCreate}><Plus />新增</button></header>{stations.map((item) => <button className={!creating && item.id === draft.id ? "active" : ""} key={item.id} onClick={() => { setCreating(false); setSelectedId(item.id); }}><span className="station-icon"><Buildings /></span><span><strong>{item.name}</strong><small>{item.isDirectOperated ? "自营" : item.dataKind === "demo" ? "演示" : "合作"} · {item.isActive ? "已启用" : "已停用"}</small></span>{item.isPinned ? <em>置顶</em> : null}<CaretRight /></button>)}</section><form className="station-editor" onSubmit={save}><header><div><small>{creating ? "创建检测站" : "检测站配置"}</small><h2>{creating ? "新增检测站" : draft.name}</h2></div><div className="header-switches"><label className="switch"><input type="checkbox" checked={draft.isActive} onChange={(event) => update("isActive", event.target.checked)} /><span />{draft.isActive ? "已启用" : "已停用"}</label><label className="switch"><input type="checkbox" checked={Boolean(draft.isPinned)} onChange={(event) => update("isPinned", event.target.checked)} /><span />置顶</label></div></header><div className="form-grid">
       <label><span>展示名称</span><input aria-label="展示名称" required value={draft.name} onChange={(event) => update("name", event.target.value)} /></label>
       <label><span>正式主体名称</span><input aria-label="正式主体名称" value={draft.legalName || ""} onChange={(event) => update("legalName", event.target.value || null)} /></label>
       <section className="wash-store-location station-location-picker" aria-labelledby="station-location-title">
@@ -1600,7 +1682,7 @@ function StationsPage({ stations, pricePlans, reload, onError }: { stations: Sta
           {locationSearchState === "error" ? <span className="error"><WarningCircle weight="fill" />{locationSearchError}</span> : null}
         </div>
         {locationSuggestions.length ? <div className="wash-location-suggestions" role="listbox" aria-label="检测站位置候选">{locationSuggestions.map((location) => <button key={location.poiId} type="button" role="option" aria-selected="false" onClick={() => selectLocation(location)}><MapPin weight="duotone" /><span><strong>{location.title}</strong><small>{location.address}</small></span><em>{location.district}{location.source === "demo" ? " · 演示" : ""}</em></button>)}</div> : null}
-        {locationConfirmed && draft.address ? <div className="wash-location-selected"><span className="location-pin"><MapPin weight="fill" /></span><div><small>当前用于距离、代驾费与导航的位置</small><strong>{locationTitle || draft.name || "已选择检测站位置"}</strong><p>{draft.address}</p></div><span className="location-district">{draft.district}</span></div> : <div className="wash-location-placeholder"><MapPin /><span><strong>尚未选择检测站位置</strong><small>保存前必须从搜索结果中选择，地址、POI 与坐标由系统写入</small></span></div>}
+        {locationConfirmed && draft.address ? <div className="wash-location-selected"><span className="location-pin"><MapPin weight="fill" /></span><div><small>当前用于距离、代驾费与导航的位置</small><strong>{locationTitle || draft.name || "已选择检测站位置"}</strong><p>{draft.address}</p></div><span className="location-district">{draft.district}</span></div> : <div className="wash-location-placeholder"><MapPin /><span><strong>尚未选择检测站位置</strong><small>保存前必须从搜索结果中选择，地址、地图点位与坐标由系统写入</small></span></div>}
         {locationConfirmed ? <div className="wash-location-coordinates station-location-coordinates">
           <label><span>所属区（自动识别）</span><input aria-label="所属区" readOnly value={draft.district} /></label>
           <label><span>标准地址（自动回填）</span><input aria-label="详细地址" readOnly value={draft.address} /></label>
@@ -1615,11 +1697,11 @@ function StationsPage({ stations, pricePlans, reload, onError }: { stations: Sta
       <label><span>内部联系电话</span><input aria-label="内部联系电话" value={draft.internalContact?.phone || ""} onChange={(event) => update("internalContact", { name: draft.internalContact?.name || "", phone: event.target.value })} /></label>
       <label className="wide check-field"><input type="checkbox" checked={draft.isDirectOperated} onChange={(event) => update("isDirectOperated", event.target.checked)} /><span><strong>标记为官方自营站</strong><small>自营属性、置顶、排序权重与取送优惠分别配置</small></span></label>
     </div>
-    <section className="schedule-editor"><header><div><small>WEEKLY SCHEDULE</small><h3>每周营业安排</h3></div><input value={draft.openHours} onChange={(event) => update("openHours", event.target.value)} aria-label="营业时间摘要" /></header><div>{dayLabels.map(([day, label]) => { const period = draft.weeklySchedule[day]?.[0]; return <label key={day} className={period ? "active" : ""}><input type="checkbox" checked={Boolean(period)} onChange={(event) => updateSchedule(day, event.target.checked)} /><strong>{label}</strong>{period ? <span className="day-times"><input aria-label={`${label}开始时间`} type="time" value={period.start} onChange={(event) => updateScheduleTime(day, "start", event.target.value)} /><i>至</i><input aria-label={`${label}结束时间`} type="time" value={period.end} onChange={(event) => updateScheduleTime(day, "end", event.target.value)} /></span> : <small>休息</small>}</label>; })}</div><input className="notice-input" value={draft.businessHoursNotice || ""} onChange={(event) => update("businessHoursNotice", event.target.value)} placeholder="营业时间提示" /></section>
-    {!creating ? <section className="slot-editor"><header><div><small>APPOINTMENT CAPACITY</small><h3>号源容量管理</h3></div><label><span>预约日期</span><input type="date" min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} value={slotDate} onChange={(event) => setSlotDate(event.target.value)} /></label></header><div className="slot-create-row"><label><span>开始</span><input type="time" value={newSlot.startTime} onChange={(event) => setNewSlot((current) => ({ ...current, startTime: event.target.value }))} /></label><label><span>结束</span><input type="time" value={newSlot.endTime} onChange={(event) => setNewSlot((current) => ({ ...current, endTime: event.target.value }))} /></label><label><span>容量</span><input type="number" min="1" max="99" value={newSlot.capacity} onChange={(event) => setNewSlot((current) => ({ ...current, capacity: Number(event.target.value) }))} /></label><button type="button" onClick={() => void createSlot()}><Plus />新增时段</button></div>{slotsLoading ? <p className="muted">正在读取号源…</p> : slots.length ? <div className="slot-grid">{slots.map((slot) => <article key={slot.id}><span><strong>{slot.startTime}–{slot.endTime}</strong><small>已约 {slot.bookedCount} · 剩余 {Math.max(0, slot.capacity - slot.bookedCount)}</small></span><label><small>总容量</small><input type="number" min={Math.max(1, slot.bookedCount)} max="99" value={slot.capacity} onChange={(event) => setSlots((current) => current.map((item) => item.id === slot.id ? { ...item, capacity: Number(event.target.value) } : item))} /></label><button type="button" onClick={() => void saveSlot(slot)}><FloppyDisk />保存</button><button type="button" className="slot-delete" disabled={slot.bookedCount > 0} title={slot.bookedCount > 0 ? "已有预约，不能删除" : "删除号源"} onClick={() => void deleteSlot(slot)}><Trash />删除</button></article>)}</div> : <p className="muted">该日期暂无号源，可在上方新增。</p>}</section> : null}
-    <section className="price-matrix dynamic-prices"><header><div><small>STATION PRICE PLANS</small><h3>支持车型与年检价格</h3></div><span>方案定义由系统约束；本站只决定是否支持及实际价格</span></header><div>{pricePlans.map((plan) => {
+    <section className="schedule-editor"><header><div><small>每周营业安排</small><h3>每周营业安排</h3></div><input value={draft.openHours} onChange={(event) => update("openHours", event.target.value)} aria-label="营业时间摘要" /></header><div>{dayLabels.map(([day, label]) => { const period = draft.weeklySchedule[day]?.[0]; return <label key={day} className={period ? "active" : ""}><input type="checkbox" checked={Boolean(period)} onChange={(event) => updateSchedule(day, event.target.checked)} /><strong>{label}</strong>{period ? <span className="day-times"><input aria-label={`${label}开始时间`} type="time" value={period.start} onChange={(event) => updateScheduleTime(day, "start", event.target.value)} /><i>至</i><input aria-label={`${label}结束时间`} type="time" value={period.end} onChange={(event) => updateScheduleTime(day, "end", event.target.value)} /></span> : <small>休息</small>}</label>; })}</div><input className="notice-input" value={draft.businessHoursNotice || ""} onChange={(event) => update("businessHoursNotice", event.target.value)} placeholder="营业时间提示" /></section>
+    {!creating ? <section className="slot-editor"><header><div><small>预约容量</small><h3>号源容量管理</h3></div><label><span>预约日期</span><input type="date" min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)} value={slotDate} onChange={(event) => setSlotDate(event.target.value)} /></label></header><div className="slot-create-row"><label><span>开始</span><input type="time" value={newSlot.startTime} onChange={(event) => setNewSlot((current) => ({ ...current, startTime: event.target.value }))} /></label><label><span>结束</span><input type="time" value={newSlot.endTime} onChange={(event) => setNewSlot((current) => ({ ...current, endTime: event.target.value }))} /></label><label><span>容量</span><input type="number" min="1" max="99" value={newSlot.capacity} onChange={(event) => setNewSlot((current) => ({ ...current, capacity: Number(event.target.value) }))} /></label><button type="button" onClick={() => void createSlot()}><Plus />新增时段</button></div>{slotsLoading ? <p className="muted">正在读取号源…</p> : slots.length ? <div className="slot-grid">{slots.map((slot) => <article key={slot.id}><span><strong>{slot.startTime}–{slot.endTime}</strong><small>已约 {slot.bookedCount} · 剩余 {Math.max(0, slot.capacity - slot.bookedCount)}</small></span><label><small>总容量</small><input type="number" min={Math.max(1, slot.bookedCount)} max="99" value={slot.capacity} onChange={(event) => setSlots((current) => current.map((item) => item.id === slot.id ? { ...item, capacity: Number(event.target.value) } : item))} /></label><button type="button" onClick={() => void saveSlot(slot)}><FloppyDisk />保存</button><button type="button" className="slot-delete" disabled={slot.bookedCount > 0} title={slot.bookedCount > 0 ? "已有预约，不能删除" : "删除号源"} onClick={() => void deleteSlot(slot)}><Trash />删除</button></article>)}</div> : <p className="muted">该日期暂无号源，可在上方新增。</p>}</section> : null}
+    <section className="price-matrix dynamic-prices"><header><div><small>检测站价格方案</small><h3>支持车型与年检价格</h3></div><span>方案定义由系统约束；本站只决定是否支持及实际价格</span></header><div>{pricePlans.map((plan) => {
       const link = draft.pricePlans.find((item) => item.planId === plan.id) || { planId: plan.id, isSupported: false, priceFen: 0 };
-      return <label key={plan.id} className={link.isSupported ? "supported" : ""}><span><input type="checkbox" checked={link.isSupported} onChange={(event) => updatePlanLink(plan.id, { isSupported: event.target.checked })} /><span><strong>{plan.name}</strong><small>{plan.powertrainTypes.map((item) => powertrainLabels[item]).join(" / ")} · {plan.minSeats}–{plan.maxSeats} 座</small></span></span><div><i>¥</i><input aria-label={`${plan.name}年检价格`} disabled={!link.isSupported} required={link.isSupported} type="number" step="0.01" min="0.01" value={money(link.priceFen)} onChange={(event) => updatePlanLink(plan.id, { priceFen: Math.round(Number(event.target.value) * 100) })} /></div></label>;
+      return <label key={plan.id} className={link.isSupported ? "supported" : ""}><span><input type="checkbox" checked={link.isSupported} onChange={(event) => updatePlanLink(plan.id, { isSupported: event.target.checked })} /><span><strong>{plan.name}</strong><small>{plan.plateCategories.map((code) => plateCategory(code)?.label || "未识别号牌类型").join(" / ")}</small><small>{plan.powertrainTypes.map((item) => powertrainLabels[item]).join(" / ")} · {plan.minSeats}–{plan.maxSeats} 座</small></span></span><div><i>¥</i><input aria-label={`${plan.name}年检价格`} disabled={!link.isSupported} required={link.isSupported} type="number" step="0.01" min="0.01" value={money(link.priceFen)} onChange={(event) => updatePlanLink(plan.id, { priceFen: Math.round(Number(event.target.value) * 100) })} /></div></label>;
     })}</div></section><footer>{saved ? <span><CheckCircle weight="fill" />{saved}</span> : <span className="muted">历史订单价格快照不会被覆盖</span>}<button type="submit" disabled={saving}><FloppyDisk />{saving ? "保存中…" : creating ? "创建站点" : "保存站点配置"}</button></footer></form></div>;
 }
 
@@ -1628,7 +1710,6 @@ function PricePlansPage({ plans, reload, onError }: { plans: PricePlan[]; reload
   const [draft, setDraft] = useState<PricePlan>(plans[0] ? { ...plans[0] } : emptyPricePlan());
   const [creating, setCreating] = useState(!plans.length);
   const [usageText, setUsageText] = useState(draft.usageNatures.join("，"));
-  const [classText, setClassText] = useState(draft.vehicleClassCodes.join("，"));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState("");
   useEffect(() => {
@@ -1638,7 +1719,6 @@ function PricePlansPage({ plans, reload, onError }: { plans: PricePlan[]; reload
     setSelectedId(plan.id);
     setDraft({ ...plan });
     setUsageText(plan.usageNatures.join("，"));
-    setClassText(plan.vehicleClassCodes.join("，"));
   }, [plans, selectedId, creating]);
   const togglePowertrain = (value: PowertrainType) => setDraft((current) => ({ ...current, powertrainTypes: current.powertrainTypes.includes(value) ? current.powertrainTypes.filter((item) => item !== value) : [...current.powertrainTypes, value] }));
   const toggleItem = (value: InspectionItem) => setDraft((current) => ({ ...current, inspectionItems: current.inspectionItems.includes(value) ? current.inspectionItems.filter((item) => item !== value) : [...current.inspectionItems, value] }));
@@ -1648,20 +1728,20 @@ function PricePlansPage({ plans, reload, onError }: { plans: PricePlan[]; reload
     setSelectedId("");
     setDraft(next);
     setUsageText(next.usageNatures.join("，"));
-    setClassText(next.vehicleClassCodes.join("，"));
   };
   const save = async (event: FormEvent) => {
     event.preventDefault();
+    if (!draft.plateCategories.length) return onError("至少选择一个号牌车型");
     if (!draft.powertrainTypes.length || !draft.inspectionItems.length) return onError("至少选择一个动力类型和一个检验项目");
     if (draft.powertrainTypes.includes("pure_electric") && draft.inspectionItems.some((item) => item.startsWith("emissions_"))) return onError("纯电方案不能包含尾气排放检验");
     setSaving(true);
     try {
-      const payload = { ...draft, id: creating ? undefined : draft.id, usageNatures: splitList(usageText), vehicleClassCodes: splitList(classText) };
+      const payload = { ...draft, id: creating ? undefined : draft.id, usageNatures: splitList(usageText), vehicleClassCodes: [...new Set(draft.plateCategories.map((code) => plateCategory(code)!.vehicleClassCode))] };
       const next = await api<PricePlan>(creating ? "/admin/inspection-price-plans" : `/admin/inspection-price-plans/${draft.id}`, { method: creating ? "POST" : "PUT", body: JSON.stringify(payload) });
+      await reload();
       setCreating(false);
       setSelectedId(next.id);
       setSaved("价格方案已保存");
-      await reload();
       window.setTimeout(() => setSaved(""), 2200);
     } catch (error) {
       onError((error as Error).message);
@@ -1681,7 +1761,7 @@ function PricePlansPage({ plans, reload, onError }: { plans: PricePlan[]; reload
       onError((error as Error).message);
     }
   };
-  return <div className="station-layout plan-layout"><section className="station-list"><header><div><small>共 {plans.length} 个受控方案</small><h2>价格方案</h2></div><button className="icon-action" onClick={beginCreate}><Plus />新增</button></header>{plans.map((plan) => <button className={!creating && plan.id === draft.id ? "active" : ""} key={plan.id} onClick={() => { setCreating(false); setSelectedId(plan.id); }}><span className="station-icon"><ListChecks /></span><span><strong>{plan.name}</strong><small>{plan.isActive ? "已启用" : "已停用"} · {plan.minSeats}–{plan.maxSeats} 座</small></span><CaretRight /></button>)}</section><form className="station-editor plan-editor" onSubmit={save}><header><div><small>{creating ? "CREATE CONTROLLED PLAN" : "CONTROLLED PRICE PLAN"}</small><h2>{creating ? "新增检验价格方案" : draft.name}</h2></div><label className="switch"><input type="checkbox" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} /><span />{draft.isActive ? "已启用" : "已停用"}</label></header><div className="form-grid"><label><span>方案名称</span><input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label><span>稳定代码</span><input required pattern="[a-z0-9][a-z0-9_-]+" value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value.toLowerCase() })} /></label><label className="wide"><span>运营说明</span><input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><label><span>最少座位</span><input type="number" min="1" max="99" value={draft.minSeats} onChange={(event) => setDraft({ ...draft, minSeats: Number(event.target.value) })} /></label><label><span>最多座位</span><input type="number" min="1" max="99" value={draft.maxSeats} onChange={(event) => setDraft({ ...draft, maxSeats: Number(event.target.value) })} /></label><label><span>使用性质</span><input value={usageText} onChange={(event) => setUsageText(event.target.value)} placeholder="非营运" /></label><label><span>车辆类别代码</span><input value={classText} onChange={(event) => setClassText(event.target.value)} placeholder="passenger_car" /></label><label><span>后台排序</span><input type="number" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) })} /><small>仅控制方案列表顺序，不用于解决规则重叠</small></label><label className="check-field"><input type="checkbox" checked={draft.excludeVans} onChange={(event) => setDraft({ ...draft, excludeVans: event.target.checked })} /><span><strong>排除面包车</strong><small>面包车不生成在线报价</small></span></label></div><section className="condition-panel"><div><header><small>POWERTRAIN CONDITIONS</small><h3>适用动力类型</h3></header><div className="option-grid">{(Object.keys(powertrainLabels) as PowertrainType[]).map((value) => <label key={value} className={draft.powertrainTypes.includes(value) ? "selected" : ""}><input type="checkbox" checked={draft.powertrainTypes.includes(value)} onChange={() => togglePowertrain(value)} /><span>{powertrainLabels[value]}</span></label>)}</div></div><div><header><small>INSPECTION ITEMS</small><h3>包含检验项目</h3></header><div className="option-grid item-options">{(Object.keys(inspectionItemLabels) as InspectionItem[]).map((value) => <label key={value} className={draft.inspectionItems.includes(value) ? "selected" : ""}><input type="checkbox" checked={draft.inspectionItems.includes(value)} onChange={() => toggleItem(value)} /><span>{inspectionItemLabels[value]}</span></label>)}</div></div></section><div className="compliance-note"><ShieldCheck /><div><strong>法规分类由系统保护</strong><p>运营人员可以新增价格方案，但不能把纯电车辆误配尾气检测；规则重叠或无法匹配时停止自动报价，并提示车主联系客服。</p></div></div><footer>{!creating ? <button type="button" className="danger-button" onClick={() => void remove()}><Trash />删除方案</button> : <span />}{saved ? <span><CheckCircle weight="fill" />{saved}</span> : null}<button disabled={saving}><FloppyDisk />{saving ? "保存中…" : "保存价格方案"}</button></footer></form></div>;
+  return <div className="station-layout plan-layout"><section className="station-list"><header><div><small>共 {plans.length} 个受控方案</small><h2>价格方案</h2></div><button className="icon-action" onClick={beginCreate}><Plus />新增</button></header>{plans.map((plan) => <button className={!creating && plan.id === draft.id ? "active" : ""} key={plan.id} onClick={() => { setCreating(false); setSelectedId(plan.id); }}><span className="station-icon"><ListChecks /></span><span><strong>{plan.name}</strong><small>{plan.isActive ? "已启用" : "已停用"} · {plan.minSeats}–{plan.maxSeats} 座</small></span><CaretRight /></button>)}</section><form className="station-editor plan-editor" onSubmit={save}><header><div><small>{creating ? "创建受控方案" : "受控价格方案"}</small><h2>{creating ? "新增检验价格方案" : draft.name}</h2></div><label className="switch"><input type="checkbox" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} /><span />{draft.isActive ? "已启用" : "已停用"}</label></header><div className="form-grid"><label><span>方案名称</span><input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label><span>系统识别码</span><input aria-label="价格方案系统识别码" required pattern="[a-z0-9][a-z0-9_-]+" value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value.toLowerCase() })} /><small>用于系统区分方案，创建后请勿随意修改</small></label><label className="wide"><span>运营说明</span><input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><label><span>最少座位</span><input type="number" min="0" max="99" value={draft.minSeats} onChange={(event) => setDraft({ ...draft, minSeats: Number(event.target.value) })} /></label><label><span>最多座位</span><input type="number" min="0" max="99" value={draft.maxSeats} onChange={(event) => setDraft({ ...draft, maxSeats: Number(event.target.value) })} /></label><label><span>使用性质</span><input value={usageText} onChange={(event) => setUsageText(event.target.value)} placeholder="非营运" /></label><label><span>后台排序</span><input type="number" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) })} /><small>仅控制方案列表顺序，不用于解决规则重叠</small></label><label className="check-field"><input type="checkbox" checked={draft.excludeVans} onChange={(event) => setDraft({ ...draft, excludeVans: event.target.checked })} /><span><strong>排除面包车</strong><small>本方案不匹配面包车</small></span></label></div><section className="condition-panel category-conditions"><div><header><h3>适用号牌车型（11 类）</h3></header><div className="option-grid">{PLATE_CATEGORIES.map((category) => <label key={category.code} className={draft.plateCategories.includes(category.code) ? "selected" : ""}><input type="checkbox" checked={draft.plateCategories.includes(category.code)} onChange={() => setDraft((current) => ({ ...current, plateCategories: current.plateCategories.includes(category.code) ? current.plateCategories.filter((code) => code !== category.code) : [...current.plateCategories, category.code] }))} /><span>{category.label}</span></label>)}</div></div></section><section className="condition-panel"><div><header><small>动力条件</small><h3>适用动力类型</h3></header><div className="option-grid">{(Object.keys(powertrainLabels) as PowertrainType[]).map((value) => <label key={value} className={draft.powertrainTypes.includes(value) ? "selected" : ""}><input type="checkbox" checked={draft.powertrainTypes.includes(value)} onChange={() => togglePowertrain(value)} /><span>{powertrainLabels[value]}</span></label>)}</div></div><div><header><small>检验项目</small><h3>包含检验项目</h3></header><div className="option-grid item-options">{(Object.keys(inspectionItemLabels) as InspectionItem[]).map((value) => <label key={value} className={draft.inspectionItems.includes(value) ? "selected" : ""}><input type="checkbox" checked={draft.inspectionItems.includes(value)} onChange={() => toggleItem(value)} /><span>{inspectionItemLabels[value]}</span></label>)}</div></div></section><div className="compliance-note"><ShieldCheck /><div><strong>按所选类别和实际动力匹配报价</strong><p>号牌车型、动力、座位数和使用性质共同决定报价，不根据新能源号牌字母判断动力。新增类别需在检测站配置中启用并填写价格；没有匹配或同时匹配多个方案时停止自动报价。纯电方案不能包含尾气项目。</p></div></div><footer>{!creating ? <button type="button" className="danger-button" onClick={() => void remove()}><Trash />删除方案</button> : <span />}{saved ? <span><CheckCircle weight="fill" />{saved}</span> : null}<button disabled={saving}><FloppyDisk />{saving ? "保存中…" : "保存价格方案"}</button></footer></form></div>;
 }
 
 function normalizedStationValet(payload: StationValetRule, global: ValetRule): { rule: ValetRule; inherited: boolean } {
@@ -1747,5 +1827,5 @@ function ValetPage({ stations, onError }: { stations: Station[]; onError: (messa
   const exampleDistances = [3, 10, 11.7, 25];
   const examples = exampleDistances.map((distance) => ({ distance, extra: Math.max(0, Math.ceil(distance - rule.includedKm)), fee: rule.baseFeeFen + Math.max(0, Math.ceil(distance - rule.includedKm)) * rule.perKmFen }));
   const selectedStation = stations.find((item) => item.id === scopeId);
-  return <div className="valet-layout"><form className="rule-editor" onSubmit={save}><header><span><SteeringWheel weight="duotone" /></span><div><small>ROUND-TRIP PICKUP RULE</small><h2>{scopeId === "global" ? "全站统一默认" : selectedStation?.name}</h2><p>费用包含上门取车、送检、正常检测等待及送回原地址；只按取车点到站的腾讯单程路线计价。</p></div></header><div className="scope-selector"><label><span>配置范围</span><select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="global">全局默认规则</option>{stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</select></label>{scopeId !== "global" ? <span className={inherited ? "inherit-pill" : "override-pill"}>{inherited ? "当前继承全局" : "当前为站点覆盖"}</span> : null}{scopeId !== "global" && !inherited ? <button type="button" className="text-button" onClick={() => void restore()}><ArrowCounterClockwise />恢复继承</button> : null}</div><div className="rule-fields"><label><span>往返起步价</span><div><i>¥</i><input type="number" step="1" value={money(rule.baseFeeFen)} onChange={(event) => update("baseFeeFen", Math.round(Number(event.target.value) * 100))} /></div><small>已包含送回，不另收返程费</small></label><label><span>包含单程里程</span><div><input type="number" step="0.1" value={rule.includedKm} onChange={(event) => update("includedKm", Number(event.target.value))} /><i>km</i></div><small>取车点到检测站</small></label><label><span>超出单价</span><div><i>¥</i><input type="number" step="1" value={money(rule.perKmFen)} onChange={(event) => update("perKmFen", Math.round(Number(event.target.value) * 100))} /></div><small>超出部分按整公里向上取整</small></label><label className="radius-field"><span>最大服务距离</span><label className="inline-check"><input type="checkbox" checked={rule.maxRadiusKm == null} onChange={(event) => update("maxRadiusKm", event.target.checked ? null : 20)} />不限制距离</label><div><input disabled={rule.maxRadiusKm == null} type="number" step="1" value={rule.maxRadiusKm ?? ""} onChange={(event) => update("maxRadiusKm", Number(event.target.value))} /><i>km</i></div><small>为空表示有钱即可预约；仍须腾讯路线可用</small></label></div><div className="formula"><strong>公开计算公式</strong><code>往返取送费 = ¥{money(rule.baseFeeFen)} + ceil(max(0, 腾讯单程距离 − {rule.includedKm}km)) × ¥{money(rule.perKmFen)}</code><p>示例：11.7km → ¥{money(rule.baseFeeFen)} + {Math.max(0, Math.ceil(11.7 - rule.includedKm))}km × ¥{money(rule.perKmFen)} = ¥{money(rule.baseFeeFen + Math.max(0, Math.ceil(11.7 - rule.includedKm)) * rule.perKmFen)}</p></div><footer><span>{saved ? <><CheckCircle weight="fill" />{saved}</> : `最后更新：${new Date(rule.updatedAt).toLocaleString("zh-CN")}`}</span><button><FloppyDisk />{scopeId !== "global" && inherited ? "创建站点覆盖" : "保存计价规则"}</button></footer></form><section className="example-card"><header><small>PRICE PREVIEW</small><h2>真实口径试算</h2></header>{examples.map((item) => <div key={item.distance}><span><MapPin />单程 {item.distance} km<small>超出 {item.extra} km</small></span><strong>¥{money(item.fee)}</strong></div>)}<p><ShieldCheck />仅腾讯真实驾车路线可生成取送报价；Key 无权限、超时或超额时会阻止下单，不回退估算。</p></section></div>;
+  return <div className="valet-layout"><form className="rule-editor" onSubmit={save}><header><span><SteeringWheel weight="duotone" /></span><div><small>往返取送规则</small><h2>{scopeId === "global" ? "全站统一默认" : selectedStation?.name}</h2><p>费用包含上门取车、送检、正常检测等待及送回原地址；只按取车点到站的腾讯单程路线计价。</p></div></header><div className="scope-selector"><label><span>配置范围</span><select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="global">全局默认规则</option>{stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}</select></label>{scopeId !== "global" ? <span className={inherited ? "inherit-pill" : "override-pill"}>{inherited ? "当前继承全局" : "当前为站点覆盖"}</span> : null}{scopeId !== "global" && !inherited ? <button type="button" className="text-button" onClick={() => void restore()}><ArrowCounterClockwise />恢复继承</button> : null}</div><div className="rule-fields"><label><span>往返起步价</span><div><i>¥</i><input type="number" step="1" value={money(rule.baseFeeFen)} onChange={(event) => update("baseFeeFen", Math.round(Number(event.target.value) * 100))} /></div><small>已包含送回，不另收返程费</small></label><label><span>包含单程里程</span><div><input type="number" step="0.1" value={rule.includedKm} onChange={(event) => update("includedKm", Number(event.target.value))} /><i>公里</i></div><small>取车点到检测站</small></label><label><span>超出单价</span><div><i>¥</i><input type="number" step="1" value={money(rule.perKmFen)} onChange={(event) => update("perKmFen", Math.round(Number(event.target.value) * 100))} /></div><small>超出部分按整公里向上取整</small></label><label className="radius-field"><span>最大服务距离</span><label className="inline-check"><input type="checkbox" checked={rule.maxRadiusKm == null} onChange={(event) => update("maxRadiusKm", event.target.checked ? null : 20)} />不限制距离</label><div><input disabled={rule.maxRadiusKm == null} type="number" step="1" value={rule.maxRadiusKm ?? ""} onChange={(event) => update("maxRadiusKm", Number(event.target.value))} /><i>公里</i></div><small>为空表示有钱即可预约；仍须腾讯路线可用</small></label></div><div className="formula"><strong>公开计算公式</strong><code>往返取送费 = 起步价 ¥{money(rule.baseFeeFen)} + 向上取整（腾讯单程距离 − 包含里程 {rule.includedKm} 公里，最低按 0 计算）× 超出单价 ¥{money(rule.perKmFen)}</code><p>示例：11.7 公里 → ¥{money(rule.baseFeeFen)} + {Math.max(0, Math.ceil(11.7 - rule.includedKm))} 公里 × ¥{money(rule.perKmFen)} = ¥{money(rule.baseFeeFen + Math.max(0, Math.ceil(11.7 - rule.includedKm)) * rule.perKmFen)}</p></div><footer><span>{saved ? <><CheckCircle weight="fill" />{saved}</> : `最后更新：${shanghaiTime(rule.updatedAt) || "时间待核对"}`}</span><button><FloppyDisk />{scopeId !== "global" && inherited ? "创建站点覆盖" : "保存计价规则"}</button></footer></form><section className="example-card"><header><small>价格试算</small><h2>真实口径试算</h2></header>{examples.map((item) => <div key={item.distance}><span><MapPin />单程 {item.distance} 公里<small>超出 {item.extra} 公里</small></span><strong>¥{money(item.fee)}</strong></div>)}<p><ShieldCheck />仅腾讯真实驾车路线可生成取送报价；地图服务密钥无权限、超时或超额时会阻止下单，不回退估算。</p></section></div>;
 }

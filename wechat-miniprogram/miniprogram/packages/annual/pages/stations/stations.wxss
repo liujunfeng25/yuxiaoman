@@ -91,11 +91,13 @@
   -webkit-line-clamp: 2;
 }
 
-.origin-action {
+.origin-card > button.origin-action {
   display: flex;
-  min-width: 132rpx;
+  width: 152rpx;
+  min-width: 152rpx;
   min-height: 88rpx;
-  padding: 0 18rpx;
+  margin: 0;
+  padding: 0 12rpx;
   align-items: center;
   justify-content: center;
   color: #1768cf;

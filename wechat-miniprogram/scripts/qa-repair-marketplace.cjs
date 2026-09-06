@@ -29,6 +29,11 @@ const artifactsDir = path.resolve(
     || path.join(runtimeRoot, 'artifacts', 'native-repair-marketplace-e2e'),
 );
 const explicitBookingId = String(process.env.WECHAT_QA_REPAIR_BOOKING_ID || '').trim();
+const repairShopPasswordOverride = process.env.WECHAT_QA_REPAIR_SHOP_PASSWORD;
+const repairShopLoginOverrides = String(process.env.WECHAT_QA_REPAIR_SHOP_LOGINS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 const timeoutMs = positiveInteger(process.env.WECHAT_QA_TIMEOUT_MS, 45_000, 'WECHAT_QA_TIMEOUT_MS');
 
 const REPORT_ROUTE = 'packages/inspection/pages/checkup-report/checkup-report';
@@ -36,11 +41,17 @@ const OWNER_CONFIRM_ROUTE = 'packages/repair/pages/owner-request-confirm/owner-r
 const OWNER_DETAIL_ROUTE = 'packages/repair/pages/owner-request-detail/owner-request-detail';
 const OWNER_QUOTES_ROUTE = 'packages/repair/pages/owner-quotes/owner-quotes';
 const OWNER_RECEIPT_ROUTE = 'packages/repair/pages/owner-receipt/owner-receipt';
+const OWNER_MESSAGES_ROUTE = 'packages/notifications/pages/messages/messages';
 const SHOP_LOGIN_ROUTE = 'packages/repair/pages/shop-login/shop-login';
 const SHOP_HALL_ROUTE = 'packages/repair/pages/shop-hall/shop-hall';
 const SHOP_DETAIL_ROUTE = 'packages/repair/pages/shop-request-detail/shop-request-detail';
 const SHOP_QUOTE_ROUTE = 'packages/repair/pages/shop-quote/shop-quote';
 const SHOP_DEAL_ROUTE = 'packages/repair/pages/shop-deal/shop-deal';
+const SHOP_WORKFLOW_ROUTE = 'packages/repair/pages/shop-workflow-tasks/shop-workflow-tasks';
+
+const FIRST_QUOTE_TASK_NODE = 'repair.quote.first';
+const FIRST_QUOTE_OWNER_TEMPLATE = 'repair.quote.first.owner';
+const SELECTED_SHOP_TASK_NODE = 'repair.order.selected';
 
 const quoteInputs = Object.freeze([
   { totalYuan: '1680', note: '右后翼子板钣金修复并喷漆，含一年质保' },
@@ -138,6 +149,149 @@ async function relaunchPage(miniProgram, route, query = '', label = route) {
   await miniProgram.callWxMethod('reLaunch', { url: `/${route}${suffix}` });
   await delay(1_000);
   return currentPage(miniProgram, route, label);
+}
+
+function workflowBusinessId(item) {
+  const params = item && typeof item.actionParams === 'object' && item.actionParams
+    ? item.actionParams
+    : {};
+  return String(
+    (item && item.businessId)
+      || params.repairRequestId
+      || params.requestId
+      || params.resourceId
+      || '',
+  );
+}
+
+function matchingWorkflowItem(items, requestId, nodeCode) {
+  if (!Array.isArray(items)) return null;
+  return items.find((item) => (
+    item
+      && String(item.nodeCode || '') === nodeCode
+      && workflowBusinessId(item) === requestId
+  )) || null;
+}
+
+function matchingOwnerNotification(items, requestId) {
+  if (!Array.isArray(items)) return null;
+  return items.find((item) => (
+    item
+      && String(item.templateCode || '') === FIRST_QUOTE_OWNER_TEMPLATE
+      && workflowBusinessId(item) === requestId
+  )) || null;
+}
+
+async function waitForShopWorkflowPage(page, label) {
+  await waitForPageData(page, 'loading', (value) => value === false, `Waiting for ${label} loading`);
+  await waitForPageData(page, 'loaded', (value) => value === true, `Waiting for ${label} content`);
+  return waitForPageData(page, 'items', Array.isArray, `Waiting for ${label} items`);
+}
+
+async function openShopWorkflowFromHall(miniProgram, hall, label) {
+  // The summary is a rendered custom component. Tap its actual button so this
+  // assertion follows the same entry a repair-shop operator uses.
+  await delay(150);
+  await waitForPageData(hall, 'workflowLoading', (value) => value === false, `Waiting for ${label} summary`);
+  const summaryComponent = await waitForElement(hall, 'workflow-task-summary', `${label} summary component`);
+  const summaryButton = await waitUntil(
+    () => summaryComponent.$('.workflow-summary'),
+    `Waiting for ${label} summary button`,
+  );
+  await summaryButton.tap();
+  const tasksPage = await currentPage(miniProgram, SHOP_WORKFLOW_ROUTE, `${label} task list`);
+  const items = await waitForShopWorkflowPage(tasksPage, label);
+  return { tasksPage, items };
+}
+
+async function openExpectedShopWorkflowTask(miniProgram, hall, requestId, nodeCode, label, screenshotStep) {
+  const { tasksPage } = await openShopWorkflowFromHall(miniProgram, hall, label);
+  const task = await waitForPageData(
+    tasksPage,
+    'items',
+    (items) => Boolean(matchingWorkflowItem(items, requestId, nodeCode)),
+    `Waiting for ${label} node ${nodeCode}`,
+  ).then((items) => matchingWorkflowItem(items, requestId, nodeCode));
+  if (!task) throw new Error(`${label} did not expose ${nodeCode} for the repair request.`);
+  if (screenshotStep) await capture(miniProgram, screenshotStep);
+  const taskButton = await elementByAttribute(tasksPage, '.workflow-task', 'data-id', task.id, `${label} task card`);
+  await taskButton.tap();
+  const detail = await currentPage(miniProgram, SHOP_DETAIL_ROUTE, `${label} task target`);
+  await waitForPageData(detail, 'loading', (value) => value === false, `Waiting for ${label} task target`);
+  await waitForPageData(
+    detail,
+    'request',
+    (value) => value && value.id === requestId,
+    `Waiting for ${label} scoped repair request`,
+  );
+  return { detail, task };
+}
+
+async function assertShopWorkflowTaskAbsent(miniProgram, hall, requestId, nodeCode, label, screenshotStep = '') {
+  const { tasksPage, items } = await openShopWorkflowFromHall(miniProgram, hall, label);
+  if (matchingWorkflowItem(items, requestId, nodeCode)) {
+    throw new Error(`${label} still exposes closed node ${nodeCode} for the repair request.`);
+  }
+  if (screenshotStep) await capture(miniProgram, screenshotStep);
+  return tasksPage;
+}
+
+async function verifyOwnerFirstQuoteNotification(miniProgram, requestId) {
+  const messages = await relaunchPage(miniProgram, OWNER_MESSAGES_ROUTE, '', 'owner message center after first quote');
+  await waitForPageData(messages, 'loading', (value) => value === false, 'Waiting for owner first-quote message list');
+  await waitForPageData(messages, 'loaded', (value) => value === true, 'Waiting for owner first-quote message content');
+  const unreadMessage = await waitForPageData(
+    messages,
+    'items',
+    (items) => {
+      const match = matchingOwnerNotification(items, requestId);
+      return Boolean(match && match.readState === 'unread');
+    },
+    'Waiting for unread owner first-quote notification',
+  ).then((items) => matchingOwnerNotification(items, requestId));
+  if (!unreadMessage) throw new Error('The owner did not receive the first-quote notification.');
+  await capture(miniProgram, '09a-owner-first-quote-message-unread');
+  const messageButton = await elementByAttribute(
+    messages,
+    '.message-card',
+    'data-id',
+    unreadMessage.id,
+    'owner first-quote notification card',
+  );
+  await messageButton.tap();
+  const detail = await currentPage(miniProgram, OWNER_DETAIL_ROUTE, 'owner request opened from first-quote message');
+  await waitForPageData(detail, 'loading', (value) => value === false, 'Waiting for owner request opened from message');
+  await waitForPageData(
+    detail,
+    'request',
+    (value) => value && value.id === requestId,
+    'Waiting for message-scoped owner repair request',
+  );
+
+  // Re-open the rendered message center so the read-state check comes from the
+  // server again, rather than trusting the page's optimistic local update.
+  await delay(500);
+  const refreshed = await relaunchPage(miniProgram, OWNER_MESSAGES_ROUTE, '', 'owner message center after reading first quote');
+  await waitForPageData(refreshed, 'loading', (value) => value === false, 'Waiting for refreshed owner message list');
+  await waitForPageData(refreshed, 'loaded', (value) => value === true, 'Waiting for refreshed owner message content');
+  const persisted = await waitForPageData(
+    refreshed,
+    'items',
+    (items) => {
+      const match = matchingOwnerNotification(items, requestId);
+      return Boolean(match && match.id === unreadMessage.id && match.readState === 'read');
+    },
+    'Waiting for persisted owner first-quote read state',
+  ).then((items) => matchingOwnerNotification(items, requestId));
+  if (!persisted || persisted.id !== unreadMessage.id) {
+    throw new Error('The owner first-quote notification read state was not persisted.');
+  }
+  return {
+    templateCode: FIRST_QUOTE_OWNER_TEMPLATE,
+    openedRequestDetail: true,
+    unreadBeforeOpen: true,
+    readAfterOpen: true,
+  };
 }
 
 const screenshots = [];
@@ -239,9 +393,14 @@ function resolveRepairCredentials(result) {
   if (admins.length !== quoteInputs.length) {
     throw new Error('Three repair-shop demo credentials are required. Re-run the local annual fixture loader so result.local.json contains credentials.repairAdmins.');
   }
+  if (repairShopLoginOverrides.length > 0 && repairShopLoginOverrides.length !== quoteInputs.length) {
+    throw new Error('WECHAT_QA_REPAIR_SHOP_LOGINS must contain exactly three comma-separated login names.');
+  }
   const credentials = admins.map((credential, index) => ({
-    loginName: String(credential.loginName || ''),
-    password: String(credential.password || ''),
+    loginName: repairShopLoginOverrides[index] || String(credential.loginName || ''),
+    password: typeof repairShopPasswordOverride === 'string' && repairShopPasswordOverride.length > 0
+      ? repairShopPasswordOverride
+      : String(credential.password || ''),
     repairShopId: String(credential.repairShopId || ''),
     ...quoteInputs[index],
   }));
@@ -391,14 +550,38 @@ async function logoutShop(miniProgram) {
   await waitForPageData(login, 'signedInName', (value) => value === '', 'Waiting for cleared repair shop identity');
 }
 
-async function submitShopQuote(miniProgram, credential, requestId, index) {
+async function submitShopQuote(miniProgram, credential, requestId, index, workflowExpectation = 'closed') {
   const prefix = String(5 + index * 4).padStart(2, '0');
-  const hall = await loginShop(miniProgram, credential, `${prefix}-shop-${index + 1}`);
-  const requestCard = await elementByAttribute(hall, '.request-card', 'data-id', requestId, `shop ${index + 1} request card`);
+  let hall = await loginShop(miniProgram, credential, `${prefix}-shop-${index + 1}`);
   await capture(miniProgram, `${String(6 + index * 4).padStart(2, '0')}-shop-${index + 1}-hall`);
-  await requestCard.tap();
-  const detail = await currentPage(miniProgram, SHOP_DETAIL_ROUTE, `shop ${index + 1} request detail`);
-  await waitForPageData(detail, 'loading', (value) => value === false, `Waiting for shop ${index + 1} request detail`);
+  let detail;
+  let firstQuoteTaskOpened = false;
+  if (workflowExpectation === 'open') {
+    const workflowEntry = await openExpectedShopWorkflowTask(
+      miniProgram,
+      hall,
+      requestId,
+      FIRST_QUOTE_TASK_NODE,
+      `shop ${index + 1} first-quote supervision`,
+      '06a-shop-1-first-quote-task',
+    );
+    detail = workflowEntry.detail;
+    firstQuoteTaskOpened = true;
+  } else {
+    await assertShopWorkflowTaskAbsent(
+      miniProgram,
+      hall,
+      requestId,
+      FIRST_QUOTE_TASK_NODE,
+      `shop ${index + 1} closed first-quote supervision`,
+    );
+    hall = await relaunchPage(miniProgram, SHOP_HALL_ROUTE, '', `shop ${index + 1} hall after supervision check`);
+    await waitForPageData(hall, 'loading', (value) => value === false, `Waiting for shop ${index + 1} hall after supervision check`);
+    const requestCard = await elementByAttribute(hall, '.request-card', 'data-id', requestId, `shop ${index + 1} request card`);
+    await requestCard.tap();
+    detail = await currentPage(miniProgram, SHOP_DETAIL_ROUTE, `shop ${index + 1} request detail`);
+    await waitForPageData(detail, 'loading', (value) => value === false, `Waiting for shop ${index + 1} request detail`);
+  }
   const request = await waitForPageData(detail, 'request', (value) => value && value.id === requestId, `Waiting for shop ${index + 1} scoped request`);
   if (!Array.isArray(request.faults) || request.faults.length < 1 || request.faults.some((fault) => fault.photoUrls.length < 1)) {
     throw new Error(`Shop ${index + 1} did not receive the fault and its close-up photo.`);
@@ -419,6 +602,18 @@ async function submitShopQuote(miniProgram, credential, requestId, index) {
     }
     registerExistingScreenshot(`${String(8 + index * 4).padStart(2, '0')}-shop-${index + 1}-quote-form`);
     await capture(miniProgram, `${String(9 + index * 4).padStart(2, '0')}-shop-${index + 1}-quote-submitted`);
+    if (workflowExpectation === 'open') {
+      const closureHall = await relaunchPage(miniProgram, SHOP_HALL_ROUTE, '', 'shop 1 hall after first quote');
+      await waitForPageData(closureHall, 'loading', (value) => value === false, 'Waiting for shop 1 hall after first quote');
+      await assertShopWorkflowTaskAbsent(
+        miniProgram,
+        closureHall,
+        requestId,
+        FIRST_QUOTE_TASK_NODE,
+        'shop 1 first-quote supervision closure',
+        '09b-shop-1-first-quote-task-closed',
+      );
+    }
     await logoutShop(miniProgram);
     return {
       quoteId: activeQuote.id,
@@ -428,6 +623,10 @@ async function submitShopQuote(miniProgram, credential, requestId, index) {
       renderedTotalYuan: renderedAmount,
       note: activeQuote.note,
       resumed: true,
+      workflow: {
+        firstQuoteTaskOpened,
+        firstQuoteTaskClosed: true,
+      },
     };
   }
   const quoteEntry = await waitForElement(detail, '.detail-footer button', `shop ${index + 1} quote action`);
@@ -461,6 +660,18 @@ async function submitShopQuote(miniProgram, credential, requestId, index) {
     throw new Error(`Shop ${index + 1} persisted quote amount does not match its page form input.`);
   }
   await capture(miniProgram, `${String(9 + index * 4).padStart(2, '0')}-shop-${index + 1}-quote-submitted`);
+  if (workflowExpectation === 'open') {
+    const closureHall = await relaunchPage(miniProgram, SHOP_HALL_ROUTE, '', 'shop 1 hall after first quote');
+    await waitForPageData(closureHall, 'loading', (value) => value === false, 'Waiting for shop 1 hall after first quote');
+    await assertShopWorkflowTaskAbsent(
+      miniProgram,
+      closureHall,
+      requestId,
+      FIRST_QUOTE_TASK_NODE,
+      'shop 1 first-quote supervision closure',
+      '09b-shop-1-first-quote-task-closed',
+    );
+  }
   await logoutShop(miniProgram);
   return {
     quoteId: updated.myQuote.id,
@@ -468,6 +679,10 @@ async function submitShopQuote(miniProgram, credential, requestId, index) {
     totalFen: submittedTotalFen,
     totalYuan: submittedTotalYuan,
     note: updated.myQuote.note,
+    workflow: {
+      firstQuoteTaskOpened,
+      firstQuoteTaskClosed: true,
+    },
   };
 }
 
@@ -532,11 +747,16 @@ async function ownerSelectAndPay(miniProgram, requestId) {
 
 async function verifyWinningShop(miniProgram, credential, requestId) {
   const hall = await loginShop(miniProgram, credential, '21-winning-shop');
-  const card = await elementByAttribute(hall, '.request-card', 'data-id', requestId, 'winning shop request card');
   await capture(miniProgram, '22-winning-shop-hall');
-  await card.tap();
-  const detail = await currentPage(miniProgram, SHOP_DETAIL_ROUTE, 'winning shop request detail');
-  await waitForPageData(detail, 'loading', (value) => value === false, 'Waiting for winning shop request detail');
+  const workflowEntry = await openExpectedShopWorkflowTask(
+    miniProgram,
+    hall,
+    requestId,
+    SELECTED_SHOP_TASK_NODE,
+    'winning shop selection notification',
+    '22a-winning-shop-selected-task',
+  );
+  const detail = workflowEntry.detail;
   await waitForPageData(detail, 'request', (value) => value && value.status === 'won', 'Waiting for winning shop status');
   await capture(miniProgram, '23-winning-shop-selected');
   const dealEntry = await waitForElement(detail, '.detail-footer button', 'winning shop deal entry');
@@ -547,15 +767,26 @@ async function verifyWinningShop(miniProgram, credential, requestId) {
   if (!dealData.contact || !dealData.contact.name || !dealData.contact.phone) throw new Error('Winning shop did not receive the authorized synthetic contact.');
   await capture(miniProgram, '24-winning-shop-deal');
   await logoutShop(miniProgram);
+  return {
+    selectedTaskVisible: true,
+    selectedTaskActionOpenedRequest: true,
+  };
 }
 
 async function verifyLosingShop(miniProgram, credential, requestId, losingShopIndex) {
   const ordinal = losingShopIndex + 1;
   const firstStep = 25 + losingShopIndex * 2;
-  await loginShop(
+  const hall = await loginShop(
     miniProgram,
     credential,
     `${String(firstStep).padStart(2, '0')}-losing-shop-${ordinal}`,
+  );
+  await assertShopWorkflowTaskAbsent(
+    miniProgram,
+    hall,
+    requestId,
+    SELECTED_SHOP_TASK_NODE,
+    `losing shop ${ordinal} selected-task isolation`,
   );
   const deal = await relaunchPage(miniProgram, SHOP_DEAL_ROUTE, `id=${encodeURIComponent(requestId)}`, 'losing repair shop deal gate');
   await waitForPageData(deal, 'loading', (value) => value === false, 'Waiting for losing shop deal gate');
@@ -571,6 +802,7 @@ async function verifyLosingShop(miniProgram, credential, requestId, losingShopIn
     shopId: credential.repairShopId,
     locked: true,
     contactVisible: false,
+    selectedTaskVisible: false,
     screenshot: `${screenshotStep}.png`,
   };
 }
@@ -599,6 +831,8 @@ async function run() {
   const issues = [];
   const quotes = [];
   const losingShopPrivacyChecks = [];
+  let ownerNotificationCheck = null;
+  let winningShopWorkflowCheck = null;
   let requestId = '';
   let paid = null;
   let miniProgram;
@@ -625,16 +859,27 @@ async function run() {
       ? ownerRepairEntry.request
       : await publishOwnerRequest(miniProgram, ownerRepairEntry.page);
     requestId = request.id;
+    const startedWithoutActiveQuotes = !Array.isArray(request.quotes)
+      || !request.quotes.some((quote) => quote && quote.status === 'active');
 
     for (let index = 0; index < credentials.length; index += 1) {
-      quotes.push(await submitShopQuote(miniProgram, credentials[index], requestId, index));
+      quotes.push(await submitShopQuote(
+        miniProgram,
+        credentials[index],
+        requestId,
+        index,
+        index === 0 && startedWithoutActiveQuotes ? 'open' : 'closed',
+      ));
+      if (index === 0 && startedWithoutActiveQuotes) {
+        ownerNotificationCheck = await verifyOwnerFirstQuoteNotification(miniProgram, requestId);
+      }
     }
 
     paid = await ownerSelectAndPay(miniProgram, requestId);
     const winningCredential = credentials.find((credential) => credential.repairShopId === paid.selectedShopId);
     const losingCredentials = credentials.filter((credential) => credential.repairShopId !== paid.selectedShopId);
     if (!winningCredential || losingCredentials.length !== 2) throw new Error('Unable to resolve the winning shop and both losing shops from the paid snapshot.');
-    await verifyWinningShop(miniProgram, winningCredential, requestId);
+    winningShopWorkflowCheck = await verifyWinningShop(miniProgram, winningCredential, requestId);
     for (const [losingShopIndex, losingCredential] of losingCredentials.entries()) {
       losingShopPrivacyChecks.push(
         await verifyLosingShop(miniProgram, losingCredential, requestId, losingShopIndex),
@@ -655,6 +900,12 @@ async function run() {
       selectedShopId: paid.selectedShopId,
       selectedPriceFen: paid.selectedPriceFen,
       orderNo: paid.orderNo,
+      workflowChecks: {
+        startedWithoutActiveQuotes,
+        firstQuoteOwnerNotification: ownerNotificationCheck,
+        winningShop: winningShopWorkflowCheck,
+        losingShopsExcludedFromSelectedTask: losingShopPrivacyChecks.every((item) => item.selectedTaskVisible === false),
+      },
       losingShopPrivacyChecks,
       screenshotCount: screenshots.length,
       screenshots: screenshots.map((filePath) => path.relative(repoRoot, filePath)),

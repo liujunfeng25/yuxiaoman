@@ -1,6 +1,10 @@
 type Dictionary = Record<string, unknown>;
 
 declare namespace WechatMiniprogram {
+  interface EventChannel {
+    on(eventName: string, listener: (payload: unknown) => void): void;
+    emit(eventName: string, payload?: unknown): void;
+  }
   interface CustomEvent<T = Dictionary> {
     detail: T;
   }
@@ -13,6 +17,7 @@ type PageInstance<D extends Dictionary> = {
   data: D;
   setData(data: Partial<D>, callback?: () => void): void;
   selectComponent(selector: string): unknown;
+  getOpenerEventChannel(): WechatMiniprogram.EventChannel;
   [key: string]: any;
 };
 
@@ -37,6 +42,11 @@ declare const wx: {
   login(options: {
     timeout?: number;
     success(result: { code: string }): void;
+    fail(error: { errMsg?: string }): void;
+  }): void;
+  requestSubscribeMessage(options: {
+    tmplIds: string[];
+    success(result: Record<string, "accept" | "reject" | "ban" | "filter" | string | undefined> & { errMsg?: string }): void;
     fail(error: { errMsg?: string }): void;
   }): void;
   request<T>(options: {
@@ -78,12 +88,17 @@ declare const wx: {
   getLocation(options: { type: "gcj02"; success(result: { latitude: number; longitude: number }): void; fail?(error: { errMsg?: string }): void }): void;
   chooseLocation(options: { success(result: { name: string; address: string; latitude: number; longitude: number }): void; fail?(error: { errMsg?: string }): void }): void;
   openLocation(options: { latitude: number; longitude: number; name?: string; address?: string; scale?: number }): void;
-  navigateTo(options: { url: string }): void;
+  navigateTo(options: {
+    url: string;
+    success?(result: { eventChannel: WechatMiniprogram.EventChannel }): void;
+    fail?(error: { errMsg?: string }): void;
+  }): void;
   switchTab(options: { url: string }): void;
   redirectTo(options: { url: string }): void;
   navigateBack(options?: { delta?: number }): void;
   reLaunch(options: { url: string }): void;
   showToast(options: { title: string; icon?: "success" | "error" | "none" | "loading"; duration?: number }): void;
+  hideKeyboard(options?: { success?(): void; fail?(error: { errMsg: string }): void }): void;
   hideToast(): void;
   showModal(options: { title: string; content: string; confirmText?: string; cancelText?: string; confirmColor?: string; success(result: { confirm: boolean; cancel: boolean }): void }): void;
   openSetting(options?: { success?(result: { authSetting: Record<string, boolean> }): void }): void;

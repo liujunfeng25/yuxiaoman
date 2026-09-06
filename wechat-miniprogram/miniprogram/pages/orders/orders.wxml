@@ -1,7 +1,7 @@
 <wxs module="fmt" src="../../utils/format.wxs" />
 
 <view class="page">
-  <view class="heading"><text class="heading-eyebrow">OWNER SERVICE</text><text class="heading-title">订单</text><text class="heading-copy">洗车、年检与维修询价记录统一查看</text></view>
+  <view class="orders-heading-row"><view class="heading"><text class="heading-eyebrow">OWNER SERVICE</text><text class="heading-title">订单</text><text class="heading-copy">洗车、年检与维修询价记录统一查看</text></view><workflow-bell compact="{{true}}" unread-count="{{unreadCount}}" bind:open="openMessages" /></view>
   <view wx:if="{{loading}}" class="loading">正在读取订单…</view>
   <block wx:else>
     <view role="button" tabindex="0" wx:for="{{orders}}" wx:key="id" data-url="{{item.detailUrl}}" bindtap="open" class="order surface">

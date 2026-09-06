@@ -19,7 +19,7 @@
     </view>
 
     <view wx:elif="{{request.status === 'open'}}" class="waiting-card">
-      <image src="/assets/icons/clock.png" mode="aspectFit"/><view><text>需求已发布到接单大厅</text><text>修理店会根据完整车损记录与特写提交全款总价，页面下拉即可刷新。</text></view>
+      <image src="/assets/icons/clock.png" mode="aspectFit"/><view><text>需求已发布到接单大厅</text><text>修理店会根据已共享的问题与照片提交全款总价，页面下拉即可刷新。</text></view>
     </view>
 
     <view wx:if="{{request.status === 'paid'}}" class="deal-card" bindtap="openReceipt">
@@ -28,17 +28,17 @@
       <view><text>查看成交回执</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
     </view>
 
-    <view class="section-heading"><text>需求摘要</text><text>报告自动生成</text></view>
+    <view class="section-heading"><text>需求摘要</text><text>{{request.sourceType === 'precheck' ? '来自年检预检' : '报告自动生成'}}</text></view>
     <view class="request-card">
-      <view class="vehicle-row"><view class="row-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view><view><text>{{request.vehicle.plateNumber}}</text><text>{{request.vehicle.displayName}}</text></view><text>{{faultViews.length}} 处车损</text></view>
+      <view class="vehicle-row"><view class="row-icon"><image src="/assets/icons/car.png" mode="aspectFit"/></view><view><text>{{request.vehicle.plateNumber}}</text><text>{{request.vehicle.displayName}}</text></view><text>{{faultViews.length}} 项问题</text></view>
       <view class="fact-row"><text>平台需求编号</text><text>{{request.requestNo}}</text></view>
-      <view class="fact-row"><text>检测报告编号</text><text>{{request.report.reportNo}}</text></view>
+      <view class="fact-row"><text>资料来源</text><text>{{request.report.reportNo}}</text></view>
       <view class="fact-row"><text>发布时间</text><text>{{createdAtText}}</text></view>
       <view class="fact-row"><text>最近更新</text><text>{{updatedAtText}}</text></view>
-      <button bindtap="openReport"><text>查看原车辆体检报告</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></button>
+      <button bindtap="openReport"><text>{{request.sourceType === 'precheck' ? '返回年检问题处理' : '查看原车辆体检报告'}}</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></button>
     </view>
 
-    <view class="section-heading"><text>车损与特写</text><text>全部固定共享 · {{photoCount}} 张</text></view>
+    <view class="section-heading"><text>维修问题与照片</text><text>已授权共享 · {{photoCount}} 张</text></view>
     <view class="fault-list">
       <view wx:for="{{faultViews}}" wx:key="id" class="fault-card">
         <view class="fault-head"><text>#{{item.number}}</text><view><text>{{item.title}}</text><text>{{item.locationText}}</text></view><text class="severity severity-{{item.severityTone}}">{{item.severityText}}</text></view>

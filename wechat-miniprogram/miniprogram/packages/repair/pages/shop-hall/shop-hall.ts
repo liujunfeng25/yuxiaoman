@@ -1,5 +1,8 @@
 import { storeRole } from "../../../../services/storage";
+import { repairWorkflowApi } from "../../services/workflow-api";
 import type { AppRole } from "../../../../types";
+import type { WorkflowTaskSummary } from "../../../../types/workflow";
+import { workflowDueLabel } from "../../../../utils/workflow";
 import { repairOperatorApi } from "../../services/operator-api";
 import {
   ensureRepairOperatorPageAccess,
@@ -35,6 +38,9 @@ type Data = {
   loading: boolean;
   loggingOut: boolean;
   error: string;
+  workflowSummary: WorkflowTaskSummary;
+  workflowNextDueLabel: string;
+  workflowLoading: boolean;
 };
 
 Page<Data>({
@@ -50,6 +56,9 @@ Page<Data>({
     loading: true,
     loggingOut: false,
     error: "",
+    workflowSummary: { openCount: 0, dueSoonCount: 0, overdueCount: 0, nextDueAt: null },
+    workflowNextDueLabel: "",
+    workflowLoading: false,
   },
 
   onLoad() {
@@ -68,9 +77,27 @@ Page<Data>({
   onShow() {
     if (!ensureRepairOperatorPageAccess("/packages/repair/pages/shop-hall/shop-hall")) return;
     void this.load();
+    void this.loadWorkflowSummary();
   },
 
-  onPullDownRefresh() { void this.load(); },
+  onPullDownRefresh() { void this.load(); void this.loadWorkflowSummary(); },
+
+  async loadWorkflowSummary() {
+    this.setData({ workflowLoading: true });
+    try {
+      const summary = await repairWorkflowApi.summary();
+      const urgency = summary.overdueCount > 0 ? "overdue" : summary.dueSoonCount > 0 ? "attention" : "normal";
+      this.setData({ workflowSummary: summary, workflowNextDueLabel: workflowDueLabel(summary.nextDueAt, urgency) });
+    } catch {
+      // 督办摘要失败不影响门店继续报价。
+    } finally {
+      this.setData({ workflowLoading: false });
+    }
+  },
+
+  openWorkflowTasks() {
+    wx.navigateTo({ url: "/packages/repair/pages/shop-workflow-tasks/shop-workflow-tasks" });
+  },
 
   async load() {
     const sequence = (this.loadSequence || 0) + 1;

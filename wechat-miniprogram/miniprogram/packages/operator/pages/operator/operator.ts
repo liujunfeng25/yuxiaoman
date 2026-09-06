@@ -1,8 +1,11 @@
 import { api } from "../../../../services/api";
+import { operatorWorkflowApi } from "../../services/workflow-api";
 import { ensureOperatorPageAccess, readOperatorSession } from "../../../../services/operator-session";
 import { getOperatorFilter, storeOperatorFilter } from "../../../../services/storage";
 import type { Booking, Station, Workbench } from "../../../../types";
 import { today } from "../../../../utils/format";
+import { workflowDueLabel } from "../../../../utils/workflow";
+import type { WorkflowTaskSummary } from "../../../../types/workflow";
 
 type BookingView = Booking & {
   plateNumber: string;
@@ -29,6 +32,9 @@ type Data = {
   loadError: string;
   accessReady: boolean;
   stationLocked: boolean;
+  workflowSummary: WorkflowTaskSummary;
+  workflowNextDueLabel: string;
+  workflowLoading: boolean;
 };
 
 const filters = ["all", "confirmed", "awaiting_arrival", "checked_in", "inspecting", "result_received", "on_hold", "completed"];
@@ -97,15 +103,33 @@ Page<Data>({
     loadError: "",
     accessReady: false,
     stationLocked: false,
+    workflowSummary: { openCount: 0, dueSoonCount: 0, overdueCount: 0, nextDueAt: null },
+    workflowNextDueLabel: "",
+    workflowLoading: false,
   },
   onLoad() {
     const accessReady = ensureOperatorPageAccess("/packages/operator/pages/operator/operator");
     this.setData({ accessReady, stationLocked: Boolean(readOperatorSession()?.subject) });
   },
-  onShow() { if (this.data.accessReady) void this.load(); },
+  onShow() { if (this.data.accessReady) { void this.load(); void this.loadWorkflowSummary(); } },
   onPullDownRefresh() {
-    if (this.data.accessReady) void this.load();
+    if (this.data.accessReady) { void this.load(); void this.loadWorkflowSummary(); }
     else wx.stopPullDownRefresh();
+  },
+  async loadWorkflowSummary() {
+    this.setData({ workflowLoading: true });
+    try {
+      const summary = await operatorWorkflowApi.summary();
+      const urgency = summary.overdueCount > 0 ? "overdue" : summary.dueSoonCount > 0 ? "attention" : "normal";
+      this.setData({ workflowSummary: summary, workflowNextDueLabel: workflowDueLabel(summary.nextDueAt, urgency) });
+    } catch {
+      // 督办摘要是辅助信息，不阻塞检测站原有履约工作台。
+    } finally {
+      this.setData({ workflowLoading: false });
+    }
+  },
+  openWorkflowTasks() {
+    wx.navigateTo({ url: "/packages/operator/pages/workflow-tasks/workflow-tasks" });
   },
   async load() {
     this.setData({ loading: true, loadError: "" });

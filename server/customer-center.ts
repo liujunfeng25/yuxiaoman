@@ -136,7 +136,82 @@ const RECORD_DETAILS_CTE = `
   )
 `;
 
+// A precheck request owns an independent photo snapshot, not a checkup report.
+// Keep source validation shared by startup migration, the index and private reads.
+const REPAIR_REQUEST_SOURCE_VALID = `
+  b.id IS NOT NULL AND v.id IS NOT NULL
+  AND b.vehicle_id = r.source_vehicle_id AND b.user_id = r.user_id AND v.user_id = r.user_id
+  AND (
+    (r.source_type = 'report' AND p.id IS NOT NULL AND p.booking_id = r.source_booking_id)
+    OR (r.source_type = 'precheck' AND r.source_report_id IS NULL
+      AND pc.id IS NOT NULL AND pc.station_id = b.station_id
+      AND r.source_precheck_version > 0 AND r.source_precheck_version <= pc.version)
+  )
+`;
+
+const REPAIR_MEDIA_JOINS = `
+  FROM repair_request_media m
+  LEFT JOIN repair_requests r ON r.id = m.request_id
+  LEFT JOIN bookings b ON b.id = r.source_booking_id
+  LEFT JOIN vehicles v ON v.id = r.source_vehicle_id
+  LEFT JOIN vehicle_checkup_reports p ON p.id = r.source_report_id
+  LEFT JOIN vehicle_checkup_media sm ON sm.id = m.source_media_id
+  LEFT JOIN repair_request_faults f ON f.request_id = m.request_id AND f.id = m.fault_id
+  LEFT JOIN booking_prechecks pc ON pc.booking_id = r.source_booking_id
+  LEFT JOIN booking_media bm ON bm.id = m.precheck_media_id
+`;
+
+const REPAIR_MEDIA_SOURCE_VALID = `
+  ${REPAIR_REQUEST_SOURCE_VALID}
+  AND (
+    (r.source_type = 'report' AND m.precheck_media_id IS NULL AND sm.id IS NOT NULL
+      AND sm.report_id = r.source_report_id AND sm.booking_id = r.source_booking_id
+      AND sm.storage_key = m.storage_key AND sm.sha256 = m.sha256 AND sm.kind = m.kind
+      AND sm.sequence_no IS NOT DISTINCT FROM m.sequence_no
+      AND (m.fault_id IS NULL) = (sm.fault_id IS NULL)
+      AND (m.fault_id IS NULL OR (f.id IS NOT NULL AND f.source_fault_id = sm.fault_id
+        AND f.precheck_reason_code IS NULL)))
+    OR (r.source_type = 'precheck' AND m.source_media_id IS NULL
+      AND f.id IS NOT NULL AND f.source_fault_id IS NULL
+      AND f.precheck_reason_code IN ('body_damage', 'dashboard_warning')
+      AND m.kind = 'fault_closeup' AND m.storage_key LIKE 'precheck-%'
+      AND (
+        -- Source cleanup uses ON DELETE SET NULL; the independently owned copy remains valid.
+        m.precheck_media_id IS NULL
+        OR (bm.id IS NOT NULL AND bm.booking_id = r.source_booking_id AND bm.user_id = r.user_id
+          AND bm.storage_key <> m.storage_key AND bm.mime_type = m.mime_type
+          AND bm.size_bytes = m.size_bytes AND bm.width = m.width AND bm.height = m.height
+          AND (
+            (f.precheck_reason_code = 'dashboard_warning' AND bm.kind = 'dashboard_started')
+            OR (f.precheck_reason_code = 'body_damage' AND bm.kind IN (
+              'vehicle_front_left', 'vehicle_front_right', 'vehicle_rear_left', 'vehicle_rear_right'
+            ))
+          ))
+      ))
+  )
+`;
+
+const REPAIR_MATERIALS_CTE = `
+  customer_repair_materials AS (
+    SELECT r.user_id, m.id, 'repair'::text AS domain, r.id AS business_id,
+      r.request_no AS business_code, m.kind, 'bound'::text AS source_state,
+      r.status AS business_status, m.mime_type, m.size_bytes, m.created_at,
+      CASE WHEN r.source_type = 'report' THEN sm.expires_at END AS expires_at,
+      CASE WHEN r.source_type = 'report' THEN p.retain_until END AS delete_after,
+      NULL::text AS withdrawn_at,
+      CASE WHEN r.source_type = 'precheck' THEN '预检维修报价授权快照'
+        ELSE '维修报价范围确认' END AS purpose,
+      NULL::text AS authorization_version,
+      m.storage_key IS NOT NULL AND (r.source_type = 'precheck'
+        OR (sm.status = 'bound' AND p.status = 'published')) AS storage_present,
+      m.storage_key
+    ${REPAIR_MEDIA_JOINS}
+    WHERE COALESCE((${REPAIR_MEDIA_SOURCE_VALID}), FALSE)
+  )
+`;
+
 const MATERIALS_CTE = `
+  ${REPAIR_MATERIALS_CTE},
   customer_materials AS (
     SELECT m.user_id, m.id, 'annual_inspection'::text AS domain,
       m.booking_id AS business_id, b.booking_number AS business_code, m.kind,
@@ -178,21 +253,10 @@ const MATERIALS_CTE = `
     JOIN bookings b ON b.id = r.booking_id
     JOIN vehicles v ON v.id = b.vehicle_id AND v.user_id = b.user_id
     UNION ALL
-    SELECT r.user_id, m.id, 'repair', r.id, r.request_no, m.kind,
-      'bound', r.status, m.mime_type, m.size_bytes, m.created_at, sm.expires_at, p.retain_until,
-      NULL, '维修报价范围确认', NULL,
-      m.storage_key IS NOT NULL AND sm.status = 'bound' AND p.status = 'published'
-    FROM repair_request_media m
-    JOIN repair_requests r ON r.id = m.request_id
-    JOIN vehicle_checkup_media sm ON sm.id = m.source_media_id
-      AND sm.storage_key = m.storage_key AND sm.sha256 = m.sha256
-    JOIN vehicle_checkup_reports p ON p.id = r.source_report_id
-      AND p.id = sm.report_id AND p.booking_id = r.source_booking_id
-      AND p.booking_id = sm.booking_id
-    JOIN bookings b ON b.id = r.source_booking_id
-      AND b.id = p.booking_id AND b.user_id = r.user_id
-      AND b.vehicle_id = r.source_vehicle_id
-    JOIN vehicles v ON v.id = r.source_vehicle_id AND v.user_id = r.user_id
+    SELECT user_id, id, domain, business_id, business_code, kind, source_state,
+      business_status, mime_type, size_bytes, created_at, expires_at, delete_after,
+      withdrawn_at, purpose, authorization_version, storage_present
+    FROM customer_repair_materials
   ),
   customer_material_view AS (
     SELECT *, CASE
@@ -358,11 +422,8 @@ export async function migrateCustomerCenterDatabase(database: AppDatabase): Prom
         LEFT JOIN vehicle_checkup_reports p ON p.id = r.source_report_id
         LEFT JOIN bookings b ON b.id = r.source_booking_id
         LEFT JOIN vehicles v ON v.id = r.source_vehicle_id
-        WHERE p.id IS NULL OR b.id IS NULL OR v.id IS NULL
-          OR p.booking_id IS DISTINCT FROM r.source_booking_id
-          OR b.vehicle_id IS DISTINCT FROM r.source_vehicle_id
-          OR b.user_id IS DISTINCT FROM r.user_id
-          OR v.user_id IS DISTINCT FROM r.user_id
+        LEFT JOIN booking_prechecks pc ON pc.booking_id = r.source_booking_id
+        WHERE NOT COALESCE((${REPAIR_REQUEST_SOURCE_VALID}), FALSE)
       ) THEN
         RAISE EXCEPTION 'customer-center migration blocked: inconsistent repair source ownership chain';
       END IF;
@@ -371,33 +432,19 @@ export async function migrateCustomerCenterDatabase(database: AppDatabase): Prom
         FROM repair_request_faults f
         LEFT JOIN repair_requests r ON r.id = f.request_id
         LEFT JOIN vehicle_checkup_faults sf ON sf.id = f.source_fault_id
-        WHERE r.id IS NULL OR sf.id IS NULL
-          OR sf.report_id IS DISTINCT FROM r.source_report_id
+        WHERE NOT COALESCE((
+          (r.source_type = 'report' AND sf.id IS NOT NULL
+            AND sf.report_id = r.source_report_id AND f.precheck_reason_code IS NULL)
+          OR (r.source_type = 'precheck' AND f.source_fault_id IS NULL
+            AND f.precheck_reason_code IN ('body_damage', 'dashboard_warning'))
+        ), FALSE)
       ) THEN
         RAISE EXCEPTION 'customer-center migration blocked: inconsistent repair fault source';
       END IF;
       IF EXISTS (
         SELECT 1
-        FROM repair_request_media m
-        LEFT JOIN repair_requests r ON r.id = m.request_id
-        LEFT JOIN vehicle_checkup_media sm ON sm.id = m.source_media_id
-        LEFT JOIN vehicle_checkup_reports p ON p.id = r.source_report_id
-        LEFT JOIN bookings b ON b.id = r.source_booking_id
-        LEFT JOIN vehicles v ON v.id = r.source_vehicle_id
-        LEFT JOIN repair_request_faults f ON f.request_id = m.request_id AND f.id = m.fault_id
-        WHERE r.id IS NULL OR sm.id IS NULL OR p.id IS NULL OR b.id IS NULL OR v.id IS NULL
-          OR sm.report_id IS DISTINCT FROM r.source_report_id
-          OR sm.booking_id IS DISTINCT FROM r.source_booking_id
-          OR p.booking_id IS DISTINCT FROM r.source_booking_id
-          OR b.vehicle_id IS DISTINCT FROM r.source_vehicle_id
-          OR b.user_id IS DISTINCT FROM r.user_id
-          OR v.user_id IS DISTINCT FROM r.user_id
-          OR sm.storage_key IS DISTINCT FROM m.storage_key
-          OR sm.sha256 IS DISTINCT FROM m.sha256
-          OR sm.kind IS DISTINCT FROM m.kind
-          OR sm.sequence_no IS DISTINCT FROM m.sequence_no
-          OR (m.fault_id IS NULL) IS DISTINCT FROM (sm.fault_id IS NULL)
-          OR (m.fault_id IS NOT NULL AND (f.id IS NULL OR f.source_fault_id IS DISTINCT FROM sm.fault_id))
+        ${REPAIR_MEDIA_JOINS}
+        WHERE NOT COALESCE((${REPAIR_MEDIA_SOURCE_VALID}), FALSE)
       ) THEN
         RAISE EXCEPTION 'customer-center migration blocked: inconsistent repair media source';
       END IF;
@@ -1102,21 +1149,11 @@ async function readOwnedMaterial(
       return { data: await safeRead(filename), mimeType: String(row.mime_type) };
     case "repair":
       row = await database.prepare<Row>(`
-        SELECT m.storage_key, m.mime_type
-        FROM repair_request_media m
-        JOIN repair_requests r ON r.id = m.request_id
-        JOIN vehicle_checkup_media sm ON sm.id = m.source_media_id
-          AND sm.storage_key = m.storage_key AND sm.sha256 = m.sha256
-        JOIN vehicle_checkup_reports p ON p.id = r.source_report_id
-          AND p.id = sm.report_id AND p.booking_id = r.source_booking_id
-          AND p.booking_id = sm.booking_id
-        JOIN bookings b ON b.id = r.source_booking_id
-          AND b.id = p.booking_id AND b.user_id = r.user_id
-          AND b.vehicle_id = r.source_vehicle_id
-        JOIN vehicles v ON v.id = r.source_vehicle_id AND v.user_id = r.user_id
-        WHERE m.id = ? AND r.user_id = ? AND p.status = 'published'
-          AND sm.status = 'bound' AND sm.expires_at > ?
-          AND (p.retain_until IS NULL OR p.retain_until > ?)
+        WITH ${REPAIR_MATERIALS_CTE}
+        SELECT storage_key, mime_type FROM customer_repair_materials
+        WHERE id = ? AND user_id = ? AND storage_present
+          AND (expires_at IS NULL OR expires_at > ?)
+          AND (delete_after IS NULL OR delete_after > ?)
       `).get(options.materialId, options.userId, now, now);
       if (!row) break;
       filename = join(options.uploadDir, "vehicle-checkup", String(row.storage_key));

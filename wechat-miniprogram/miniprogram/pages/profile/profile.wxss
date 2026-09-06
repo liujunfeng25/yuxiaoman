@@ -1,5 +1,7 @@
 .profile-page { min-height: 100vh; padding: 25rpx 28rpx calc(178rpx + env(safe-area-inset-bottom)); color: #17253a; background: #f6f9fc; box-sizing: border-box; }
 .profile-heading { display: flex; margin: 4rpx 2rpx 26rpx; flex-direction: column; }
+.profile-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
+.profile-heading-row .profile-heading { min-width: 0; flex: 1; }
 .heading-eyebrow { color: #2e78bf; font-size: 17rpx; font-weight: 800; letter-spacing: 2rpx; }
 .heading-title { margin-top: 4rpx; color: #17253a; font-size: 46rpx; font-weight: 800; letter-spacing: -1rpx; }
 .heading-copy { margin-top: 5rpx; color: #7b899b; font-size: 22rpx; }

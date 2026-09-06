@@ -9,6 +9,7 @@
 .role-pill image:last-child { width: 22rpx; height: 22rpx; }
 
 .scope-bar { display: flex; min-height: 72rpx; margin: 11rpx 0 20rpx; padding: 0 18rpx; align-items: center; justify-content: space-between; border: 1rpx solid #e2e8ef; border-radius: 18rpx; background: #fff; box-shadow: 0 6rpx 20rpx rgba(31, 57, 88, .035); }
+.workflow-summary-wrap { margin: 0 0 20rpx; }
 .scope-date,
 .synthetic-label { display: flex; min-height: 88rpx; align-items: center; gap: 8rpx; color: #536174; font-size: 21rpx; }
 .scope-date image:first-child,

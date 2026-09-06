@@ -1062,27 +1062,6 @@ function normalizeInsuranceDisclosure(raw: Partial<InsuranceDisclosure>): Insura
   };
 }
 
-const localOwnerVehicleModelIds = new Set([
-  "vehicle-mercedes-s",
-  "vehicle-mercedes-e",
-  "vehicle-mercedes-glc",
-  "vehicle-bmw-3",
-  "vehicle-bmw-5",
-  "vehicle-bmw-x3",
-  "vehicle-audi-a4l",
-  "vehicle-audi-a6l",
-  "vehicle-audi-q5l",
-  "vehicle-tesla-model-y",
-  "vehicle-byd-han",
-  "vehicle-li-l7",
-]);
-
-function localOwnerVehicleImage(modelId?: string | null): string {
-  return modelId && localOwnerVehicleModelIds.has(modelId)
-    ? `/assets/vehicles/${modelId}.png`
-    : "/assets/brand/hero-car-generic.png";
-}
-
 function normalizeVehicle(raw: Vehicle): Vehicle {
   const rawWashCategory = raw.washVehicleCategory;
   return {
@@ -1092,20 +1071,24 @@ function normalizeVehicle(raw: Vehicle): Vehicle {
     brand: raw.brand ? { id: String(raw.brand.id), name: String(raw.brand.name) } : null,
     model: raw.model ? { id: String(raw.model.id), name: String(raw.model.name) } : null,
     visual: raw.visual
-      ? { ...raw.visual, imageUrl: localOwnerVehicleImage(raw.model?.id) }
+      ? { ...raw.visual, imageUrl: mediaUrl(raw.visual.imageUrl) }
       : null,
   };
 }
+
+const localOwnerVehicleBrandIds = new Set([
+  "brand-mercedes", "brand-bmw", "brand-audi", "brand-tesla", "brand-byd", "brand-li",
+]);
 
 function normalizeVehicleCatalog(raw: VehicleCatalog): VehicleCatalog {
   return {
     disclosure: raw.disclosure,
     brands: (raw.brands || []).map((brand) => ({
       ...brand,
-      logoUrl: `/assets/vehicles/logos/${brand.id}.png`,
+      logoUrl: localOwnerVehicleBrandIds.has(brand.id) ? `/assets/vehicles/logos/${brand.id}.png` : "",
       models: (brand.models || []).map((model) => ({
         ...model,
-        imageUrl: localOwnerVehicleImage(model.id),
+        imageUrl: mediaUrl(model.imageUrl),
       })),
     })),
   };
@@ -1779,7 +1762,7 @@ export const api = {
   },
   washOrders: async () => listFrom(await request<WashOrderPayload[] | { orders?: WashOrderPayload[] }>("/wash/orders")).map(normalizeWashOrder),
   washOrder: async (id: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}`)),
-  createWashOrder: async (data: { quoteSnapshotId: string; idempotencyKey: string; contactName: string; contactPhone: string; notes?: string }) => normalizeWashOrder(await request<WashOrderPayload>("/wash/orders", "POST", data)),
+  createWashOrder: async (data: { precheckBookingId?: string; quoteSnapshotId: string; idempotencyKey: string; contactName: string; contactPhone: string; notes?: string }) => normalizeWashOrder(await request<WashOrderPayload>("/wash/orders", "POST", data)),
   payWashOrder: async (id: string, idempotencyKey: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/payments`, "POST", { provider: "mock", idempotencyKey })),
   cancelWashOrder: async (id: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/cancel`, "POST")),
   rescheduleWashOrder: async (id: string, slotId: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/reschedule`, "POST", { slotId })),
@@ -1857,11 +1840,13 @@ export const api = {
   usedCarListing: async (id: string) => normalizeUsedCarListing(await request<UsedCarListingPayload>(`/used-cars/listings/${encodeURIComponent(id)}`)),
   operatorWorkbench: async (stationId?: string, date?: string) => normalizeWorkbench(await operatorRequest<Workbench>(`/operator/workbench?stationId=${encodeURIComponent(stationId || "")}&date=${encodeURIComponent(date || "")}`)),
   operatorBooking: async (id: string) => localizedOperatorBooking(normalizeBooking(await operatorRequest<Booking>(`/operator/bookings/${id}`))),
-  operatorPrechecks: async () => {
-    const result = await operatorRequest<{ items: Booking[] }>("/operator/prechecks?status=pending");
+  operatorPrechecks: async (status: "pending" | "rejected" | "all" = "pending") => {
+    const result = await operatorRequest<{ items: Booking[] }>(`/operator/prechecks?status=${status}`);
     return { items: await Promise.all((result.items || []).map((item) => localizedOperatorBooking(normalizeBooking(item)))) };
   },
   operatorPrecheck: async (id: string) => localizedOperatorBooking(normalizeBooking(await operatorRequest<Booking>(`/operator/prechecks/${encodeURIComponent(id)}`))),
+  resubmitPrecheck: async (id: string, data: { expectedVersion: number; idempotencyKey: string; slotId: string; mediaIds: string[]; resolutionNote: string }) => localizeOwnerBookingPrivateMedia(normalizeBooking(await request<Booking>(`/bookings/${encodeURIComponent(id)}/precheck/resubmit`, "POST", data))),
+  createPrecheckRepairRequest: async (data: { bookingId: string; expectedVersion: number; reasonCodes: string[]; consented: true }) => localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>("/repair/precheck-requests", "POST", data)),
   approveOperatorPrecheck: async (id: string, input: { idempotencyKey: string; expectedVersion: number }) => localizedOperatorBooking(normalizeBooking(await operatorRequest<Booking>(`/operator/prechecks/${encodeURIComponent(id)}/approve`, "POST", input))),
   rejectOperatorPrecheck: async (id: string, input: { idempotencyKey: string; expectedVersion: number; reasonCodes: string[]; reasonText: string; issuePhotoKinds: string[] }) => localizedOperatorBooking(normalizeBooking(await operatorRequest<Booking>(`/operator/prechecks/${encodeURIComponent(id)}/reject`, "POST", input))),
   operatorCheckupReport: async (id: string) => {

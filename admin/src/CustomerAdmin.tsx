@@ -20,6 +20,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { money } from "./adminApi";
+import { operatorErrorMessage } from "./operatorError";
 import {
   customerAdminApi,
   customerAdminTags as fixedCustomerTags,
@@ -95,6 +96,27 @@ const statusLabels: Record<string, string> = {
   paid: "已支付",
 };
 const materialStateLabels: Record<string, string> = { active: "有效", retained: "留存中", withdrawn: "已撤回", expired: "已过期", deleted: "已清理" };
+const customerVehicleTypeLabels: Record<string, string> = {
+  sedan: "轿车",
+  suv: "SUV",
+  mpv: "MPV",
+  suv_mpv: "SUV / MPV",
+  hatchback: "两厢车",
+  coupe: "跑车",
+  pickup: "皮卡",
+  van: "面包车",
+};
+
+function customerVehicleTypeLabel(value?: string | null) {
+  return value ? customerVehicleTypeLabels[value.toLowerCase()] || "车辆类型待核对" : "车辆类型未填写";
+}
+
+function authorizationVersionLabel(value?: string | null) {
+  if (!value) return "未记录";
+  if (/[\u3400-\u9fff]/u.test(value)) return value;
+  const versionNumber = value.match(/(?:^|[-_])v(?:ersion)?[-_]?(\d+)(?:$|[-_])/i)?.[1] ?? value.match(/\d+/)?.[0];
+  return versionNumber ? `第 ${versionNumber} 版` : "已记录";
+}
 
 function objectOf(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -302,7 +324,7 @@ function normalizeCursorList<T>(value: unknown, normalize: (item: unknown) => T)
 function localDate(value: string | null | undefined, withTime = true) {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "时间待核对";
   return new Intl.DateTimeFormat("zh-CN", {
     timeZone: "Asia/Shanghai",
     year: "numeric",
@@ -314,14 +336,25 @@ function localDate(value: string | null | undefined, withTime = true) {
 
 function bytes(value: number | null | undefined) {
   if (value == null) return "大小未记录";
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  if (value < 1024) return `${value} 字节`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} 千字节`;
+  return `${(value / 1024 / 1024).toFixed(1)} 兆字节`;
 }
 
-function labelForDomain(value: string) { return domainLabels[value] || value || "其他业务"; }
-function labelForStatus(value: string) { return statusLabels[value] || value || "未知"; }
-function labelForMaterialState(value: string) { return materialStateLabels[value] || value || "未知"; }
+function labelForDomain(value: string) { return domainLabels[value] || "其他业务"; }
+function labelForStatus(value: string) { return statusLabels[value] || "状态待核对"; }
+function labelForMaterialState(value: string) { return materialStateLabels[value] || "状态待核对"; }
+function labelForRecordType(value: string) {
+  const labels: Record<string, string> = { order: "订单", booking: "预约", inquiry: "咨询", lead: "线索", consultation: "咨询", quote_request: "报价需求", quote: "报价", report: "报告", service: "服务" };
+  return labels[value] || "业务记录";
+}
+function labelForMaterialType(value: string | null | undefined) {
+  if (!value) return "文件类型未记录";
+  if (value.startsWith("image/")) return "图片";
+  if (value === "application/pdf") return "文档";
+  if (value.startsWith("video/")) return "视频";
+  return "其他文件";
+}
 
 function Avatar({ customer }: { customer: CustomerListItem }) {
   const initial = customer.displayName.trim().slice(0, 1) || "客";
@@ -379,7 +412,7 @@ export function CustomersPage({ onNavigate, onError }: { onNavigate: Navigate; o
       setNextCursor(payload.nextCursor ?? null);
     } catch (reason) {
       if (generation !== requestGeneration.current) return;
-      onError((reason as Error).message);
+      onError(operatorErrorMessage(reason, "客户列表读取失败，请稍后重试"));
       setCustomers([]);
       setNextCursor(null);
     } finally {
@@ -420,7 +453,7 @@ export function CustomersPage({ onNavigate, onError }: { onNavigate: Navigate; o
     </section>
 
     <section className="content-card customer-list-card">
-      <header className="customer-card-heading"><div><small>CUSTOMER 360 INDEX</small><h2>客户档案</h2><p>以客户主键聚合各业务数据，不复制订单、车辆或资料。</p></div><span><ShieldCheck weight="duotone" />默认脱敏 · 服务端鉴权</span></header>
+      <header className="customer-card-heading"><div><small>客户全景档案</small><h2>客户档案</h2><p>以客户主键聚合各业务数据，不复制订单、车辆或资料。</p></div><span><ShieldCheck weight="duotone" />默认脱敏 · 服务端鉴权</span></header>
       <div className="customer-filters" aria-label="客户筛选">
         <label className="customer-search"><MagnifyingGlass /><input aria-label="搜索客户" value={filters.q} onChange={(event) => updateFilter("q", event.target.value)} placeholder="客户编号、昵称、车牌、订单或服务编号" /></label>
         <select aria-label="客户数据类型" value={filters.dataKind} onChange={(event) => updateFilter("dataKind", event.target.value)}><option value="">全部身份</option><option value="real">真实客户</option><option value="demo">演示客户</option><option value="unknown">待识别</option></select>
@@ -450,9 +483,9 @@ export function CustomersPage({ onNavigate, onError }: { onNavigate: Navigate; o
 
 function IdentityRevealDialog({ identity, close }: { identity: RevealedIdentity; close: () => void }) {
   return <div className="customer-modal-layer" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="customer-sensitive-dialog" role="dialog" aria-modal="true" aria-label="完整微信身份标识">
-    <header><div><small>SENSITIVE IDENTITY</small><h2>完整微信身份标识</h2></div><button aria-label="关闭完整身份标识" onClick={close}><X /></button></header>
+    <header><div><small>敏感身份信息</small><h2>完整微信身份标识</h2></div><button aria-label="关闭完整身份标识" onClick={close}><X /></button></header>
     <div className="customer-sensitive-warning"><ShieldCheck weight="fill" /><p><strong>本次查看已记录到操作日志</strong><span>请仅在处理身份归属问题时使用，不要复制到工单备注或其他非受控位置。</span></p></div>
-    <dl><div><dt>身份提供方</dt><dd>{identity.provider === "wechat" ? "微信小程序" : identity.provider}</dd></div><div><dt>AppID</dt><dd><code>{identity.providerAppId || "—"}</code></dd></div><div><dt>OpenID</dt><dd><code>{identity.providerSubject || "—"}</code></dd></div><div><dt>UnionID</dt><dd><code>{identity.unionSubject || "未返回 / 未绑定"}</code></dd></div></dl>
+    <dl><div><dt>身份来源</dt><dd>{identity.provider === "wechat" ? "微信小程序" : "其他身份来源"}</dd></div><div><dt>微信应用编号</dt><dd><code>{identity.providerAppId || "—"}</code></dd></div><div><dt>微信用户标识</dt><dd><code>{identity.providerSubject || "—"}</code></dd></div><div><dt>微信跨应用标识</dt><dd><code>{identity.unionSubject || "未返回 / 未绑定"}</code></dd></div></dl>
     <footer><button onClick={close}>关闭敏感信息</button></footer>
   </section></div>;
 }
@@ -471,18 +504,18 @@ function CustomerOverview({ detail, onNavigate, onReveal, onToggleTag, savingTag
   const { customer } = detail;
   return <div className="customer-overview-grid">
     <div className="customer-overview-main">
-      <section className="customer-detail-section customer-identity-section"><header><div><small>IDENTITY BINDINGS</small><h3>身份绑定</h3></div><span><ShieldCheck />默认脱敏</span></header>
-        {detail.identities.length ? <div className="customer-identities">{detail.identities.map((identity) => <article key={identity.id}><span><IdentificationBadge weight="duotone" /></span><div><strong>{identity.provider === "wechat" ? "微信小程序身份" : identity.provider}</strong><small>OpenID · {identity.maskedProviderSubject || "已脱敏"}</small><small>UnionID · {identity.maskedUnionSubject || "未绑定 / 不可用"}</small><em>绑定于 {localDate(identity.boundAt)}</em></div><button onClick={() => onReveal(identity)}><Eye />查看完整标识</button></article>)}</div> : <CustomerEmpty title="尚未绑定微信身份" description="该客户可能是演示身份或历史业务数据；系统不会自动推断 OpenID。" />}
+      <section className="customer-detail-section customer-identity-section"><header><div><small>身份绑定</small><h3>身份绑定</h3></div><span><ShieldCheck />默认脱敏</span></header>
+        {detail.identities.length ? <div className="customer-identities">{detail.identities.map((identity) => <article key={identity.id}><span><IdentificationBadge weight="duotone" /></span><div><strong>{identity.provider === "wechat" ? "微信小程序身份" : "其他身份来源"}</strong><small>微信用户标识 · {identity.maskedProviderSubject || "已脱敏"}</small><small>微信跨应用标识 · {identity.maskedUnionSubject || "未绑定 / 不可用"}</small><em>绑定于 {localDate(identity.boundAt)}</em></div><button onClick={() => onReveal(identity)}><Eye />查看完整标识</button></article>)}</div> : <CustomerEmpty title="尚未绑定微信身份" description="该客户可能是演示身份或历史业务数据；系统不会自动推断微信用户标识。" />}
       </section>
 
-      <section className="customer-detail-section"><header><div><small>RECENT BUSINESS</small><h3>最近业务记录</h3></div><span>仅展示源业务摘要</span></header>
+      <section className="customer-detail-section"><header><div><small>最近业务</small><h3>最近业务记录</h3></div><span>仅展示源业务摘要</span></header>
         {detail.recentRecords.length ? <div className="customer-recent-records">{detail.recentRecords.slice(0, 6).map((record) => <article key={`${record.domain}-${record.sourceId}`}><i /><span><strong>{record.title || labelForDomain(record.domain)}</strong><small>{record.businessCode} · {labelForStatus(record.status)}</small></span><time>{localDate(record.occurredAt)}</time>{record.detailPath ? <button onClick={() => onNavigate(record.detailPath!)} aria-label={`打开业务记录 ${record.businessCode}`}><CaretRight /></button> : null}</article>)}</div> : <CustomerEmpty title="暂无业务记录" description="该客户当前没有订单、咨询或服务记录，系统不会生成示例记录。" />}
       </section>
     </div>
 
     <aside className="customer-overview-aside">
-      <section className="customer-detail-section customer-tags-panel"><header><div><small>INTERNAL TAGS</small><h3>内部标签</h3></div><Tag weight="duotone" /></header><p>仅后台运营可见，不改变客户账号或业务状态。</p><div>{fixedCustomerTags.map((tag) => { const selected = detail.tags.includes(tag); return <button key={tag} aria-pressed={selected} disabled={savingTags} className={selected ? "selected" : ""} onClick={() => onToggleTag(tag)}>{selected ? <CheckCircle weight="fill" /> : <span />}{tag}</button>; })}</div></section>
-      <section className="customer-detail-section customer-notes-panel"><header><div><small>APPEND-ONLY NOTES</small><h3>内部备注</h3></div><NotePencil weight="duotone" /></header><form onSubmit={addNote}><textarea aria-label="新增客户内部备注" maxLength={1000} value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="记录需要交接的运营事实，不填写密码、OpenID 等敏感标识。" /><div><small>{noteText.length} / 1000 · 保存后不可编辑或删除</small><button disabled={savingNote || !noteText.trim()}>{savingNote ? <CircleNotch className="customer-spinner" /> : <NotePencil />}追加备注</button></div></form>
+      <section className="customer-detail-section customer-tags-panel"><header><div><small>内部标签</small><h3>内部标签</h3></div><Tag weight="duotone" /></header><p>仅后台运营可见，不改变客户账号或业务状态。</p><div>{fixedCustomerTags.map((tag) => { const selected = detail.tags.includes(tag); return <button key={tag} aria-pressed={selected} disabled={savingTags} className={selected ? "selected" : ""} onClick={() => onToggleTag(tag)}>{selected ? <CheckCircle weight="fill" /> : <span />}{tag}</button>; })}</div></section>
+      <section className="customer-detail-section customer-notes-panel"><header><div><small>只追加备注</small><h3>内部备注</h3></div><NotePencil weight="duotone" /></header><form onSubmit={addNote}><textarea aria-label="新增客户内部备注" maxLength={1000} value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="记录需要交接的运营事实，不填写密码、微信用户标识等敏感信息。" /><div><small>{noteText.length} / 1000 · 保存后不可编辑或删除</small><button disabled={savingNote || !noteText.trim()}>{savingNote ? <CircleNotch className="customer-spinner" /> : <NotePencil />}追加备注</button></div></form>
         {detail.notes.length ? <ol>{detail.notes.map((note) => <li key={note.id}><p>{note.content}</p><span>{note.author?.displayName || "平台管理员"} · {localDate(note.createdAt)}</span></li>)}</ol> : <p className="customer-no-notes">暂无内部备注</p>}
       </section>
     </aside>
@@ -490,8 +523,8 @@ function CustomerOverview({ detail, onNavigate, onReveal, onToggleTag, savingTag
 }
 
 function CustomerVehicles({ vehicles }: { vehicles: CustomerVehicle[] }) {
-  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>OWNED VEHICLES</small><h2>客户车辆</h2><p>包含有效及已删除档案；年检信息来自车辆源记录。</p></div><span><Car weight="duotone" />{vehicles.length} 辆</span></header>
-    {vehicles.length ? <div className="table-wrap"><table><thead><tr><th>车辆</th><th>档案属性</th><th>年检信息</th><th>最近服务</th><th>档案状态</th></tr></thead><tbody>{vehicles.map((vehicle) => <tr key={vehicle.id}><td><strong>{vehicle.plateNumber}{vehicle.isDefault ? <em className="customer-default-vehicle">当前车辆</em> : null}</strong><small>{[vehicle.brandName, vehicle.modelName].filter(Boolean).join(" ") || "未选择品牌车型"}</small></td><td><strong>{vehicle.vehicleType || "车辆类型未填写"}</strong><small>{vehicle.seats ? `${vehicle.seats} 座` : "座位数未填写"}</small></td><td><strong>{vehicle.inspectionValidUntil ? `有效期至 ${localDate(vehicle.inspectionValidUntil, false)}` : "有效期未核对"}</strong><small>{vehicle.nextInspectionDate ? `预计下次：${localDate(vehicle.nextInspectionDate, false)}` : "暂无下次年检日期"}</small></td><td><strong>{localDate(vehicle.lastServiceAt || vehicle.updatedAt)}</strong></td><td><span className={`customer-account-state ${vehicle.isDeleted ? "disabled" : "active"}`}>{vehicle.isDeleted ? "已删除档案" : "有效档案"}</span></td></tr>)}</tbody></table></div> : <CustomerEmpty title="该客户暂无车辆" description="车辆由小程序端客户维护；客户中心不会自动创建或补全车辆档案。" />}
+  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>客户车辆</small><h2>客户车辆</h2><p>包含有效及已删除档案；年检信息来自车辆源记录。</p></div><span><Car weight="duotone" />{vehicles.length} 辆</span></header>
+    {vehicles.length ? <div className="table-wrap"><table><thead><tr><th>车辆</th><th>档案属性</th><th>年检信息</th><th>最近服务</th><th>档案状态</th></tr></thead><tbody>{vehicles.map((vehicle) => <tr key={vehicle.id}><td><strong>{vehicle.plateNumber}{vehicle.isDefault ? <em className="customer-default-vehicle">当前车辆</em> : null}</strong><small>{[vehicle.brandName, vehicle.modelName].filter(Boolean).join(" ") || "未选择品牌车型"}</small></td><td><strong>{customerVehicleTypeLabel(vehicle.vehicleType)}</strong><small>{vehicle.seats ? `${vehicle.seats} 座` : "座位数未填写"}</small></td><td><strong>{vehicle.inspectionValidUntil ? `有效期至 ${localDate(vehicle.inspectionValidUntil, false)}` : "有效期未核对"}</strong><small>{vehicle.nextInspectionDate ? `预计下次：${localDate(vehicle.nextInspectionDate, false)}` : "暂无下次年检日期"}</small></td><td><strong>{localDate(vehicle.lastServiceAt || vehicle.updatedAt)}</strong></td><td><span className={`customer-account-state ${vehicle.isDeleted ? "disabled" : "active"}`}>{vehicle.isDeleted ? "已删除档案" : "有效档案"}</span></td></tr>)}</tbody></table></div> : <CustomerEmpty title="该客户暂无车辆" description="车辆由小程序端客户维护；客户中心不会自动创建或补全车辆档案。" />}
   </section>;
 }
 
@@ -511,13 +544,13 @@ function CustomerRecords({ customerId, onNavigate, onError }: { customerId: stri
       if (generation !== requestGeneration.current) return;
       setRecords(payload.items);
       setNextCursor(payload.nextCursor);
-    } catch (reason) { if (generation === requestGeneration.current) { onError((reason as Error).message); setRecords([]); setNextCursor(null); } }
+    } catch (reason) { if (generation === requestGeneration.current) { onError(operatorErrorMessage(reason, "客户业务记录读取失败，请稍后重试")); setRecords([]); setNextCursor(null); } }
     finally { if (generation === requestGeneration.current) setLoading(false); }
   }, [cursor, customerId, domain, onError]);
   useEffect(() => { void load(); }, [load]);
   const changeDomain = (value: string) => { setDomain(value); setCursor(null); setHistory([]); };
-  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>CROSS-DOMAIN TIMELINE</small><h2>业务记录</h2><p>统一时间线只聚合源业务摘要，订单状态和金额仍由对应业务维护。</p></div><select aria-label="业务记录类型" value={domain} onChange={(event) => changeDomain(event.target.value)}><option value="">全部业务</option>{Object.entries(domainLabels).filter(([key]) => ["annual_inspection", "car_wash", "car_rental", "repair", "insurance", "driving_school", "subsidy_consultation"].includes(key)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></header>
-    {records.length ? <div className="customer-timeline" aria-label="客户业务时间线">{records.map((record) => <article key={`${record.domain}-${record.sourceId}`}><time>{localDate(record.occurredAt)}</time><span className="customer-timeline-dot" /><div><header><span>{labelForDomain(record.domain)}</span><em className={`customer-record-status ${record.status}`}>{labelForStatus(record.status)}</em></header><h3>{record.title || record.businessCode}</h3><p>{record.businessCode} · {record.recordType}{record.vehicleId ? ` · 车辆 ${record.vehicleId}` : ""}</p></div><strong>{record.amountFen == null ? "金额未记录" : `¥${money(record.amountFen)}`}</strong>{record.detailPath ? <button onClick={() => onNavigate(record.detailPath!)}><LinkSimple />打开业务详情</button> : <span className="customer-no-deep-link">暂无独立后台详情</span>}</article>)}</div> : !loading ? <CustomerEmpty title="当前没有业务记录" description={domain ? `该客户暂无${labelForDomain(domain)}记录。` : "该客户在各业务域中都没有可聚合的记录。"} /> : null}
+  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>跨业务时间线</small><h2>业务记录</h2><p>统一时间线只聚合源业务摘要，订单状态和金额仍由对应业务维护。</p></div><select aria-label="业务记录类型" value={domain} onChange={(event) => changeDomain(event.target.value)}><option value="">全部业务</option>{Object.entries(domainLabels).filter(([key]) => ["annual_inspection", "car_wash", "car_rental", "repair", "insurance", "driving_school", "subsidy_consultation"].includes(key)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></header>
+    {records.length ? <div className="customer-timeline" aria-label="客户业务时间线">{records.map((record) => <article key={`${record.domain}-${record.sourceId}`}><time>{localDate(record.occurredAt)}</time><span className="customer-timeline-dot" /><div><header><span>{labelForDomain(record.domain)}</span><em className={`customer-record-status ${record.status}`}>{labelForStatus(record.status)}</em></header><h3>{record.title || record.businessCode}</h3><p>{record.businessCode} · {labelForRecordType(record.recordType)}{record.vehicleId ? " · 已关联车辆" : ""}</p></div><strong>{record.amountFen == null ? "金额未记录" : `¥${money(record.amountFen)}`}</strong>{record.detailPath ? <button onClick={() => onNavigate(record.detailPath!)}><LinkSimple />打开业务详情</button> : <span className="customer-no-deep-link">暂无独立后台详情</span>}</article>)}</div> : !loading ? <CustomerEmpty title="当前没有业务记录" description={domain ? `该客户暂无${labelForDomain(domain)}记录。` : "该客户在各业务域中都没有可聚合的记录。"} /> : null}
     {loading ? <div className="customer-inline-loading"><CircleNotch className="customer-spinner" />正在读取业务记录…</div> : null}
     <footer className="customer-cursor-pagination"><span>每页最多 20 条</span><div><button disabled={!history.length || loading} onClick={() => { const previous = history.at(-1) ?? null; setHistory((items) => items.slice(0, -1)); setCursor(previous); }}><ArrowLeft />上一页</button><button disabled={!nextCursor || loading} onClick={() => { setHistory((items) => [...items, cursor]); setCursor(nextCursor); }}>下一页<ArrowRight /></button></div></footer>
   </section>;
@@ -539,29 +572,29 @@ function CustomerMaterials({ customerId, onError }: { customerId: string; onErro
       if (generation !== requestGeneration.current) return;
       setMaterials(payload.items);
       setNextCursor(payload.nextCursor);
-    } catch (reason) { if (generation === requestGeneration.current) { onError((reason as Error).message); setMaterials([]); setNextCursor(null); } }
+    } catch (reason) { if (generation === requestGeneration.current) { onError(operatorErrorMessage(reason, "客户资料索引读取失败，请稍后重试")); setMaterials([]); setNextCursor(null); } }
     finally { if (generation === requestGeneration.current) setLoading(false); }
   }, [cursor, customerId, filters.domain, filters.state, onError]);
   useEffect(() => { void load(); }, [load]);
   const updateFilter = (key: keyof typeof filters, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setCursor(null); setHistory([]); };
   const materialGroups = materials.reduce<Array<{ key: string; domain: string; businessLabel: string; items: CustomerMaterial[] }>>((groups, material) => {
-    const businessLabel = material.businessCode || material.businessId || "未关联业务编号";
+    const businessLabel = material.businessCode || "未关联业务编号";
     const key = `${material.domain}:${material.businessId || businessLabel}`;
     const existing = groups.find((group) => group.key === key);
     if (existing) existing.items.push(material);
     else groups.push({ key, domain: material.domain, businessLabel, items: [material] });
     return groups;
   }, []);
-  return <section className="content-card customer-tab-card customer-material-card"><header className="customer-card-heading"><div><small>PRIVATE MATERIAL INDEX</small><h2>资料与授权</h2><p>列表仅包含元数据。内容需逐项查看，不提供批量下载或全量导出。</p></div><div className="customer-material-filters"><select aria-label="资料业务类型" value={filters.domain} onChange={(event) => updateFilter("domain", event.target.value)}><option value="">全部业务</option>{Object.entries(domainLabels).filter(([key]) => ["annual_inspection", "insurance", "driving_school", "subsidy_consultation", "vehicle_checkup", "repair"].includes(key)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="资料状态" value={filters.state} onChange={(event) => updateFilter("state", event.target.value)}><option value="">全部状态</option><option value="active">有效</option><option value="retained">留存中</option><option value="withdrawn">已撤回</option><option value="expired">已过期</option><option value="deleted">已清理</option></select></div></header>
-    {materialGroups.length ? <div className="customer-material-groups">{materialGroups.map((group) => <section className="customer-material-group" key={group.key} aria-label={`${labelForDomain(group.domain)} ${group.businessLabel} 资料`}><header><div><span>{labelForDomain(group.domain)}</span><strong>{group.businessLabel}</strong></div><em>{group.items.length} 项资料</em></header><div className="customer-material-list">{group.items.map((material) => { const contentUrl = customerAdminApi.materialContentUrl(customerId, material.domain, material.id); return <article key={`${material.domain}-${material.id}`}><span className="customer-file-icon"><FileText weight="duotone" /></span><div className="customer-material-main"><header><strong>{material.label || material.kind}</strong><em className={`customer-material-state ${material.available ? "available" : "unavailable"}`}>{labelForMaterialState(material.state)}</em></header><p>{material.mimeType || "文件类型未记录"} · {bytes(material.sizeBytes)}</p><dl><div><dt>采集用途</dt><dd>{material.purpose || "用途说明未记录"}</dd></div><div><dt>授权版本</dt><dd>{material.authorizationVersion || material.consentVersion || "未记录"}</dd></div><div><dt>留存规则</dt><dd>{material.retention || (material.deleteAfter ? `计划清理：${localDate(material.deleteAfter)}` : "按源业务留存规则")}</dd></div><div><dt>创建 / 到期</dt><dd>{localDate(material.createdAt)} / {localDate(material.expiresAt)}</dd></div></dl></div>{material.available ? <a href={contentUrl} target="_blank" rel="noopener noreferrer" aria-label={`逐项查看资料 ${material.label || material.kind}`}><Eye />逐项查看</a> : <button disabled title="该资料已撤回、过期或清理"><ShieldCheck />不可查看</button>}</article>; })}</div></section>)}</div> : !loading ? <CustomerEmpty title="没有可展示的资料元数据" description={filters.domain || filters.state ? "当前筛选条件下没有资料；已清理内容不会由客户中心恢复。" : "该客户尚未上传业务资料，系统不会生成示例文件。"} /> : null}
+  return <section className="content-card customer-tab-card customer-material-card"><header className="customer-card-heading"><div><small>隐私资料索引</small><h2>资料与授权</h2><p>列表仅包含元数据。内容需逐项查看，不提供批量下载或全量导出。</p></div><div className="customer-material-filters"><select aria-label="资料业务类型" value={filters.domain} onChange={(event) => updateFilter("domain", event.target.value)}><option value="">全部业务</option>{Object.entries(domainLabels).filter(([key]) => ["annual_inspection", "insurance", "driving_school", "subsidy_consultation", "vehicle_checkup", "repair"].includes(key)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="资料状态" value={filters.state} onChange={(event) => updateFilter("state", event.target.value)}><option value="">全部状态</option><option value="active">有效</option><option value="retained">留存中</option><option value="withdrawn">已撤回</option><option value="expired">已过期</option><option value="deleted">已清理</option></select></div></header>
+    {materialGroups.length ? <div className="customer-material-groups">{materialGroups.map((group) => <section className="customer-material-group" key={group.key} aria-label={`${labelForDomain(group.domain)} ${group.businessLabel} 资料`}><header><div><span>{labelForDomain(group.domain)}</span><strong>{group.businessLabel}</strong></div><em>{group.items.length} 项资料</em></header><div className="customer-material-list">{group.items.map((material) => { const contentUrl = customerAdminApi.materialContentUrl(customerId, material.domain, material.id); return <article key={`${material.domain}-${material.id}`}><span className="customer-file-icon"><FileText weight="duotone" /></span><div className="customer-material-main"><header><strong>{material.label || "其他资料"}</strong><em className={`customer-material-state ${material.available ? "available" : "unavailable"}`}>{labelForMaterialState(material.state)}</em></header><p>{labelForMaterialType(material.mimeType)} · {bytes(material.sizeBytes)}</p><dl><div><dt>采集用途</dt><dd>{material.purpose || "用途说明未记录"}</dd></div><div><dt>授权版本</dt><dd>{authorizationVersionLabel(material.authorizationVersion || material.consentVersion)}</dd></div><div><dt>留存规则</dt><dd>{material.retention || (material.deleteAfter ? `计划清理：${localDate(material.deleteAfter)}` : "按源业务留存规则")}</dd></div><div><dt>创建 / 到期</dt><dd>{localDate(material.createdAt)} / {localDate(material.expiresAt)}</dd></div></dl></div>{material.available ? <a href={contentUrl} target="_blank" rel="noopener noreferrer" aria-label={`逐项查看资料 ${material.label || "其他资料"}`}><Eye />逐项查看</a> : <button disabled title="该资料已撤回、过期或清理"><ShieldCheck />不可查看</button>}</article>; })}</div></section>)}</div> : !loading ? <CustomerEmpty title="没有可展示的资料元数据" description={filters.domain || filters.state ? "当前筛选条件下没有资料；已清理内容不会由客户中心恢复。" : "该客户尚未上传业务资料，系统不会生成示例文件。"} /> : null}
     {loading ? <div className="customer-inline-loading"><CircleNotch className="customer-spinner" />正在读取资料索引…</div> : null}
     <footer className="customer-cursor-pagination"><span><ShieldCheck />文件内容响应禁止缓存，读取由服务端审计</span><div><button disabled={!history.length || loading} onClick={() => { const previous = history.at(-1) ?? null; setHistory((items) => items.slice(0, -1)); setCursor(previous); }}><ArrowLeft />上一页</button><button disabled={!nextCursor || loading} onClick={() => { setHistory((items) => [...items, cursor]); setCursor(nextCursor); }}>下一页<ArrowRight /></button></div></footer>
   </section>;
 }
 
 function CustomerAccessLog({ activities }: { activities: CustomerActivity[] }) {
-  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>RESOURCE AUDIT TRAIL</small><h2>操作记录</h2><p>敏感身份查看、资料读取、标签和备注变更由服务端记录。</p></div><span><ShieldCheck weight="duotone" />不可修改</span></header>
-    {activities.length ? <div className="table-wrap"><table><thead><tr><th>时间</th><th>动作</th><th>操作人员</th><th>资源</th><th>结果</th></tr></thead><tbody>{activities.map((activity) => <tr key={activity.id}><td><strong>{localDate(activity.occurredAt)}</strong></td><td><strong>{activity.label}</strong><small>{activity.description || activity.type || "—"}</small></td><td><strong>{activity.actorName || "系统"}</strong></td><td><strong>{activity.domain ? labelForDomain(activity.domain) : "客户档案"}</strong><small>{activity.resourceId || "—"}</small></td><td><span className={`customer-audit-outcome ${activity.outcome || "success"}`}>{activity.outcome === "denied" ? "已拒绝" : activity.outcome === "failure" ? "失败" : "成功"}</span></td></tr>)}</tbody></table></div> : <CustomerEmpty title="暂无操作记录" description="尚未发生敏感标识查看、资料读取、标签或备注变更。" />}
+  return <section className="content-card customer-tab-card"><header className="customer-card-heading"><div><small>资料操作记录</small><h2>操作记录</h2><p>敏感身份查看、资料读取、标签和备注变更由服务端记录。</p></div><span><ShieldCheck weight="duotone" />不可修改</span></header>
+    {activities.length ? <div className="table-wrap"><table><thead><tr><th>时间</th><th>动作</th><th>操作人员</th><th>资源</th><th>结果</th></tr></thead><tbody>{activities.map((activity) => <tr key={activity.id}><td><strong>{localDate(activity.occurredAt)}</strong></td><td><strong>{activity.label}</strong><small>{activity.description || "系统操作"}</small></td><td><strong>{activity.actorName || "系统"}</strong></td><td><strong>{activity.domain ? labelForDomain(activity.domain) : "客户档案"}</strong><small>{activity.resourceId ? "关联业务已记录" : "—"}</small></td><td><span className={`customer-audit-outcome ${activity.outcome || "success"}`}>{activity.outcome === "denied" ? "已拒绝" : activity.outcome === "failure" ? "失败" : "成功"}</span></td></tr>)}</tbody></table></div> : <CustomerEmpty title="暂无操作记录" description="尚未发生敏感标识查看、资料读取、标签或备注变更。" />}
   </section>;
 }
 
@@ -577,7 +610,7 @@ export function CustomerDetailPage({ customerId, onNavigate, onError }: { custom
   const load = useCallback(async () => {
     setLoading(true);
     try { setDetail(normalizeCustomerDetail(await customerAdminApi.get(customerId))); }
-    catch (reason) { onError((reason as Error).message); setDetail(null); }
+    catch (reason) { onError(operatorErrorMessage(reason, "客户详情读取失败，请稍后重试")); setDetail(null); }
     finally { setLoading(false); }
   }, [customerId, onError]);
   useEffect(() => { void load(); }, [load]);
@@ -599,7 +632,7 @@ export function CustomerDetailPage({ customerId, onNavigate, onError }: { custom
       const response = objectOf(await customerAdminApi.replaceTags(customerId, tags));
       const next = stringsOf(response.tags).length || tags.length === 0 ? stringsOf(response.tags) : tags;
       setDetail((current) => current ? { ...current, tags: next, customer: { ...current.customer, tags: next } } : current);
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "客户标签保存失败，请稍后重试")); }
     finally { setSavingTags(false); }
   };
 
@@ -613,7 +646,7 @@ export function CustomerDetailPage({ customerId, onNavigate, onError }: { custom
       const note = normalizeNote(response.note ?? response);
       setDetail((current) => current ? { ...current, notes: [note, ...current.notes] } : current);
       setNoteText("");
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "客户备注保存失败，请稍后重试")); }
     finally { setSavingNote(false); }
   };
 
@@ -629,7 +662,7 @@ export function CustomerDetailPage({ customerId, onNavigate, onError }: { custom
         unionSubject: nullableText(raw.unionSubject ?? raw.union_subject ?? raw.unionId ?? raw.unionid),
       });
       setDetail((current) => current ? { ...current, recentActivity: [{ id: `identity-reveal-${Date.now()}`, type: "customer.identity.reveal", label: "查看完整微信身份标识", description: "敏感身份标识已显式查看", occurredAt: new Date().toISOString(), actorName: "当前管理员", domain: "customer", resourceId: identity.id, outcome: "success" }, ...current.recentActivity] } : current);
-    } catch (reason) { onError((reason as Error).message); }
+    } catch (reason) { onError(operatorErrorMessage(reason, "客户身份信息读取失败，请稍后重试")); }
   };
 
   const tabs: Array<[DetailTab, string, number | null]> = useMemo(() => [

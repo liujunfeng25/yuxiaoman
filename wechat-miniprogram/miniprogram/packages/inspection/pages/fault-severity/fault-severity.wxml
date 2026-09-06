@@ -1,0 +1,37 @@
+<view class="severity-page">
+  <view class="step-indicator"><text>故障记录</text><text>1 / 2</text></view>
+
+  <view class="page-heading">
+    <text>选择故障程度</text>
+    <text>请按现场可见状态判断，下一步再填写问题类型、描述并拍摄特写。</text>
+  </view>
+
+  <view class="location-card">
+    <view class="location-icon"><image src="/assets/icons/map-pin.png" mode="aspectFit" /></view>
+    <view><text>当前故障位置</text><text>{{regionName}}</text></view>
+    <text>已定位</text>
+  </view>
+
+  <view class="severity-list">
+    <button
+      wx:for="{{severityOptions}}"
+      wx:key="value"
+      aria-label="{{item.label}}，{{item.summary}}，{{item.selected ? '已选择' : '未选择'}}"
+      class="severity-option severity-{{item.value}} {{item.selected ? 'selected' : ''}}"
+      data-value="{{item.value}}"
+      bindtap="selectSeverity"
+    >
+      <view class="option-index"><text>{{index + 1}}</text></view>
+      <view class="option-copy"><text>{{item.label}}</text><text>{{item.summary}}</text><text>{{item.guidance}}</text></view>
+      <image wx:if="{{item.selected}}" src="/assets/icons/check-circle.png" mode="aspectFit" />
+      <view wx:else class="option-radio"></view>
+    </button>
+  </view>
+
+  <view class="severity-note"><image src="/assets/icons/shield-check.png" mode="aspectFit"/><text>程度用于形成车辆体检记录和后续维修需求，维修范围与价格仍由维修门店结合实车确认。</text></view>
+
+  <view class="severity-actions">
+    <button class="cancel-button" bindtap="cancel">返回重选位置</button>
+    <button class="continue-button" bindtap="continueToDetails" disabled="{{!selectedSeverity}}">下一步：填写故障详情</button>
+  </view>
+</view>

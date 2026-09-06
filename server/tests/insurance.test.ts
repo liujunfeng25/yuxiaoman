@@ -181,6 +181,8 @@ test("保险披露 fail closed，multipart 校验且线索敏感字段加密落�
     assert.equal(info.partner.id, "insurance-demo-partner");
     assert.equal(info.partner.recipientName, "驭小满保险服务演示团队（非真实保险机构）");
     assert.match(info.consentText, /合成演示资料/);
+    await database.prepare("UPDATE vehicles SET exterior_color = ? WHERE id = ?")
+      .run("珍珠白", "vehicle-demo-1");
 
     const realData = await submitLead(app, info.version, "insurance-real-data-1", { contactPhone: "13712345678" });
     assert.equal(realData.statusCode, 403, realData.body);
@@ -199,6 +201,7 @@ test("保险披露 fail closed，multipart 校验且线索敏感字段加密落�
     assert.equal(receipt.duplicate, false);
     assert.ok(receipt.withdrawToken);
     assert.equal(receipt.vehicle.plateNumber, "津A·88888");
+    assert.equal(receipt.vehicle.exteriorColor, "珍珠白");
     assert.equal(receipt.contactNameMasked, "王*");
 
     const row = await database.prepare<Json>("SELECT * FROM service_leads WHERE lead_code = ?").get(receipt.leadCode);
@@ -215,6 +218,7 @@ test("保险披露 fail closed，multipart 校验且线索敏感字段加密落�
     const detail = await database.prepare<Json>("SELECT * FROM insurance_lead_details WHERE lead_id = ?").get(row.id);
     assert.ok(detail);
     assert.equal(JSON.parse(detail.vehicle_snapshot_json).plateNumber, "津A·88888");
+    assert.equal(JSON.parse(detail.vehicle_snapshot_json).exteriorColor, "珍珠白");
     const media = await database.prepare<Json>("SELECT * FROM service_lead_media WHERE lead_id = ?").get(row.id);
     assert.ok(media);
     assert.equal(media.original_filename, "license-photo.jpg");
@@ -272,6 +276,8 @@ test("保险后台无需密码即可完成脱敏列表、敏感详情媒体审�
   const { app, database, insuranceUploadDir, close } = await fixture();
   try {
     const info = await disclosure(app);
+    await database.prepare("UPDATE vehicles SET exterior_color = ? WHERE id = ?")
+      .run("曜石黑", "vehicle-demo-1");
     const created = await submitLead(app, info.version, "insurance-admin-flow-1");
     assert.equal(created.statusCode, 201, created.body);
     const receipt = created.json<Json>().data.receipt;
@@ -291,6 +297,7 @@ test("保险后台无需密码即可完成脱敏列表、敏感详情媒体审�
     assert.equal(JSON.stringify(item).includes("13800138000"), false);
     assert.match(item.vehicle.plateNumber, /\*\*\*/);
     assert.equal(item.vehicle.plateNumber.includes("MVP26"), false);
+    assert.equal(item.vehicle.exteriorColor, "曜石黑");
 
     const closeBeforeHandoff = await app.inject({
       method: "POST",
@@ -303,6 +310,7 @@ test("保险后台无需密码即可完成脱敏列表、敏感详情媒体审�
     const detail = await app.inject({ method: "GET", url: `/api/admin/insurance/leads/${lead.id}` });
     assert.equal(detail.statusCode, 200, detail.body);
     assert.equal(detail.json<Json>().data.contact.phone, "13800138000");
+    assert.equal(detail.json<Json>().data.vehicle.exteriorColor, "曜石黑");
     assert.ok(detail.json<Json>().data.events.some((event: Json) => event.action === "sensitive_detail_read"));
 
     const mediaRow = await database.prepare<Json>("SELECT * FROM service_lead_media WHERE lead_id = ?").get(lead.id);

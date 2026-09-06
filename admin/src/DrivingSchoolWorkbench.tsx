@@ -33,6 +33,7 @@ import {
   type DrivingSchoolRegulatoryStatus,
   type DrivingSchoolTrainingClass,
 } from "./adminApi";
+import { operatorErrorMessage } from "./operatorError";
 
 export type DrivingSchoolWorkspaceSection = "base" | "training" | "offers" | "media" | "preview";
 
@@ -86,7 +87,7 @@ function cloneSchool(school: DrivingSchool): DrivingSchool {
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "时间待核对";
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replaceAll("/", "-");
 }
 
@@ -177,7 +178,8 @@ function confirmDiscard(message = "当前有未保存修改，确认放弃并离
   return window.confirm(message);
 }
 
-export function DrivingSchoolWorkbench({ school, section, setSection, close, reloadDirectory, onError }: Props) {
+export function DrivingSchoolWorkbench({ school, section, setSection, close, reloadDirectory, onError: reportError }: Props) {
+  const onError = useMemo(() => (reason: unknown) => reportError(operatorErrorMessage(reason, "驾校工作台操作失败，请稍后重试")), [reportError]);
   const [savedSchool, setSavedSchool] = useState(() => cloneSchool(school));
   const [draft, setDraft] = useState(() => cloneSchool(school));
   const [preview, setPreview] = useState<DrivingSchoolPublicPreview | null>(null);
@@ -376,7 +378,7 @@ function BaseProfile({ draft, setDraft, onError }: { draft: DrivingSchool; setDr
   });
 
   return <div className="driving-school-workbench-editor">
-    <SectionHeading eyebrow="MINI-PROGRAM: LIST + DETAIL" title="基础资料" description="下列公开字段会直接进入小程序列表卡片、详情概览、电话和导航。" />
+    <SectionHeading eyebrow="小程序列表与详情" title="基础资料" description="下列公开字段会直接进入小程序列表卡片、详情概览、电话和导航。" />
     <div className="driving-school-form-grid driving-school-readable-form">
       <label><span>展示名称 · 列表 / 详情</span><input aria-label="驾校展示名称" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
       <label><span>真实主体名称 · 详情资质</span><input aria-label="驾校主体名称" value={draft.legalName || ""} onChange={(event) => setDraft({ ...draft, legalName: event.target.value })} /></label>
@@ -401,7 +403,7 @@ function BaseProfile({ draft, setDraft, onError }: { draft: DrivingSchool; setDr
 
 function TrainingProfile({ draft, setDraft, onChanged, onError }: { draft: DrivingSchool; setDraft: (school: DrivingSchool) => void; onChanged: () => Promise<void>; onError: (message: string) => void }) {
   return <div className="driving-school-workbench-editor">
-    <SectionHeading eyebrow="MINI-PROGRAM: FILTER + QUALIFICATION" title="备案与车型" description="机构级备案等级只表示可培训车型数量，不是教学质量评级。" />
+    <SectionHeading eyebrow="小程序筛选与资质" title="备案与车型" description="机构级备案等级只表示可培训车型数量，不是教学质量评级。" />
     <div className="driving-school-level-note"><ShieldCheck /><span><strong>备案培训能力等级：{levelLabel(draft.regulatory.capabilityLevel)}（非质量评级）</strong><small>一级至少 3 类、二级 2 类、三级 1 类有效培训车型；发布时由服务端统一校验。</small></span></div>
     <div className="driving-school-form-grid driving-school-readable-form">
       <label><span>监管凭据类型 · 详情资质</span><select aria-label="驾校监管凭据类型" value={draft.regulatory.type} onChange={(event) => setDraft({ ...draft, regulatory: { ...draft.regulatory, type: event.target.value as "filing" | "legacy_license" } })}><option value="filing">经营备案</option><option value="legacy_license">存量许可证</option></select></label>
@@ -421,7 +423,7 @@ function TrainingProfile({ draft, setDraft, onChanged, onError }: { draft: Drivi
 
 function MediaProfile({ draft, setDraft, onChanged, onError }: { draft: DrivingSchool; setDraft: (school: DrivingSchool) => void; onChanged: () => Promise<void>; onError: (message: string) => void }) {
   return <div className="driving-school-workbench-editor">
-    <SectionHeading eyebrow="MINI-PROGRAM: COVER + GALLERY" title="图库与营业" description="营业时间直接展示；每张图片说明会随详情轮播同步显示。" />
+    <SectionHeading eyebrow="小程序封面与图库" title="图库与营业" description="营业时间直接展示；每张图片说明会随详情轮播同步显示。" />
     <div className="driving-school-form-grid driving-school-readable-form">
       <label className="wide"><span>营业时间（小程序直接展示）</span><input aria-label="驾校营业时间" value={draft.openHours} onChange={(event) => setDraft({ ...draft, openHours: event.target.value })} placeholder="例如：周一至周日 08:00–18:00" /></label>
       <label className="wide"><span>特色标签 · 列表 / 详情</span><input aria-label="驾校标签" value={(draft.tags || []).join("，")} onChange={(event) => setDraft({ ...draft, tags: splitItems(event.target.value) })} /></label>
@@ -541,8 +543,8 @@ function ImageManager({ schoolId, onChanged, onError }: { schoolId: string; onCh
   };
   return <section className="driving-school-workbench-subsection driving-school-manager">
     <h3>学校图库 <em>封面进入列表，其余图片与说明进入详情轮播</em></h3>
-    <div className="driving-school-image-form"><label><span>图片 URL</span><input aria-label="驾校图片地址" type="url" value={url} onChange={(event) => setUrl(event.target.value)} /></label><label><span>图片说明（小程序轮播展示）</span><input aria-label="驾校图片说明" value={caption} onChange={(event) => setCaption(event.target.value)} /></label><label className="driving-school-mini-check"><input aria-label="设为驾校封面" type="checkbox" checked={isCover} onChange={(event) => setIsCover(event.target.checked)} />设为列表封面</label><button type="button" onClick={() => void add()}><Image />添加图片</button></div>
-    <div className="driving-school-image-grid">{items.map((item) => <article key={item.id}><img src={item.url} alt={item.altText || item.caption || "驾校图片"} /><div><strong>{item.caption || "未填写说明"}</strong><small>{item.isCover ? "当前列表封面" : `详情轮播 · 排序 ${item.sortOrder}`}</small></div><span>{!item.isCover ? <button type="button" onClick={() => void makeCover(item)}>设为封面</button> : null}<button type="button" className="danger" aria-label={`删除图片 ${item.caption || item.id}`} onClick={() => void remove(item)}><Trash />删除</button></span></article>)}{!items.length ? <p className="driving-school-manager-empty">尚未上传图片，发布检查会提示缺少列表封面。</p> : null}</div>
+    <div className="driving-school-image-form"><label><span>图片地址</span><input aria-label="驾校图片地址" type="url" value={url} onChange={(event) => setUrl(event.target.value)} /></label><label><span>图片说明（小程序轮播展示）</span><input aria-label="驾校图片说明" value={caption} onChange={(event) => setCaption(event.target.value)} /></label><label className="driving-school-mini-check"><input aria-label="设为驾校封面" type="checkbox" checked={isCover} onChange={(event) => setIsCover(event.target.checked)} />设为列表封面</label><button type="button" onClick={() => void add()}><Image />添加图片</button></div>
+    <div className="driving-school-image-grid">{items.map((item) => <article key={item.id}><img src={item.url} alt={item.altText || item.caption || "驾校图片"} /><div><strong>{item.caption || "未填写说明"}</strong><small>{item.isCover ? "当前列表封面" : `详情轮播 · 排序 ${item.sortOrder}`}</small></div><span>{!item.isCover ? <button type="button" onClick={() => void makeCover(item)}>设为封面</button> : null}<button type="button" className="danger" aria-label={`删除图片 ${item.caption || "未命名图片"}`} onClick={() => void remove(item)}><Trash />删除</button></span></article>)}{!items.length ? <p className="driving-school-manager-empty">尚未上传图片，发布检查会提示缺少列表封面。</p> : null}</div>
   </section>;
 }
 
@@ -577,7 +579,7 @@ function OffersManager({ school, preview, onChanged, onError }: { school: Drivin
   };
 
   return <div className="driving-school-workbench-editor">
-    <SectionHeading eyebrow="MINI-PROGRAM: PRICE + INQUIRY" title="服务报价" description="报价按该校车型维护，不需要重新选择驾校；启用状态决定是否公开。" />
+    <SectionHeading eyebrow="小程序价格与咨询" title="服务报价" description="报价按该校车型维护，不需要重新选择驾校；启用状态决定是否公开。" />
     <div className="driving-school-offer-guide"><span><strong>列表</strong>匹配车型的数值报价参与最低价</span><Caret /><span><strong>详情</strong>展示启用且匹配的全部报价</span><Caret /><span><strong>咨询</strong>同一批报价可作为意向项目</span></div>
     {loading ? <div className="table-loading">正在读取该校报价…</div> : null}
     <div className="driving-school-offer-groups">{classes.map((trainingClass) => {
@@ -681,7 +683,7 @@ function PreviewAndPublish({ school, preview, loading, dirty, setSection, refres
   };
   const copyPath = async (value: string) => {
     try { await navigator.clipboard.writeText(value); }
-    catch { onError(`测试路径：${value}`); }
+    catch { onError("复制失败，请手动复制测试路径"); }
   };
   if (loading && !preview) return <div className="table-loading">正在生成已保存版本预览…</div>;
   if (!preview) return <div className="driving-school-preview-empty"><WarningCircle /><strong>暂时无法读取预览</strong><button type="button" onClick={() => void refresh()}>重新读取</button></div>;
@@ -690,11 +692,11 @@ function PreviewAndPublish({ school, preview, loading, dirty, setSection, refres
   const detailOffers = detail.offers || [];
   const cover = summary.coverImage?.url || summary.images?.find((item) => item.isCover)?.url || "";
   return <div className="driving-school-preview-page">
-    <header className="driving-school-preview-head"><div><span><Eye />已保存版本预览</span><h3>版本 {preview.revision}</h3><p>保存时间 {formatDateTime(preview.savedAt)}。{dirty ? "当前修改尚未进入预览。" : "后台预览与公共接口使用同一份 DTO。"}</p></div><button type="button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新已保存预览"}</button></header>
+    <header className="driving-school-preview-head"><div><span><Eye />已保存版本预览</span><h3>版本 {preview.revision}</h3><p>保存时间 {formatDateTime(preview.savedAt)}。{dirty ? "当前修改尚未进入预览。" : "后台预览与对外展示使用同一份数据。"}</p></div><button type="button" onClick={() => void refresh()} disabled={loading}>{loading ? "刷新中…" : "刷新已保存预览"}</button></header>
     {dirty ? <div className="driving-school-dirty-banner"><WarningCircle weight="fill" /><span><strong>当前有未保存修改，预览仍显示上次保存版本</strong><small>请先保存资料，再执行发布检查。</small></span></div> : null}
     <div className="driving-school-preview-grid">
-      <article className="driving-school-phone-preview" aria-label="小程序列表卡片预览"><header><DeviceMobile /><span><strong>小程序列表卡片</strong><small>公开列表 DTO</small></span></header>{cover ? <img src={cover} alt={summary.coverImage?.caption || summary.name} /> : <div className="driving-school-phone-placeholder"><Image />暂无封面</div>}<div className="driving-school-phone-content"><span className="driving-school-demo-badge">{summary.dataKind === "demo" ? "演示数据" : "资料已核验"}</span><h4>{summary.name}</h4><p><MapPin />{summary.district} · {summary.address}</p><div className="driving-school-phone-classes">{summary.trainingClasses?.filter((item) => item.status === "active").map((item) => <span key={item.licenseClassCode}>{item.licenseClassCode}</span>)}</div><div className="driving-school-phone-price"><strong>{summary.startingPriceFen != null ? `¥${money(summary.startingPriceFen)} 起` : "价格需咨询"}</strong><small>{summary.offerUpdatedAt ? `更新 ${formatDateTime(summary.offerUpdatedAt)}` : "暂无报价更新时间"}</small></div></div></article>
-      <article className="driving-school-phone-preview detail" aria-label="小程序详情报价预览"><header><DeviceMobile /><span><strong>小程序详情与报价</strong><small>公开详情 DTO</small></span></header><div className="driving-school-phone-content"><span className="driving-school-demo-badge">{detail.dataKind === "demo" ? "演示数据" : regulatoryStatusLabels[detail.regulatory.status]}</span><h4>{detail.name}</h4><p>{detail.description || "暂无公开简介"}</p><dl><div><dt>备案信息</dt><dd>{detail.regulatory.number || "待补充"} · {levelLabel(detail.regulatory.capabilityLevel)}（非质量评级）</dd></div><div><dt>营业时间</dt><dd>{detail.openHours || "待补充"}</dd></div><div><dt>公开电话</dt><dd>{detail.publicPhone || "待补充"}</dd></div></dl><h5>服务报价</h5><div className="driving-school-phone-offers">{detailOffers.map((offer) => <div key={offer.id}><span><strong>{offer.name}</strong><small>{offer.licenseClassCode} · {modeText(offer.applicationModes)}</small></span><b>{priceText(offer)}</b></div>)}{!detailOffers.length ? <p>暂无公开报价</p> : null}</div>{detail.images?.length ? <div className="driving-school-phone-caption">图库说明：{detail.images[0].caption || "暂无说明"}</div> : null}</div></article>
+      <article className="driving-school-phone-preview" aria-label="小程序列表卡片预览"><header><DeviceMobile /><span><strong>小程序列表卡片</strong><small>公开列表数据</small></span></header>{cover ? <img src={cover} alt={summary.coverImage?.caption || summary.name} /> : <div className="driving-school-phone-placeholder"><Image />暂无封面</div>}<div className="driving-school-phone-content"><span className="driving-school-demo-badge">{summary.dataKind === "demo" ? "演示数据" : "资料已核验"}</span><h4>{summary.name}</h4><p><MapPin />{summary.district} · {summary.address}</p><div className="driving-school-phone-classes">{summary.trainingClasses?.filter((item) => item.status === "active").map((item) => <span key={item.licenseClassCode}>{item.licenseClassCode}</span>)}</div><div className="driving-school-phone-price"><strong>{summary.startingPriceFen != null ? `¥${money(summary.startingPriceFen)} 起` : "价格需咨询"}</strong><small>{summary.offerUpdatedAt ? `更新 ${formatDateTime(summary.offerUpdatedAt)}` : "暂无报价更新时间"}</small></div></div></article>
+      <article className="driving-school-phone-preview detail" aria-label="小程序详情报价预览"><header><DeviceMobile /><span><strong>小程序详情与报价</strong><small>公开详情数据</small></span></header><div className="driving-school-phone-content"><span className="driving-school-demo-badge">{detail.dataKind === "demo" ? "演示数据" : regulatoryStatusLabels[detail.regulatory.status]}</span><h4>{detail.name}</h4><p>{detail.description || "暂无公开简介"}</p><dl><div><dt>备案信息</dt><dd>{detail.regulatory.number || "待补充"} · {levelLabel(detail.regulatory.capabilityLevel)}（非质量评级）</dd></div><div><dt>营业时间</dt><dd>{detail.openHours || "待补充"}</dd></div><div><dt>公开电话</dt><dd>{detail.publicPhone || "待补充"}</dd></div></dl><h5>服务报价</h5><div className="driving-school-phone-offers">{detailOffers.map((offer) => <div key={offer.id}><span><strong>{offer.name}</strong><small>{offer.licenseClassCode} · {modeText(offer.applicationModes)}</small></span><b>{priceText(offer)}</b></div>)}{!detailOffers.length ? <p>暂无公开报价</p> : null}</div>{detail.images?.length ? <div className="driving-school-phone-caption">图库说明：{detail.images[0].caption || "暂无说明"}</div> : null}</div></article>
       <article className="driving-school-publish-checklist" aria-label="发布检查表"><header><ShieldCheck /><span><strong>发布检查表</strong><small>与服务端发布校验同源</small></span></header><div className="driving-school-visibility"><span className={preview.visibility.listVisible ? "yes" : "no"}>{preview.visibility.listVisible ? <CheckCircle /> : <XCircle />}列表可见</span><span className={preview.visibility.detailVisible ? "yes" : "no"}>{preview.visibility.detailVisible ? <CheckCircle /> : <XCircle />}详情可访问</span><span className={preview.visibility.inquiryAvailable ? "yes" : "no"}>{preview.visibility.inquiryAvailable ? <CheckCircle /> : <XCircle />}咨询可提交</span></div><div className="driving-school-checklist-items">{preview.checklist.map((item) => <div key={item.key} className={item.status}><span>{item.status === "pass" ? <CheckCircle weight="fill" /> : item.status === "warning" ? <WarningCircle weight="fill" /> : <XCircle weight="fill" />}</span><div><strong>{item.label}</strong><small>{item.message}</small></div>{item.status !== "pass" && item.section !== "preview" ? <button type="button" onClick={() => setSection(item.section as DrivingSchoolWorkspaceSection)}>去完善</button> : null}</div>)}</div>{preview.visibility.reasons?.length ? <div className="driving-school-visibility-reasons">{preview.visibility.reasons.map((reason) => <p key={reason}>{reason}</p>)}</div> : null}<button type="button" className="driving-school-publish-button" disabled={dirty || hasBlocker || publishing} onClick={() => void publish()}>{publishing ? "处理中…" : schoolPublished(school) ? "下线已保存版本" : "发布已保存版本"}</button>{dirty ? <small className="driving-school-publish-hint">请先保存当前修改</small> : hasBlocker ? <small className="driving-school-publish-hint">完成全部阻塞项后可发布</small> : null}</article>
     </div>
     <section className="driving-school-test-paths"><header><h3>小程序测试路径</h3><p>复制路径即可让测试人员直达相同学校和页面。</p></header>{Object.entries(preview.testPaths).map(([key, value]) => <button type="button" key={key} onClick={() => void copyPath(value)}><span><strong>{key === "list" ? "列表" : key === "detail" ? "详情" : "咨询"}</strong><small>{value}</small></span><Copy />复制</button>)}</section>

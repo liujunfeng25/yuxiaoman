@@ -17,7 +17,7 @@
       </view>
       <text class="status-copy">{{booking.vehicle ? booking.vehicle.plateNumber : '预约车辆'}} · {{booking.station ? booking.station.name : '预约检测站'}}</text>
       <view class="hero-meta">
-        <text>{{booking.appointmentDate}} {{booking.startTime}}–{{booking.endTime}}</text>
+        <text>{{booking.precheckSlotReleased ? "原时段已释放 · 处理后重新选择" : booking.appointmentDate + " " + booking.startTime + "–" + booking.endTime}}</text>
         <text>¥{{fmt.money(booking.serviceFeeFen)}}</text>
       </view>
     </view>
@@ -27,6 +27,11 @@
       <text>订单号</text>
       <text>{{booking.bookingNumber}}</text>
     </view>
+
+    <button wx:if="{{booking.vehicleCheckupReport}}" class="checkup-report-entry" bindtap="openCheckupReport">
+      <view class="entry-icon"><image src="/assets/icons/file-arrow-up.png" mode="aspectFit"/></view>
+      <view class="entry-content"><view class="entry-title-row"><text>查看检测报告与留证</text><image class="entry-caret" src="/assets/icons/caret-right.png" mode="aspectFit"/></view><view class="entry-material-groups"><view class="{{checkupLegalMaterialsMissing ? 'missing' : ''}}"><text>法定检测材料</text><text>{{checkupLegalMaterialsText}}</text></view><view><text>平台车辆体检留证</text><text>{{checkupPlatformEvidenceText}}</text></view></view><text class="entry-report-boundary">平台车辆体检报告不替代法定检测报告</text></view>
+    </button>
 
     <view wx:if="{{booking.station}}" class="station-contact-card">
       <view class="station-contact-head">
@@ -94,10 +99,11 @@
       </view>
     </view>
 
+    <view wx:if="{{booking.precheck && booking.status === 'precheck_action_required'}}" class="precheck-owner-card pending"><view class="precheck-owner-head"><image src="/assets/icons/warning-circle.png"/><view><text>预检发现问题，等待你处理</text><text>{{booking.precheck.reasonText}}</text></view></view><text class="precheck-owner-note">订单和已付款保留，原时段已释放。你可以补充资料、选择洗车或维修，处理后再次审核，也可以主动申请退款。</text><button class="pay-button" bindtap="openPrecheckActions">查看问题与处理方式</button></view>
     <view wx:if="{{booking.precheck && booking.status === 'pending_precheck'}}" class="precheck-owner-card pending">
       <view class="precheck-owner-head"><image src="/assets/icons/clock.png"/><view><text>等待检测站照片预审</text><text>检测站正在核对行驶证、车辆四角和启动后仪表盘共 7 张资料。</text></view></view>
       <view class="precheck-owner-meta"><text>提交时间</text><text>{{booking.precheck.submittedAt}}</text></view>
-      <text class="precheck-owner-note">预审通过后才会开始车辆履约；超过 30 分钟系统会提醒检测站处理。</text>
+      <text class="precheck-owner-note">{{precheckSupervisionNote}}</text>
     </view>
     <view wx:if="{{booking.precheck && booking.precheck.status === 'approved'}}" class="precheck-owner-card approved">
       <view class="precheck-owner-head"><image src="/assets/icons/shield-check.png"/><view><text>检测站预审已通过</text><text>检测站已核对 7 张预约资料并接单，订单已进入后续履约阶段。</text></view></view>
@@ -180,11 +186,6 @@
         <text>来源：{{booking.inspectionResult.source}}</text>
       </view>
     </view>
-    <button wx:if="{{booking.vehicleCheckupReport}}" class="checkup-report-entry" bindtap="openCheckupReport">
-      <view class="entry-icon"><image src="/assets/icons/file-arrow-up.png" mode="aspectFit"/></view>
-      <view class="entry-content"><view class="entry-title-row"><text>查看检测报告与留证</text><image class="entry-caret" src="/assets/icons/caret-right.png" mode="aspectFit"/></view><view class="entry-material-groups"><view class="{{checkupLegalMaterialsMissing ? 'missing' : ''}}"><text>法定检测材料</text><text>{{checkupLegalMaterialsText}}</text></view><view><text>平台车辆体检留证</text><text>{{checkupPlatformEvidenceText}}</text></view></view><text class="entry-report-boundary">平台车辆体检报告不替代法定检测报告</text></view>
-    </button>
-
     <view wx:if="{{booking.media && booking.media.length}}" class="section-title">
       <view><text>预约资料</text><text>已安全保存 {{booking.media.length}} 张</text></view>
       <text>点击预览</text>
@@ -205,7 +206,7 @@
 
     <button wx:if="{{booking.status === 'pending_payment' || booking.status === 'pending_precheck' || booking.status === 'confirmed' || booking.status === 'awaiting_arrival'}}" class="cancel-button" bindtap="cancel" loading="{{cancelling}}" disabled="{{cancelling || paying || requoting}}">
       <image src="/assets/icons/trash.png" mode="aspectFit" />
-      <text>{{cancelling ? '正在取消…' : '取消预约'}}</text>
+      <text>{{cancelling ? '正在处理…' : booking.paymentStatus === 'paid' ? '申请退款并取消预约' : '取消预约'}}</text>
     </button>
 
     <view class="order-assurance">

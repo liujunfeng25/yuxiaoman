@@ -69,7 +69,7 @@ button::after { border: 0; }
 .publish-bar > view { display: flex; min-width: 0; flex-direction: column; }
 .publish-bar > view text:first-child { color: #1d3550; font-size: 24rpx; font-weight: 850; }
 .publish-bar > view text:last-child { margin-top: 2rpx; color: #8291a1; font-size: 18rpx; }
-.publish-bar button { min-height: 88rpx; color: #fff; border-radius: 19rpx; background: #1768cf; font-size: 26rpx; font-weight: 850; }
+.publish-bar button { display: flex; width: 100%; min-width: 0; min-height: 88rpx; margin: 0; padding: 0 18rpx; align-items: center; justify-content: center; color: #fff; border-radius: 19rpx; background: #1768cf; font-size: 26rpx; font-weight: 850; line-height: 1.25; box-sizing: border-box; }
 .publish-bar button.needs-consent { color: #6f8193; background: #dfe7ef; }
 .publish-bar button[disabled] { opacity: .72; }
 @media (max-width: 340px) {

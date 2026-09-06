@@ -142,6 +142,7 @@ const FILTER_STATUSES: Record<Exclude<RepairShopFilter, "all">, RepairShopReques
 };
 
 const REGION_LABELS: Record<string, string> = {
+  body: "车身问题", dashboard: "仪表盘故障灯",
   front_bumper: "前保险杠",
   front_face: "前脸与灯组",
   hood: "发动机舱盖",
@@ -156,12 +157,28 @@ const REGION_LABELS: Record<string, string> = {
   left_rear_door: "左后门",
   left_rear_quarter: "左后翼子板",
   left_sill: "左侧裙",
+  left_front_window: "左前侧窗",
+  left_rear_window: "左后侧窗",
+  left_front_wheel: "左前轮胎轮毂",
+  left_rear_wheel: "左后轮胎轮毂",
   right_mirror: "右后视镜",
   right_front_fender: "右前翼子板",
   right_front_door: "右前门",
   right_rear_door: "右后门",
   right_rear_quarter: "右后翼子板",
   right_sill: "右侧裙",
+  right_front_window: "右前侧窗",
+  right_rear_window: "右后侧窗",
+  right_front_wheel: "右前轮胎轮毂",
+  right_rear_wheel: "右后轮胎轮毂",
+  dashboard_obd: "仪表 / OBD",
+  engine_powertrain: "发动机 / 动力系统",
+  brake_system: "制动系统",
+  steering_suspension: "转向 / 悬架",
+  chassis_exhaust: "底盘 / 排气",
+  cabin_electrical: "车内电器",
+  fuel_charging: "燃油 / 充电系统",
+  other_system: "其他功能系统",
 };
 
 const FAULT_TYPE_LABELS: Record<string, string> = {
@@ -171,10 +188,16 @@ const FAULT_TYPE_LABELS: Record<string, string> = {
   crack: "裂纹",
   broken: "破损",
   rust: "锈蚀",
+  warning_light: "故障灯 / 报码",
+  malfunction: "功能异常",
+  abnormal_noise: "异响 / 抖动",
+  leakage: "渗漏",
+  wear: "磨损 / 老化",
   other: "其他车况问题",
 };
 
 const SEVERITY_LABELS: Record<string, string> = {
+  unassessed: "待门店核对",
   minor: "轻微",
   moderate: "一般",
   severe: "明显",
@@ -328,7 +351,7 @@ function rawFaultView(fault: RepairShopRawFault, index: number): RepairFaultDto 
   return {
     id: fault.id || `fault-${index + 1}`,
     regionLabel: REGION_LABELS[fault.regionCode || ""] || "车身位置",
-    typeLabel: FAULT_TYPE_LABELS[fault.faultType || ""] || "车况问题",
+    typeLabel: fault.severity === "unassessed" ? "维修核对" : FAULT_TYPE_LABELS[fault.faultType || ""] || "车况问题",
     severityLabel: SEVERITY_LABELS[fault.severity || ""] || "程度待确认",
     description: fault.description || null,
     photoUrls: (fault.photos || []).map((photo) => photo.url).filter(Boolean),
@@ -382,7 +405,7 @@ export function normalizeRepairRequestListItem(item: RepairShopRequestApiResult)
   return {
     ...request,
     faultCount,
-    primaryFaultLabel: firstFault ? `${firstFault.regionLabel}等 ${faultCount} 处车身问题` : `${faultCount} 处车身问题`,
+    primaryFaultLabel: firstFault ? `${firstFault.regionLabel}等 ${faultCount} 项维修问题` : `${faultCount} 项维修问题`,
   };
 }
 

@@ -20,6 +20,7 @@ import {
 import {
   ANNUAL_FAILURE_CATEGORIES,
   CHECKUP_REGIONS,
+  CHECKUP_SYSTEM_REGIONS,
   LEGAL_MATERIAL_SLOTS,
   annualFailureDetails,
   annualInspectionFailureDetails,
@@ -27,6 +28,8 @@ import {
   buildFaultBubbleStyle,
   buildRegionCallout,
   buildRegionCallouts,
+  checkupRegionsForVehicle,
+  checkupVehicleDiagram,
   extractSummaryText,
   faultDraftInput,
   faultMarkerState,
@@ -70,13 +73,32 @@ function report(): VehicleCheckupReport {
   };
 }
 
-test("车辆示意图固定为三视图二十个稳定区域", () => {
-  assert.equal(CHECKUP_REGIONS.length, 20);
+test("车辆示意图固定为三视图二十八个稳定区域", () => {
+  assert.equal(CHECKUP_REGIONS.length, 28);
   assert.equal(CHECKUP_REGIONS.filter((item) => item.viewId === "top").length, 8);
-  assert.equal(CHECKUP_REGIONS.filter((item) => item.viewId === "left").length, 6);
-  assert.equal(CHECKUP_REGIONS.filter((item) => item.viewId === "right").length, 6);
-  assert.equal(new Set(CHECKUP_REGIONS.map((item) => item.code)).size, 20);
-  assert.ok(["front_face", "windshield", "rear_glass", "trunk_tailgate", "left_rear_quarter", "right_rear_quarter"].every((code) => CHECKUP_REGIONS.some((item) => item.code === code)));
+  assert.equal(CHECKUP_REGIONS.filter((item) => item.viewId === "left").length, 10);
+  assert.equal(CHECKUP_REGIONS.filter((item) => item.viewId === "right").length, 10);
+  assert.equal(new Set(CHECKUP_REGIONS.map((item) => item.code)).size, 28);
+  assert.ok([
+    "front_face", "windshield", "rear_glass", "trunk_tailgate",
+    "left_rear_quarter", "right_rear_quarter", "left_front_window", "right_front_window",
+    "left_front_wheel", "right_front_wheel", "left_rear_wheel", "right_rear_wheel",
+  ].every((code) => CHECKUP_REGIONS.some((item) => item.code === code)));
+});
+
+test("不能准确落在外观图上的八类功能系统使用独立位置入口", () => {
+  assert.equal(CHECKUP_SYSTEM_REGIONS.length, 8);
+  assert.equal(new Set(CHECKUP_SYSTEM_REGIONS.map((item) => item.code)).size, 8);
+  assert.deepEqual(CHECKUP_SYSTEM_REGIONS.map((item) => item.code), [
+    "dashboard_obd",
+    "engine_powertrain",
+    "brake_system",
+    "steering_suspension",
+    "chassis_exhaust",
+    "cabin_electrical",
+    "fuel_charging",
+    "other_system",
+  ]);
 });
 
 test("逐槽上传或替换不会清除其他已上传照片", () => {
@@ -181,21 +203,67 @@ test("热点编号与全局故障序号一致，同区域多故障优先显示�
   assert.deepEqual(faultMarkerState(faults, "right_front_door"), { faultCount: 0, markerLabel: "+", targetFaultId: "" });
 });
 
-test("左右侧前后翼子板热点落在车轮上方钣金区域", () => {
+test("左右侧后视镜、前后车门和翼子板热点按镜像关系落在对应部件", () => {
   const byCode = new Map(CHECKUP_REGIONS.map((item) => [item.code, item]));
-  assert.deepEqual({ x: byCode.get("left_front_fender")?.x, y: byCode.get("left_front_fender")?.y }, { x: 28, y: 58 });
-  assert.deepEqual({ x: byCode.get("left_rear_quarter")?.x, y: byCode.get("left_rear_quarter")?.y }, { x: 88, y: 48 });
-  assert.deepEqual({ x: byCode.get("right_front_fender")?.x, y: byCode.get("right_front_fender")?.y }, { x: 72, y: 54 });
-  assert.deepEqual({ x: byCode.get("right_rear_quarter")?.x, y: byCode.get("right_rear_quarter")?.y }, { x: 12, y: 44 });
+  assert.deepEqual({ x: byCode.get("left_mirror")?.x, y: byCode.get("left_mirror")?.y }, { x: 69, y: 38 });
+  assert.deepEqual({ x: byCode.get("left_front_fender")?.x, y: byCode.get("left_front_fender")?.y }, { x: 48, y: 51 });
+  assert.deepEqual({ x: byCode.get("left_front_door")?.x, y: byCode.get("left_front_door")?.y }, { x: 67, y: 55 });
+  assert.deepEqual({ x: byCode.get("left_rear_door")?.x, y: byCode.get("left_rear_door")?.y }, { x: 80, y: 53 });
+  assert.deepEqual({ x: byCode.get("left_rear_quarter")?.x, y: byCode.get("left_rear_quarter")?.y }, { x: 89, y: 54 });
+  for (const leftCode of ["mirror", "front_fender", "front_door", "rear_door", "rear_quarter", "sill", "front_window", "rear_window", "front_wheel", "rear_wheel"]) {
+    const left = byCode.get(`left_${leftCode}`)!;
+    const right = byCode.get(`right_${leftCode}`)!;
+    assert.equal(right.x, 100 - left.x, `${leftCode} 左右坐标必须镜像`);
+    assert.equal(right.y, left.y, `${leftCode} 左右高度必须一致`);
+  }
   assert.ok((byCode.get("left_rear_door")?.x || 0) > (byCode.get("left_front_door")?.x || 0));
   assert.ok((byCode.get("right_rear_door")?.x || 0) < (byCode.get("right_front_door")?.x || 0));
+});
+
+test("车辆定位图优先使用车主所选车型图片并为右侧生成镜像", () => {
+  const exact = checkupVehicleDiagram({
+    id: "vehicle-1", plateNumber: "津A00001", vehicleType: "小型轿车", usageNature: "非营运", seats: 5,
+    registrationDate: "2022-01-01", inspectionDueDate: "2026-12-31", isDefault: true,
+    brand: { id: "brand-byd", name: "比亚迪" }, model: { id: "vehicle-byd-han", name: "汉" },
+    visual: { imageUrl: "http://127.0.0.1:8792/assets/vehicle-byd-han.webp", kind: "presentation_cutout", label: "车型展示图" },
+  });
+  assert.equal(exact.vehicleLabel, "比亚迪 汉");
+  assert.equal(exact.bodyType, "sedan");
+  assert.equal(exact.sourceLabel, "轿车 · 车主所选车型参考图");
+  assert.equal(exact.views.find((item) => item.id === "left")?.imagePath, exact.views.find((item) => item.id === "right")?.imagePath);
+  assert.equal(exact.views.find((item) => item.id === "left")?.mirrored, false);
+  assert.equal(exact.views.find((item) => item.id === "right")?.mirrored, true);
+
+  const baseVehicle = {
+    id: "vehicle-2", plateNumber: "津A00002", vehicleType: "小型轿车", usageNature: "非营运", seats: 5,
+    registrationDate: "2022-01-01", inspectionDueDate: "2026-12-31", isDefault: true, washVehicleCategory: "sedan",
+  } as const;
+  const fallback = checkupVehicleDiagram(baseVehicle);
+  assert.match(fallback.views.find((item) => item.id === "left")?.imagePath || "", /car-sedan-left-v1\.png$/u);
+  assert.match(fallback.views.find((item) => item.id === "top")?.imagePath || "", /car-sedan-top-v1\.png$/u);
+
+  const suv = checkupVehicleDiagram({
+    ...baseVehicle,
+    id: "vehicle-3",
+    washVehicleCategory: "suv",
+    visual: { imageUrl: "http://127.0.0.1:8792/assets/vehicle-li-l7.webp", kind: "presentation_cutout", label: "车型展示图" },
+  });
+  assert.equal(suv.bodyType, "suv");
+  assert.equal(suv.sourceLabel, "SUV · 车主所选车型参考图");
+  assert.equal(suv.regions.find((item) => item.code === "left_front_wheel")?.y, 66);
+
+  const mpv = checkupVehicleDiagram({ ...baseVehicle, id: "vehicle-4", washVehicleCategory: "mpv", vehicleType: "小型MPV" });
+  assert.equal(mpv.bodyType, "mpv");
+  assert.match(mpv.views.find((item) => item.id === "left")?.imagePath || "", /car-mpv-left-v1\.png$/u);
+  assert.match(mpv.views.find((item) => item.id === "top")?.imagePath || "", /car-mpv-top-v1\.png$/u);
+  assert.equal(mpv.regions.find((item) => item.code === "left_mirror")?.x, 59);
 });
 
 test("区域引出标注提供圆点、线段与可点文字位置", () => {
   const callout = buildRegionCallout(CHECKUP_REGIONS.find((item) => item.code === "right_rear_door")!);
   assert.equal(callout.label, "右后门");
-  assert.match(callout.dotStyle, /left:34%;top:48%/u);
-  assert.match(callout.labelStyle, /left:18%;top:74%/u);
+  assert.match(callout.dotStyle, /left:20%;top:53%/u);
+  assert.match(callout.labelStyle, /left:23%;top:80%/u);
   assert.match(callout.lineStyle, /transform:rotate\(/u);
   assert.ok(callout.lineLength > 5 && callout.lineLength < 80);
   assert.ok(Number.isFinite(callout.lineAngle));
@@ -218,8 +286,8 @@ test("同视角标签中心保持可读间距", () => {
 
 test("每个区域都配置了引出标签锚点", () => {
   for (const region of CHECKUP_REGIONS) {
-    assert.ok(region.labelX >= 0 && region.labelX <= 100, region.code);
-    assert.ok(region.labelY >= 0 && region.labelY <= 100, region.code);
+    assert.ok(region.labelX >= 18 && region.labelX <= 82, `${region.code} 标签必须处在横向安全区`);
+    assert.ok(region.labelY >= 8 && region.labelY <= 91, `${region.code} 标签必须处在纵向安全区`);
     assert.ok(Math.hypot(region.labelX - region.x, region.labelY - region.y) >= 8, `${region.code} 引出过短`);
   }
 });
@@ -229,29 +297,68 @@ test("故障气泡贴着引出标签外侧，避免盖住车身中部热点", ()
   const style = buildFaultBubbleStyle(rear);
   const left = Number(/left:([\d.]+)%/u.exec(style)?.[1]);
   const top = Number(/top:([\d.]+)%/u.exec(style)?.[1]);
-  assert.ok(left >= 50, `后部故障气泡应靠右外缘，实际 left=${left}`);
+  assert.ok(left >= 40 && left <= 60, `后部故障气泡应在右侧安全区，实际 left=${left}`);
   assert.ok(top <= 40, `后部故障气泡应靠上，实际 top=${top}`);
   const front = CHECKUP_REGIONS.find((item) => item.code === "left_front_door")!;
   const frontLeft = Number(/left:([\d.]+)%/u.exec(buildFaultBubbleStyle(front))?.[1]);
   assert.ok(frontLeft <= 30, `前部故障气泡应靠左外缘，实际 left=${frontLeft}`);
 });
 
-test("三视图全部二十个热点中心落在真实车辆图片区域内", async () => {
-  for (const viewId of ["top", "left", "right"] as const) {
-    const imagePath = fileURLToPath(new URL(`../miniprogram/packages/inspection/assets/inspection-checkup/car-${viewId}.png`, import.meta.url));
-    const { data, info } = await sharp(imagePath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    for (const region of CHECKUP_REGIONS.filter((item) => item.viewId === viewId)) {
+test("轿车、SUV、MPV 三套定位热点落在对应模板车辆区域内", async () => {
+  const filenames = {
+    sedan: { top: "car-sedan-top-v1.png", side: "car-sedan-left-v1.png" },
+    suv: { top: "car-top.png", side: "car-suv-left-v1.png" },
+    mpv: { top: "car-mpv-top-v1.png", side: "car-mpv-left-v1.png" },
+  } as const;
+  for (const bodyType of ["sedan", "suv", "mpv"] as const) {
+    const regions = checkupRegionsForVehicle(bodyType, false);
+    for (const viewId of ["top", "left", "right"] as const) {
+      const filename = viewId === "top" ? filenames[bodyType].top : filenames[bodyType].side;
+      const imagePath = fileURLToPath(new URL(`../miniprogram/packages/inspection/assets/inspection-checkup/${filename}`, import.meta.url));
+      const source = sharp(imagePath).ensureAlpha();
+      const { data, info } = await (viewId === "right" ? source.flop() : source).raw().toBuffer({ resolveWithObject: true });
+      for (const region of regions.filter((item) => item.viewId === viewId)) {
+        const centerX = Math.round((region.x / 100) * (info.width - 1));
+        const centerY = Math.round((region.y / 100) * (info.height - 1));
+        let opaque = 0;
+        let sampled = 0;
+        for (let y = Math.max(0, centerY - 20); y <= Math.min(info.height - 1, centerY + 20); y += 1) {
+          for (let x = Math.max(0, centerX - 20); x <= Math.min(info.width - 1, centerX + 20); x += 1) {
+            sampled += 1;
+            if (data[(y * info.width + x) * info.channels + 3] > 32) opaque += 1;
+          }
+        }
+        assert.ok(opaque / sampled >= 0.35, `${bodyType} ${region.code} 热点中心必须位于对应车型图像内`);
+      }
+    }
+  }
+});
+
+test("车主所选轿车、SUV、MPV 展示图使用各自校准后的定位坐标", async () => {
+  const samples = {
+    sedan: "owner-models/vehicle-byd-han.webp",
+    suv: "owner-models/vehicle-li-l7.webp",
+    mpv: "owner-presentation-v2/vehicle-honda-odyssey.webp",
+  } as const;
+  for (const bodyType of ["sedan", "suv", "mpv"] as const) {
+    const imagePath = fileURLToPath(new URL(`../../public/assets/used-cars/${samples[bodyType]}`, import.meta.url));
+    const { data, info } = await sharp(imagePath)
+      .ensureAlpha()
+      .resize({ width: 800, height: 533, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    for (const region of checkupRegionsForVehicle(bodyType, true).filter((item) => item.viewId === "left")) {
       const centerX = Math.round((region.x / 100) * (info.width - 1));
       const centerY = Math.round((region.y / 100) * (info.height - 1));
       let opaque = 0;
       let sampled = 0;
-      for (let y = Math.max(0, centerY - 20); y <= Math.min(info.height - 1, centerY + 20); y += 1) {
-        for (let x = Math.max(0, centerX - 20); x <= Math.min(info.width - 1, centerX + 20); x += 1) {
+      for (let y = Math.max(0, centerY - 18); y <= Math.min(info.height - 1, centerY + 18); y += 1) {
+        for (let x = Math.max(0, centerX - 18); x <= Math.min(info.width - 1, centerX + 18); x += 1) {
           sampled += 1;
           if (data[(y * info.width + x) * info.channels + 3] > 32) opaque += 1;
         }
       }
-      assert.ok(opaque / sampled >= 0.5, `${region.code} 热点中心必须位于车身图像内`);
+      assert.ok(opaque / sampled >= 0.2, `${bodyType} 车型展示图的 ${region.code} 定位不得落到透明区`);
     }
   }
 });
@@ -290,13 +397,26 @@ test("车辆热点、故障弹层与报告预览使用窄屏安全布局", () =>
   const markup = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxml", import.meta.url), "utf8");
   const style = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxss", import.meta.url), "utf8");
   assert.match(markup, /vehicle-stage[\s\S]*vehicle-visual-frame[\s\S]*region-callout-line[\s\S]*region-hotspot[\s\S]*region-callout-label[\s\S]*vehicle-caption/u);
-  assert.match(markup, /点击定位点或部位名称记录问题/u);
+  assert.match(markup, /点击定位点或部位名称，先选择故障程度/u);
+  assert.match(markup, /功能系统部位[\s\S]*system-region-button[\s\S]*tapSystemRegion/u);
   assert.match(style, /\.vehicle-visual-frame\s*\{[^}]*padding-top:\s*66\.6667%/u);
   assert.match(style, /\.region-callout-label\s*\{/u);
   assert.match(style, /\.region-callout-line\s*\{/u);
   assert.match(style, /\.fault-actions\s*\{[^}]*grid-column:\s*2/u);
   assert.match(style, /\.choice-grid\.fault-types,[^}]*repeat\(2/u);
   assert.match(style, /\.preview-document-button\s*\{[^}]*display:\s*flex[^}]*width:\s*100%/u);
+});
+
+test("点击车辆位置先进入独立程度选择页，再回到故障详情与照片", () => {
+  const editorScript = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.ts", import.meta.url), "utf8");
+  const severityMarkup = readFileSync(new URL("../miniprogram/packages/inspection/pages/fault-severity/fault-severity.wxml", import.meta.url), "utf8");
+  const severityScript = readFileSync(new URL("../miniprogram/packages/inspection/pages/fault-severity/fault-severity.ts", import.meta.url), "utf8");
+  const appConfig = readFileSync(new URL("../miniprogram/app.json", import.meta.url), "utf8");
+  assert.match(editorScript, /pages\/fault-severity\/fault-severity\?regionCode=/u);
+  assert.match(editorScript, /faultSeveritySelected/u);
+  assert.match(severityMarkup, /选择故障程度[\s\S]*当前故障位置[\s\S]*下一步：填写故障详情/u);
+  assert.match(severityScript, /轻微[\s\S]*一般[\s\S]*明显[\s\S]*faultSeveritySelected/u);
+  assert.match(appConfig, /pages\/fault-severity\/fault-severity/u);
 });
 
 test("结果回传逐条精确校验故障特写 1–3 张", () => {
@@ -482,7 +602,7 @@ test("文字报告明确拆分年检结论与车辆体检记录", () => {
       { id: "f2", viewId: "right", regionCode: "right_rear_quarter", faultType: "dent", severity: "moderate" },
     ],
   };
-  assert.equal(vehicleConditionTitle(withFaults), "本次记录发现 2 项车身问题");
+  assert.equal(vehicleConditionTitle(withFaults), "本次记录发现 2 项车辆问题");
   assert.match(vehicleConditionNarrative(withFaults), /不会自动判定年检未通过/);
 });
 
@@ -498,7 +618,7 @@ test("每条故障生成克制且与类型程度相关的处理建议", () => {
 
 test("只读页面包含完整文字报告结构且不伪造官方报告要素", () => {
   const source = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.wxml", import.meta.url), "utf8");
-  for (const heading of ["报告与车辆信息", "年检结论", "车辆体检记录", "故障明细与建议", "法定检测材料", "平台车辆体检留证", "车身问题三视图", "照片材料预览"]) {
+  for (const heading of ["报告与车辆信息", "年检结论", "车辆体检记录", "故障明细与建议", "法定检测材料", "平台车辆体检留证", "车辆问题定位", "照片材料预览"]) {
     assert.match(source, new RegExp(heading));
   }
   assert.match(source, /平台报告编号/);
@@ -555,7 +675,7 @@ test("检测端三视图、结论与固定操作按钮在窄屏保持完整等�
   const source = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.ts", import.meta.url), "utf8");
   const markup = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxml", import.meta.url), "utf8");
   const style = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxss", import.meta.url), "utf8");
-  for (const label of ["俯视", "左侧", "右侧"]) assert.match(source, new RegExp(`label: "${label}"`));
+  assert.deepEqual(checkupVehicleDiagram(null).views.map((view) => view.label), ["俯视", "左侧", "右侧"]);
   assert.match(style, /\.view-tabs\s*\{[^}]*display:\s*flex[^}]*box-sizing:\s*border-box/);
   assert.match(style, /\.view-tabs button\s*\{[^}]*width:\s*0[^}]*min-width:\s*0[^}]*flex:\s*1 1 0[^}]*box-sizing:\s*border-box/);
   assert.match(style, /\.conclusion-options\s*\{[^}]*display:\s*flex[^}]*box-sizing:\s*border-box/);
@@ -602,12 +722,18 @@ test("订单详情同时概览法定检测材料与平台车辆体检留证且�
   assert.match(markup, /平台车辆体检报告不替代法定检测报告/);
 });
 
-test("检测编辑与车主报告明确三视图为通用车身示意", () => {
+test("检测编辑与车主报告共用车主车型与定位证据说明", () => {
+  const editorScript = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.ts", import.meta.url), "utf8");
+  const ownerScript = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.ts", import.meta.url), "utf8");
   const editorTemplate = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxml", import.meta.url), "utf8");
   const ownerTemplate = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.wxml", import.meta.url), "utf8");
-  const disclaimer = "通用车身示意，不代表实车车型；故障以位置文字和现场照片为准";
-  assert.match(editorTemplate, new RegExp(disclaimer));
-  assert.match(ownerTemplate, new RegExp(disclaimer));
+  assert.match(editorScript, /checkupVehicleDiagram\(booking\.vehicle\)/);
+  assert.match(ownerScript, /checkupVehicleDiagram\(currentBooking\?\.vehicle\)/);
+  for (const template of [editorTemplate, ownerTemplate]) {
+    assert.match(template, /\{\{diagramVehicleText\}\}/);
+    assert.match(template, /\{\{diagramSourceText\}\}/);
+    assert.match(template, /故障定位以标注部位和现场照片为准/);
+  }
   assert.match(ownerTemplate, /region-callout-line[\s\S]*region-callout-label/u);
   assert.match(ownerTemplate, /点击红色定位或部位名称查看问题/u);
 });

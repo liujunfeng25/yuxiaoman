@@ -23,7 +23,7 @@
 
   <view class="home-brand-row">
     <view class="brand-lockup"><image src="../../assets/icons/shield-check.png"/><text>驭小满</text></view>
-    <view class="city"><text>天津</text><image src="../../assets/icons/map-pin.png"/></view>
+    <view class="home-brand-actions"><view class="city"><text>天津</text><image src="../../assets/icons/map-pin.png"/></view><workflow-bell compact="{{true}}" unread-count="{{unreadCount}}" bind:open="openMessages" /></view>
   </view>
 
   <view wx:if="{{loading}}" class="loading home-loading">正在同步车辆信息…</view>
@@ -38,7 +38,7 @@
     <view wx:if="{{hero}}" class="inspection-hero hero-{{hero.tone}}">
       <image class="hero-background" src="../../assets/brand/hero-tianjin-background.jpg" mode="aspectFill"/>
       <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" class="hero-car-edit" bindtap="editCurrentVehicle">
-        <image class="hero-car-image" src="{{hero.vehicleImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
+        <image wx:if="{{hero.vehicleImage}}" class="hero-car-image" src="{{hero.vehicleImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
         <text>编辑车型</text>
       </view>
       <view class="hero-copy">

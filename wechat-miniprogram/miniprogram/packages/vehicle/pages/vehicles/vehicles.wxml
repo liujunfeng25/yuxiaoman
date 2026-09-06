@@ -10,16 +10,16 @@
   <block wx:else>
     <view wx:for="{{vehicles}}" wx:key="id" class="vehicle surface">
       <view class="vehicle-main">
-        <view class="vehicle-avatar">
+        <view wx:if="{{item.vehicleImage}}" class="vehicle-avatar">
           <image src="{{item.vehicleImage}}" mode="aspectFit" webp="{{true}}" data-index="{{index}}" binderror="vehicleImageError"/>
-          <text>车型示意图</text>
+          <text>车型展示图</text>
         </view>
         <view class="vehicle-info">
           <text class="vehicle-kicker">{{item.isDefault ? '默认车辆' : '车辆档案'}}</text>
           <text class="vehicle-plate">{{item.plateNumber}}</text>
           <text class="vehicle-model">{{item.brandModelLabel}}</text>
-          <text class="vehicle-meta">{{item.vehicleType}} · {{item.seats}} 座 · {{item.powertrainLabel}}</text>
-          <text class="wash-category-badge">洗车价类 · {{item.washCategoryLabel}}{{item.washVehicleCategoryLegacy ? '（历史档按 SUV 兼容）' : ''}}</text>
+          <text class="vehicle-meta">{{item.vehicleType}} · {{item.seats}} 座{{item.exteriorColorLabel}} · {{item.powertrainLabel}}</text>
+          <text wx:if="{{item.washCategoryVisible}}" class="wash-category-badge">洗车价类 · {{item.washCategoryLabel}}{{item.washVehicleCategoryLegacy ? '（历史档按 SUV 兼容）' : ''}}</text>
         </view>
       </view>
       <view class="validity-row"><image src="/assets/icons/clock.png"/><text>{{item.validityLabel}}</text></view>

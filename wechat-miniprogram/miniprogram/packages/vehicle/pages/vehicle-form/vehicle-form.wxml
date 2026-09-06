@@ -1,4 +1,4 @@
-<view class="page vehicle-form-page {{plateInputOpen ? 'keyboard-visible' : ''}} {{catalogOpen ? 'catalog-visible' : ''}}">
+<view class="page vehicle-form-page {{catalogOpen ? 'catalog-visible' : ''}}">
   <view class="tip">
     <text>完善车辆档案</text>
     <text>车牌、动力类型和登记信息会共同用于年检解释与预约项目匹配。</text>
@@ -6,70 +6,75 @@
 
   <view role="button" aria-label="选择或更换品牌车型" class="vehicle-identity-preview" bindtap="openCatalog">
     <image class="identity-background" src="/assets/brand/hero-tianjin-background.jpg" mode="aspectFill"/>
-    <image class="identity-car" src="{{selectedModelImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
+    <image wx:if="{{selectedModelImage}}" class="identity-car" src="{{selectedModelImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
+    <view wx:elif="{{selectedModelId}}" class="identity-image-fallback"><image src="/assets/icons/car.png" mode="aspectFit"/><text>车型图片暂不可用</text></view>
     <view class="identity-copy">
-      <view class="identity-plate"><text wx:for="{{cells}}" wx:key="index">{{item || '·'}}</text></view>
+      <view class="identity-plate"><text>{{plateNumber || '车牌待填写'}}</text></view>
       <text class="identity-name">{{selectedModelId ? selectedBrandName + ' ' + selectedModelName : '选择品牌车型'}}</text>
-      <text class="identity-action">{{selectedModelId ? '点击更换车型' : '选车型后生成车辆展示图'}} ›</text>
+      <text class="identity-action">{{selectedModelId ? '点击更换车型' : '点击选择品牌与车型'}} ›</text>
     </view>
-    <text class="identity-disclosure">车型示意图</text>
+    <text wx:if="{{selectedModelImage}}" class="identity-disclosure">{{selectedModelId ? '车型展示图' : '车辆示意图'}}</text>
   </view>
 
   <view class="catalog-note"><text>品牌车型只用于车辆识别与界面展示</text><text>不会自动修改座位数、动力类型或年检测算</text></view>
 
   <view class="surface mode-card">
     <text class="form-section-label">号牌类型</text>
-    <view class="mode-row">
-      <view role="button" tabindex="0" data-mode="blue" bindtap="chooseMode" class="mode-option {{mode === 'blue' ? 'selected blue' : ''}}"><text class="mode-name">普通蓝牌</text><text class="mode-count">7 位</text></view>
-      <view role="button" tabindex="0" data-mode="green_small" bindtap="chooseMode" class="mode-option {{mode === 'green_small' ? 'selected green' : ''}}"><text class="mode-name">新能源小型</text><text class="mode-count">8 位</text></view>
-      <view role="button" tabindex="0" data-mode="green_large" bindtap="chooseMode" class="mode-option {{mode === 'green_large' ? 'selected green' : ''}}"><text class="mode-name">新能源大型</text><text class="mode-count">8 位</text></view>
-    </view>
+    <picker class="category-picker" mode="selector" range="{{plateCategories}}" range-key="label" value="{{plateCategoryIndex}}" bindchange="categoryChange">
+      <view class="category-value"><text>{{plateCategoryConfirmed ? plateCategories[plateCategoryIndex].label : '请选择实际号牌类型'}}</text><image src="/assets/icons/caret-right.png"/></view>
+    </picker>
+    <text class="field-note">共 11 类，请按实际车辆选择；检测站按此类别匹配报价。</text>
   </view>
 
-  <view class="surface plate-card {{mode === 'blue' ? 'blue' : 'green'}}">
+  <view class="surface plate-card {{mode === 'yellow' ? 'yellow' : mode === 'blue' ? 'blue' : 'green'}}">
     <view class="plate-heading">
-      <view><text>车牌号码</text><text>点击任意格定位输入</text></view>
-      <button data-index="0" bindtap="selectCell">切换省份</button>
+      <view><text>车牌号码</text><text>按实际号牌自由填写，不固定字符位数</text></view>
     </view>
-    <view class="plate-cells">
-      <button wx:for="{{cells}}" wx:key="index" data-index="{{index}}" bindtap="selectCell" class="{{selected === index ? 'active' : ''}}"><text>{{item || '·'}}</text></button>
-    </view>
-    <view class="plate-status {{plateComplete ? 'complete' : ''}}"><image wx:if="{{plateComplete}}" src="/assets/icons/check-circle.png"/><image wx:else src="/assets/icons/clock.png"/><text>{{plateComplete ? '车牌号码已填写完整' : '请继续补全车牌序号'}}</text></view>
+    <input class="plate-free-input" aria-label="车牌号码" value="{{plateNumber}}" bindinput="plateNumberInput" maxlength="32" placeholder="如 津A·12345、津A·1234挂或其他实际号牌" placeholder-style="color:rgba(255,255,255,.72)"/>
+    <view class="plate-status {{plateComplete ? 'complete' : ''}}"><image wx:if="{{plateComplete}}" src="/assets/icons/check-circle.png"/><image wx:else src="/assets/icons/clock.png"/><text>{{plateComplete ? '车牌号码可保存' : '请输入实际号牌，仅排除不安全字符'}}</text></view>
   </view>
 
   <view class="surface vehicle-details-card">
-    <text class="field-label">车型</text>
-    <view class="type-row">
-      <view role="button" tabindex="0" data-type="小型轿车" data-seats="5" bindtap="typeChange" class="type-option {{vehicleType === '小型轿车' ? 'type-active' : ''}}">小型轿车</view>
-      <view role="button" tabindex="0" data-type="小型SUV" data-seats="5" bindtap="typeChange" class="type-option {{vehicleType === '小型SUV' ? 'type-active' : ''}}">小型 SUV</view>
-      <view role="button" tabindex="0" data-type="7 座乘用车" data-seats="7" bindtap="typeChange" class="type-option {{seats === 7 ? 'type-active' : ''}}">7 座乘用车</view>
+    <text class="field-label">车辆类型（可编辑）</text>
+    <input class="profile-input" aria-label="车辆类型" maxlength="40" value="{{vehicleType}}" bindinput="vehicleTypeInput" placeholder="按行驶证填写"/>
+    <view class="profile-fields"><view><text class="field-label">核定座位数</text><input class="profile-input" aria-label="核定座位数" type="number" maxlength="2" value="{{seats < 0 ? '' : seats}}" bindinput="seatsInput" placeholder="挂车可填 0"/></view><view><text class="field-label">使用性质</text><input class="profile-input" aria-label="使用性质" maxlength="40" value="{{usageNature}}" bindinput="usageNatureInput" placeholder="如非营运、货运"/></view></view>
+
+    <view wx:if="{{passengerColorEnabled}}" class="exterior-color-section">
+      <view class="exterior-color-heading"><view><text>车身颜色</text><text>按车辆实际外观选择，可随时修改</text></view><button wx:if="{{exteriorColor}}" bindtap="clearExteriorColor">清除</button></view>
+      <view class="exterior-color-grid" role="radiogroup" aria-label="选择车身颜色">
+        <view wx:for="{{exteriorColors}}" wx:key="value" role="radio" aria-checked="{{exteriorColor === item.value}}" tabindex="0" data-value="{{item.value}}" bindtap="chooseExteriorColor" class="exterior-color-option {{exteriorColor === item.value ? 'active' : ''}}">
+          <view class="color-swatch" style="background: {{item.hex}}"></view><text>{{item.label}}</text>
+        </view>
+      </view>
+      <input class="profile-input exterior-color-input" aria-label="自定义车身颜色" maxlength="20" value="{{exteriorColor}}" bindinput="exteriorColorInput" placeholder="也可自由输入或修改，如珍珠白、银灰双色"/>
+      <text wx:if="{{!exteriorColor}}" class="field-note">尚未选择颜色，不影响保存车辆。</text>
     </view>
 
-    <view class="wash-category-heading"><view><text>洗车车型价类</text><text>门店按此档位返回对应套餐价格</text></view><text>{{washVehicleCategory === 'sedan' ? '小轿车' : washVehicleCategory === 'suv' ? 'SUV' : 'MPV'}}</text></view>
-    <view class="wash-category-row" role="radiogroup" aria-label="选择洗车车型价类">
-      <view role="radio" aria-checked="{{washVehicleCategory === 'sedan'}}" tabindex="0" data-value="sedan" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'sedan' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>小轿车</text></view>
-      <view role="radio" aria-checked="{{washVehicleCategory === 'suv'}}" tabindex="0" data-value="suv" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'suv' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>SUV</text></view>
-      <view role="radio" aria-checked="{{washVehicleCategory === 'mpv'}}" tabindex="0" data-value="mpv" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'mpv' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>MPV</text></view>
-    </view>
-    <view wx:if="{{washVehicleCategoryLegacy}}" class="wash-category-note legacy"><image src="/assets/icons/warning-circle.png"/><text>历史 SUV/MPV 合并档已按 SUV 兼容，请确认后保存为新版独立档位。</text></view>
-    <view wx:else class="wash-category-note"><image src="/assets/icons/shield-check.png"/><text>7 座不会自动判定为 MPV，请按车辆实际类型选择。</text></view>
+    <block wx:if="{{plateCategories[plateCategoryIndex].vehicleClassCode === 'passenger_car'}}">
+      <view class="wash-category-heading"><view><text>洗车车型价类</text><text>门店按此档位返回对应套餐价格</text></view><text>{{washVehicleCategory === 'sedan' ? '小轿车' : washVehicleCategory === 'suv' ? 'SUV' : 'MPV'}}</text></view>
+      <view class="wash-category-row" role="radiogroup" aria-label="选择洗车车型价类">
+        <view role="radio" aria-checked="{{washVehicleCategory === 'sedan'}}" tabindex="0" data-value="sedan" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'sedan' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>小轿车</text></view>
+        <view role="radio" aria-checked="{{washVehicleCategory === 'suv'}}" tabindex="0" data-value="suv" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'suv' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>SUV</text></view>
+        <view role="radio" aria-checked="{{washVehicleCategory === 'mpv'}}" tabindex="0" data-value="mpv" bindtap="chooseWashCategory" class="wash-category-option {{washVehicleCategory === 'mpv' ? 'active' : ''}}"><image src="/assets/icons/car.png"/><text>MPV</text></view>
+      </view>
+      <view wx:if="{{washVehicleCategoryLegacy}}" class="wash-category-note legacy"><image src="/assets/icons/warning-circle.png"/><text>历史 SUV/MPV 合并档已按 SUV 兼容，请确认后保存为新版独立档位。</text></view>
+      <view wx:else class="wash-category-note"><image src="/assets/icons/shield-check.png"/><text>7 座不会自动判定为 MPV，请按车辆实际类型选择。</text></view>
+    </block>
 
     <text class="field-label">动力类型</text>
-    <view wx:if="{{mode === 'blue'}}" class="powertrain-grid">
+    <view class="powertrain-grid">
       <view role="button" tabindex="0" data-value="gasoline" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'gasoline' ? 'active' : ''}}">汽油</view>
       <view role="button" tabindex="0" data-value="diesel" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'diesel' ? 'active' : ''}}">柴油</view>
       <view role="button" tabindex="0" data-value="hybrid" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'hybrid' ? 'active' : ''}}">油电混合 HEV</view>
       <view role="button" tabindex="0" data-value="other" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'other' ? 'active' : ''}}">其他</view>
-      <view role="button" tabindex="0" data-value="unknown" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'unknown' ? 'active' : ''}}">不清楚</view>
-    </view>
-    <view wx:else class="powertrain-grid">
+
       <view role="button" tabindex="0" data-value="pure_electric" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'pure_electric' ? 'active' : ''}}">纯电</view>
       <view role="button" tabindex="0" data-value="phev" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'phev' ? 'active' : ''}}">插电混动</view>
       <view role="button" tabindex="0" data-value="erev" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'erev' ? 'active' : ''}}">增程</view>
       <view role="button" tabindex="0" data-value="unknown" bindtap="choosePowertrain" class="powertrain-option {{powertrainType === 'unknown' ? 'active' : ''}}">不清楚</view>
     </view>
-    <text wx:if="{{powertrainType === 'unknown'}}" class="field-note">{{mode === 'blue' ? '当前动力类型尚未确认，请按车辆资料选择；无法确认时选择“不清楚”。' : '请按车辆资料选择纯电、插电混动或增程；无法确认时选择“不清楚”。'}}</text>
-    <text class="field-note">动力类型不会改变年检周期，只用于解释真正上线时的预计项目。</text>
+    <text wx:if="{{powertrainType === 'unknown'}}" class="field-note">请按实际车辆选择动力类型，无法确认时选择“不清楚”。</text>
+    <text class="field-note">号码字母不决定动力类型，纯电、混动等均可独立选择。</text>
 
     <view class="date-row"><text>注册日期</text><picker mode="date" value="{{registrationDate}}" bindchange="dateChange"><view class="picker-value"><text>{{registrationDate}}</text><image src="/assets/icons/caret-right.png"/></view></picker></view>
   </view>
@@ -94,92 +99,48 @@
   <text class="form-disclosure">本页面仅保存合成演示数据，不上传真实证件</text>
 </view>
 
-<block wx:if="{{plateInputOpen}}">
-  <view class="keyboard-mask" bindtap="closePlateInput"></view>
-  <view class="plate-keyboard-sheet">
-    <view class="keyboard-heading">
-      <text>{{provinceOpen ? '选择省份' : selected === 1 ? '选择发牌机关' : '输入车牌序号'}}</text>
-      <text>{{provinceOpen ? '津、京、冀已置顶，可点选全国省级简称' : selected === 1 ? 'I、O 不用于发牌机关代码' : 'I、O 不可用，按实际号牌填写字母或数字'}}</text>
-      <view wx:if="{{!provinceOpen}}" class="plate-prefix-row">
-        <view role="button" aria-label="修改省份 {{cells[0] || '未填'}}" data-index="0" bindtap="selectCell" class="prefix-cell {{selected === 0 ? 'active' : ''}}"><text>{{cells[0] || '·'}}</text></view>
-        <view role="button" aria-label="修改发牌机关 {{cells[1] || '未填'}}" data-index="1" bindtap="selectCell" class="prefix-cell {{selected === 1 ? 'active' : ''}}"><text>{{cells[1] || '·'}}</text></view>
-        <text class="prefix-hint">点左侧格改省份/机关</text>
-      </view>
-    </view>
-    <scroll-view wx:if="{{provinceOpen}}" scroll-y enhanced show-scrollbar="{{true}}" class="plate-keyboard-scroll">
-      <view class="province-keyboard">
-        <view
-          role="button"
-          aria-label="省份{{item}}"
-          wx:for="{{provinces}}"
-          wx:key="*this"
-          data-key="{{item}}"
-          bindtap="chooseProvince"
-          hover-class="tap-pressed"
-          class="plate-key {{index < 3 ? 'priority' : ''}}"
-        ><text>{{item}}</text></view>
-      </view>
-    </scroll-view>
-    <block wx:else>
-      <scroll-view scroll-y enhanced show-scrollbar="{{true}}" class="plate-keyboard-scroll">
-        <view class="serial-keyboard">
-          <view class="serial-numbers">
-            <view
-              role="button"
-              aria-label="数字{{item}}"
-              wx:for="{{numberKeys}}"
-              wx:key="*this"
-              data-key="{{item}}"
-              bindtap="key"
-              hover-class="{{selected === 1 ? 'none' : 'tap-pressed'}}"
-              class="plate-key {{selected === 1 ? 'is-disabled' : ''}}"
-            ><text>{{item}}</text></view>
-          </view>
-          <view class="serial-letters">
-            <view
-              role="button"
-              aria-label="字母{{item}}"
-              wx:for="{{letterKeys}}"
-              wx:key="*this"
-              data-key="{{item}}"
-              bindtap="key"
-              hover-class="{{item === 'I' || item === 'O' || (mode === 'green_large' && selected < 7) ? 'none' : 'tap-pressed'}}"
-              class="plate-key {{item === 'I' || item === 'O' || (mode === 'green_large' && selected < 7) ? 'is-disabled' : ''}}"
-            ><text>{{item}}</text></view>
-          </view>
-        </view>
-      </scroll-view>
-      <view class="serial-controls">
-        <button bindtap="clearPlateSerial"><text>清空序号</text></button>
-        <button data-key="delete" bindtap="key"><image src="/assets/icons/backspace.png"/><text>退格</text></button>
-        <button class="done" disabled="{{!plateComplete}}" bindtap="closePlateInput"><text>完成</text></button>
-      </view>
-    </block>
-  </view>
-</block>
-
 <block wx:if="{{catalogOpen}}">
-  <view class="keyboard-mask" bindtap="closeCatalog"></view>
-  <view class="vehicle-catalog-sheet" catchtap="noop">
+  <view class="keyboard-mask" catchtap="closeCatalog" catchtouchmove="noop"></view>
+  <view class="vehicle-catalog-sheet" catchtap="noop" catchtouchmove="noop">
     <view class="catalog-heading">
-      <view><text>选择品牌车型</text><text>每个车型都有对应的合成展示图</text></view>
-      <button bindtap="closeCatalog">完成</button>
+      <view><text>选择品牌车型</text><text>当前按“{{plateCategories[plateCategoryIndex].label}}”筛选</text></view>
+      <button catchtap="closeCatalog">{{selectedModelId ? '使用此车型' : '完成'}}</button>
     </view>
     <view wx:if="{{catalogLoading}}" class="catalog-loading">正在读取车型库…</view>
+    <view wx:elif="{{catalogError}}" class="catalog-empty">
+      <text>车型库暂时未能加载</text><text>请检查网络后重试，已选车型会保留</text>
+      <button bindtap="loadCatalog">重新加载</button>
+    </view>
     <block wx:else>
-      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="brand-selector">
-        <button wx:for="{{catalogBrands}}" wx:key="id" data-id="{{item.id}}" bindtap="chooseCatalogBrand" class="{{activeBrandId === item.id ? 'active' : ''}}">
-          <image src="{{item.logoUrl}}" mode="aspectFit" webp="{{true}}"/><text>{{item.name}}</text>
-        </button>
-      </scroll-view>
-      <scroll-view scroll-y class="model-selector">
-        <view class="model-grid">
-          <button wx:for="{{activeModels}}" wx:key="id" data-id="{{item.id}}" bindtap="chooseCatalogModel" class="{{selectedModelId === item.id ? 'selected' : ''}}">
-            <image src="{{item.imageUrl}}" mode="aspectFit" webp="{{true}}"/><view><text>{{item.name}}</text><text>{{selectedModelId === item.id ? '当前车型' : '选择车型'}}</text></view>
+      <view class="catalog-search">
+        <input aria-label="搜索品牌或车型" placeholder="搜索品牌或车型，如大众 / 朗逸" value="{{catalogQuery}}" bindinput="searchCatalog" maxlength="60" confirm-type="search"/>
+        <button wx:if="{{catalogQuery}}" aria-label="清空搜索" bindtap="clearCatalogSearch">清空</button>
+      </view>
+      <text class="catalog-summary">{{catalogQuery ? '找到 ' : '可选 '}}{{catalogBrandOptions.length}} 个品牌 · {{catalogMatchCount}} 款统一展示车型</text>
+      <view wx:if="{{catalogBrandOptions.length}}" class="catalog-browser">
+        <scroll-view scroll-y enhanced show-scrollbar="{{false}}" scroll-into-view="catalog-{{activeBrandId}}" class="brand-selector">
+          <button wx:for="{{catalogBrandOptions}}" wx:key="id" id="catalog-{{item.id}}" data-id="{{item.id}}" catchtap="chooseCatalogBrand" aria-label="{{item.name}}" class="{{activeBrandId === item.id ? 'active' : ''}}">
+            <image wx:if="{{item.logoUrl}}" src="{{item.logoUrl}}" mode="aspectFit" webp="{{true}}"/><text>{{item.name}}</text>
           </button>
+        </scroll-view>
+        <view class="catalog-models">
+          <text class="catalog-model-heading">{{activeBrandName}} · {{activeModels.length}} 款</text>
+          <scroll-view scroll-y scroll-into-view="models-top-{{catalogScrollRevision}}" class="model-selector">
+            <view id="models-top-{{catalogScrollRevision}}"></view>
+            <view class="model-grid">
+              <button wx:for="{{activeModels}}" wx:key="id" data-id="{{item.id}}" catchtap="chooseCatalogModel" aria-label="选择{{activeBrandName}}{{item.name}}" class="{{selectedModelId === item.id ? 'selected' : ''}}">
+                <view class="model-image-shell">
+                  <image wx:if="{{!item.imageLoadFailed}}" src="{{item.imageUrl}}" mode="aspectFit" webp="{{true}}" lazy-load="{{true}}" data-id="{{item.id}}" binderror="catalogModelImageError"/>
+                  <view wx:else class="model-image-fallback"><image src="/assets/icons/car.png" mode="aspectFit"/><text>图片暂不可用</text></view>
+                </view>
+                <view class="model-copy"><text>{{item.name}}</text><text>{{selectedModelId === item.id ? '已选中，请点使用此车型' : '统一角度车型展示图'}}</text></view>
+              </button>
+            </view>
+          </scroll-view>
         </view>
-      </scroll-view>
-      <button class="clear-catalog" bindtap="clearCatalogSelection">暂不设置品牌车型</button>
+      </view>
+      <view wx:else class="catalog-empty"><text>未找到可选车型</text><text>试试品牌名称或更短的车系名</text><button bindtap="clearCatalogSearch">查看全部车型</button></view>
     </block>
+    <button class="clear-catalog" catchtap="clearCatalogSelection">暂不设置品牌车型</button>
   </view>
 </block>

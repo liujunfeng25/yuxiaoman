@@ -6,8 +6,12 @@ playwright-report/
 .env
 data/
 *.log
+*.download
+tmp/
+deliverables/
 wechat-miniprogram/project.private.config.json
 wechat-miniprogram/node_modules/
+wechat-miniprogram/.asset-preview/
 .runtime/
 handoff/macos/transfer.env
 database/*.pgdump
@@ -23,3 +27,7 @@ audit/full-inspection-closure-20260826/service-closure-state.json
 audit/full-inspection-closure-20260826/service-closure-result.json
 audit/full-inspection-closure-20260826/suv-form-data.json
 audit/full-inspection-closure-20260826/scenario-config.local.json
+
+# Large original presentation PNG sources stay local; committed WebP assets under
+# public/assets/used-cars/owner-presentation-v2 are the runtime copy.
+source-assets/owner-vehicle-presentation-v2/

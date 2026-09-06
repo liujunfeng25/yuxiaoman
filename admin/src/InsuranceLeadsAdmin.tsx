@@ -15,6 +15,7 @@ import {
   X,
   XCircle,
 } from "@phosphor-icons/react";
+import { operatorErrorMessage } from "./operatorError";
 
 type InsuranceMode = "demo" | "real";
 type LeadStatus = "new" | "handed_off" | "closed" | "withdrawn";
@@ -198,7 +199,7 @@ async function insuranceMedia(path: string): Promise<Blob> {
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return "时间待核对";
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
     month: "2-digit",
@@ -211,9 +212,9 @@ function formatDateTime(value?: string | null) {
 
 function formatBytes(value?: number) {
   if (!value || value < 1) return "—";
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  if (value < 1024) return `${value} 字节`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} 千字节`;
+  return `${(value / 1024 / 1024).toFixed(1)} 兆字节`;
 }
 
 function safeText(value: unknown, fallback = "—") {
@@ -230,22 +231,28 @@ function sourceText(source: unknown) {
       owner_services: "车主服务",
       insurance: "车险服务入口",
     };
-    return labels[source] || source;
+    return labels[source] || (/[\u3400-\u9fff]/u.test(source) ? source : "来源待核对");
   }
   if (source && typeof source === "object") {
     const record = source as Record<string, unknown>;
-    const parts = [record.channel, record.page, record.campaign, record.scene].map((item) => safeText(item, "")).filter(Boolean);
-    if (parts.length) return parts.join(" · ");
+    const channel = safeText(record.channel, "");
+    const labels: Record<string, string> = {
+      "web-owner-services": "车主服务 · 保险入口",
+      mini_program: "车主服务 · 小程序",
+      owner_services: "车主服务",
+      insurance: "车险服务入口",
+    };
+    if (channel) return labels[channel] || (/[\u3400-\u9fff]/u.test(channel) ? channel : "来源待核对");
   }
   return "车主服务 · 保险入口";
 }
 
 function renewalWindowText(value?: string) {
-  return value ? renewalWindowLabels[value] || value : "—";
+  return value ? renewalWindowLabels[value] || (/[\u3400-\u9fff]/u.test(value) ? value : "续保时间待核对") : "—";
 }
 
 function contactWindowText(value?: string) {
-  return value ? contactWindowLabels[value] || value : "—";
+  return value ? contactWindowLabels[value] || (/[\u3400-\u9fff]/u.test(value) ? value : "联系时段待核对") : "—";
 }
 
 function maskPhone(value?: string) {
@@ -368,8 +375,7 @@ export function InsuranceLeadsPage({ onError }: { onError: (message: string) => 
   const deepLinkOpenedRef = useRef("");
 
   const reportError = (reason: unknown) => {
-    const error = reason as InsuranceApiError;
-    onError(error.message || "车险线索服务暂不可用");
+    onError(operatorErrorMessage(reason, "车险线索服务暂不可用，请稍后重试"));
   };
 
   const loadLeads = () => {
@@ -605,19 +611,19 @@ export function InsuranceLeadsPage({ onError }: { onError: (message: string) => 
 
     <section className="content-card insurance-leads-card">
       <div className="insurance-list-head">
-        <div><small>INSURANCE LEAD PIPELINE</small><h3>车险续保对接线索</h3><p>列表仅展示脱敏联系人；点击详情会触发敏感读取审计。</p></div>
+        <div><small>保险线索处理</small><h3>车险续保对接线索</h3><p>列表仅展示脱敏联系人；点击详情会触发敏感读取审计。</p></div>
         <div className="insurance-filter-tabs" role="group" aria-label="线索状态筛选">{filterOptions.map((option) => <button type="button" key={option.value} className={filter === option.value ? "active" : ""} onClick={() => setFilter(option.value)}>{option.label}</button>)}</div>
       </div>
       <div className="table-wrap insurance-leads-table">
         <table>
           <thead><tr><th>提交时间 / 编号</th><th>车辆</th><th>联系人（脱敏）</th><th>续保与联系时段</th><th>合作方</th><th>状态</th><th /></tr></thead>
           <tbody>{leads.map((lead) => <tr key={lead.id} className={lead.status === "withdrawn" ? "insurance-row-withdrawn" : ""} onClick={() => openDetail(lead)}>
-            <td><strong>{formatDateTime(lead.submittedAt)}</strong><small>{lead.leadCode || lead.id}</small></td>
+            <td><strong>{formatDateTime(lead.submittedAt)}</strong><small>{lead.leadCode || "线索编号待补全"}</small></td>
             <td><strong>{lead.vehicle?.plateNumber || "待核验"}</strong><small>{lead.vehicle?.modelName || "车型待补充"}</small></td>
             <td><strong>{lead.contactNameMasked || "匿名车主"}</strong><small>{maskPhone(lead.maskedPhone)}</small></td>
             <td><strong>{renewalWindowText(lead.renewalWindow)}</strong><small>{contactWindowText(lead.contactWindow)}</small></td>
             <td><strong>{lead.partnerName || "尚未转交"}</strong><small>{lead.handedOffAt ? formatDateTime(lead.handedOffAt) : sourceText(lead.source)}</small></td>
-            <td><span className={`status-pill insurance-status-${lead.status}`}>{statusLabels[lead.status] || lead.status}</span>{lead.status === "withdrawn" ? <small>用户已撤回，停止处理</small> : null}</td>
+            <td><span className={`status-pill insurance-status-${lead.status}`}>{statusLabels[lead.status] || "状态待核对"}</span>{lead.status === "withdrawn" ? <small>用户已撤回，停止处理</small> : null}</td>
             <td><CaretRight /></td>
           </tr>)}</tbody>
         </table>
@@ -740,7 +746,7 @@ function InsuranceLeadDrawer({
   return <div className="drawer-layer insurance-drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <aside className="detail-drawer wide-drawer insurance-detail-drawer" aria-label="车险线索详情">
       <header>
-        <div><small>SENSITIVE LEAD · AUDITED READ</small><h2>{detail?.leadCode || "线索详情"}</h2><p>{detail ? `${sourceText(detail.source)} · ${formatDateTime(detail.submittedAt)}` : "正在加载授权资料"}</p></div>
+        <div><small>敏感线索 · 查看留痕</small><h2>{detail?.leadCode || "线索详情"}</h2><p>{detail ? `${sourceText(detail.source)} · ${formatDateTime(detail.submittedAt)}` : "正在加载授权资料"}</p></div>
         <button type="button" aria-label="关闭线索详情" onClick={close}><X /></button>
       </header>
       <div className="drawer-scroll">
@@ -748,7 +754,7 @@ function InsuranceLeadDrawer({
           <div className="insurance-sensitive-notice"><Eye /><div><strong>敏感信息读取已留痕</strong><p>姓名、手机号与行驶证读取均会记录审计事件。仅可用于本次续保对接与授权转交。</p></div></div>
 
           <section className="drawer-status insurance-detail-status">
-            <span className={`status-pill insurance-status-${detail.status}`}>{statusLabels[detail.status] || detail.status}</span>
+            <span className={`status-pill insurance-status-${detail.status}`}>{statusLabels[detail.status] || "状态待核对"}</span>
             <strong>{detail.vehicle?.plateNumber || "车辆待核验"}</strong>
             <small>{detail.status === "withdrawn" ? "用户已撤回授权，请停止联系、复制和转交。" : `${detail.vehicle?.modelName || "车型待补充"} · ${renewalWindowText(detail.renewalWindow)}`}</small>
           </section>

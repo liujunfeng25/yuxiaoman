@@ -16,8 +16,8 @@ export function annualConclusionNarrative(value: CheckupConclusion | null | unde
 
 export function vehicleConditionTitle(report: VehicleCheckupReport): string {
   if (report.observationMode === "no_visible_faults" && !report.faults.length) return "本次记录未发现明显异常";
-  if (report.faults.length) return `本次记录发现 ${report.faults.length} 项车身问题`;
-  return "车身状态尚未完成确认";
+  if (report.faults.length) return `本次记录发现 ${report.faults.length} 项车辆问题`;
+  return "车辆状态尚未完成确认";
 }
 
 export function vehicleConditionNarrative(report: VehicleCheckupReport): string {
@@ -25,7 +25,7 @@ export function vehicleConditionNarrative(report: VehicleCheckupReport): string 
     return "检测站在本次现场照片与可见范围内未记录明显车身异常。该记录不覆盖底盘、内部结构或需要设备、拆检才能发现的问题，也不替代年检结论。";
   }
   if (report.faults.length) {
-    return `检测站在本次现场可见范围内记录了 ${report.faults.length} 项车身问题，具体部位、程度与说明见下方明细。车辆体检记录用于留存交接车况，不会自动判定年检未通过。`;
+    return `检测站在本次现场可见及功能检查范围内记录了 ${report.faults.length} 项车辆问题，具体部位、程度与说明见下方明细。车辆体检记录用于留存交接车况，不会自动判定年检未通过。`;
   }
   return "检测站尚未完成车辆可见状态确认；当前页面不补造无异常结论。";
 }
@@ -43,6 +43,11 @@ export function faultAdvice(fault: VehicleFault): string {
     crack: "可检查裂纹是否扩展以及是否影响玻璃、灯具或覆盖件功能，必要时尽快维修。",
     broken: "可确认破损件的固定、照明或密封功能，存在松脱或功能影响时应先处理。",
     rust: "可检查锈蚀范围与深度，建议由维修机构评估除锈及后续防护。",
+    warning_light: "建议记录具体灯号或报码，并由维修机构读取故障信息后确定维修项目。",
+    malfunction: "建议记录触发条件和具体表现，由维修机构结合实车检查功能异常原因。",
+    abnormal_noise: "建议记录异响或抖动出现的工况，避免在异常加剧时继续行驶。",
+    leakage: "建议确认渗漏位置和液体类型；如持续滴漏或影响制动、转向，应尽快处理。",
+    wear: "建议核对磨损范围和剩余使用状态，由维修机构判断保养或更换时机。",
     other: "请结合现场描述复核该位置状态；无法判断时可由维修机构进一步检查。",
   };
   return `${severityLead[fault.severity]}${typeAdvice[fault.faultType]}`;

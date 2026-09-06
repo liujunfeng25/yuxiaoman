@@ -16,6 +16,8 @@
     <view><text>{{isDemoShop ? '当前账号绑定合成演示门店' : '当前账号已锁定所属门店'}}</text><text>门店范围由服务端会话确定，页面不提供门店切换。</text></view>
   </view>
 
+  <view class="workflow-summary-wrap"><workflow-task-summary title="报价督办" open-count="{{workflowSummary.openCount}}" due-soon-count="{{workflowSummary.dueSoonCount}}" overdue-count="{{workflowSummary.overdueCount}}" next-due-label="{{workflowNextDueLabel}}" loading="{{workflowLoading}}" bind:open="openWorkflowTasks" /></view>
+
   <view class="overview-card">
     <view class="metric">
       <image src="/assets/icons/receipt.png" mode="aspectFit" />

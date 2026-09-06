@@ -46,6 +46,17 @@
 .repair-quote-entry.repair-cancelled { border-color: #d9e1e8; background: #f7f9fb; box-shadow: none; }
 .readonly-diagnostic .view-tabs button { position: relative; display: flex; align-items: center; justify-content: center; gap: 7rpx; }
 .readonly-diagnostic .view-tabs button text:last-child { display: flex; min-width: 29rpx; height: 29rpx; padding: 0 5rpx; align-items: center; justify-content: center; color: #fff; border-radius: 999rpx; background: #cf4740; font-size: 15rpx; box-sizing: border-box; }
+.readonly-system-panel { margin: 16rpx; padding: 17rpx; border: 1rpx solid #cbdfea; border-radius: 16rpx; background: #f8fbfe; }
+.readonly-system-heading { display: flex; align-items: center; justify-content: space-between; color: #173650; font-size: 21rpx; font-weight: 850; }
+.readonly-system-heading text:last-child { color: #718ba1; font-size: 17rpx; font-weight: 700; }
+.readonly-system-grid { display: grid; margin-top: 12rpx; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9rpx; }
+.readonly-system-grid button { display: grid; width: 100%; min-width: 0; min-height: 94rpx; margin: 0; padding: 11rpx; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7rpx; color: #31516d; border: 1rpx solid #d7e5ef; border-radius: 12rpx; background: #fff; text-align: left; line-height: 1.25; box-sizing: border-box; }
+.readonly-system-grid button::after { border: 0; }
+.readonly-system-grid button > view { display: flex; min-width: 0; flex-direction: column; }
+.readonly-system-grid button > view text:first-child { color: #21415d; font-size: 18rpx; font-weight: 800; }
+.readonly-system-grid button > view text:last-child { margin-top: 4rpx; overflow: hidden; color: #8094a6; font-size: 15rpx; text-overflow: ellipsis; white-space: nowrap; }
+.readonly-system-grid button > text { display: flex; min-width: 33rpx; height: 33rpx; padding: 0 5rpx; align-items: center; justify-content: center; color: #fff; border-radius: 999rpx; background: #cf4740; font-size: 14rpx; font-weight: 850; box-sizing: border-box; }
+.readonly-system-grid button.selected { border-color: #d8574e; box-shadow: 0 0 0 2rpx rgba(216,87,78,.1); }
 .readonly-diagnostic .diagnostic-legend view:last-child { margin-left: auto; }
 .readonly-faults .fault-row { grid-template-columns: 43rpx minmax(0,1fr) 27rpx; }
 .readonly-faults .fault-row > image { width: 25rpx; height: 25rpx; opacity: .55; }

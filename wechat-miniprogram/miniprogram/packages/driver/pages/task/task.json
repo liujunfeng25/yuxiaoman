@@ -3,5 +3,8 @@
   "navigationBarBackgroundColor": "#F4F8FC",
   "navigationBarTextStyle": "black",
   "backgroundColor": "#F4F8FC",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "workflow-task-summary": "/components/workflow-task-summary/workflow-task-summary"
+  }
 }

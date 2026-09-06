@@ -21,6 +21,7 @@ import {
   type OfficialInspectionFailureDetails,
 } from "./inspection-conclusion.js";
 import { VALET_EVIDENCE_POLICY_VERSION } from "./valet-handoff.js";
+import { syncAnnualWorkflowForBooking } from "./workflow-integration.js";
 
 type Row = Record<string, unknown>;
 type ProblemFactory = (
@@ -108,12 +109,28 @@ const faultRegionCodeSchema = z.enum([
   "left_rear_door",
   "left_rear_quarter",
   "left_sill",
+  "left_front_window",
+  "left_rear_window",
+  "left_front_wheel",
+  "left_rear_wheel",
   "right_mirror",
   "right_front_fender",
   "right_front_door",
   "right_rear_door",
   "right_rear_quarter",
   "right_sill",
+  "right_front_window",
+  "right_rear_window",
+  "right_front_wheel",
+  "right_rear_wheel",
+  "dashboard_obd",
+  "engine_powertrain",
+  "brake_system",
+  "steering_suspension",
+  "chassis_exhaust",
+  "cabin_electrical",
+  "fuel_charging",
+  "other_system",
 ]);
 
 const faultSchema = z.object({
@@ -121,7 +138,7 @@ const faultSchema = z.object({
   clientKey: z.string().trim().min(1).max(100).optional(),
   viewId: z.enum(["top", "left", "right"]),
   regionCode: faultRegionCodeSchema,
-  faultType: z.enum(["scratch", "dent", "paint_damage", "crack", "broken", "rust", "other"]),
+  faultType: z.enum(["scratch", "dent", "paint_damage", "crack", "broken", "rust", "warning_light", "malfunction", "abnormal_noise", "leakage", "wear", "other"]),
   severity: z.enum(["minor", "moderate", "severe"]),
   description: z.string().trim().max(300).nullable().optional(),
 }).superRefine((value, context) => {
@@ -1475,6 +1492,10 @@ export async function registerVehicleCheckupRoutes(
           completedAt,
         );
       }
+      await syncAnnualWorkflowForBooking(transaction, request.params.id, {
+        now: new Date(completesSelfDriveService ? completedAt : receivedAt),
+        actorType: "station",
+      });
       const bookingContext = await checkupAuditBookingContext(transaction, request.params.id);
       const publishedReport = await transaction.prepare<Row>(`
         SELECT id, report_no, status, annual_conclusion, annual_mark_status

@@ -832,9 +832,9 @@ test("绿色 F 号牌在缺少动力档案时不猜测 PHEV 或 EREV", async () 
     });
     assert.equal(vehicleResponse.statusCode, 201, vehicleResponse.body);
     const vehicle = vehicleResponse.json<Json>().data;
-    assert.equal(vehicle.energyCategory, "non_pure_electric");
+    assert.equal(vehicle.energyCategory, "none");
     assert.equal(vehicle.facts.powertrainType, "unknown");
-    assert.equal(vehicle.facts.powertrainSource, "plate_inferred");
+    assert.equal(vehicle.facts.powertrainSource, "unknown");
     assert.deepEqual(vehicle.facts.factsConsistencyFailures, []);
 
     const calculationResponse = await app.inject({

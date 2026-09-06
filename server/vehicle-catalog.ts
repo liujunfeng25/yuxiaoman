@@ -1,80 +1,63 @@
+import { VEHICLE_BRAND_SEEDS, type CatalogVehicleClassCode } from "./vehicle-catalog-data.js";
+import { OWNER_VEHICLE_PRESENTATION_IMAGE_URLS } from "./vehicle-catalog-images.js";
+
 export type VehicleCatalogModel = {
   id: string;
   brandId: string;
   name: string;
   imageUrl: string;
+  imageKind: "presentation_cutout" | "unavailable";
+  vehicleClassCodes: CatalogVehicleClassCode[];
 };
 
 export type VehicleCatalogBrand = {
   id: string;
   name: string;
   logoUrl: string;
+  searchKeywords?: string[];
   models: VehicleCatalogModel[];
 };
 
 const assetRoot = "/assets/used-cars";
+const LEGACY_BRAND_LOGOS = new Set(["mercedes", "bmw", "audi", "tesla", "byd", "li"]);
 
-export const VEHICLE_CATALOG: VehicleCatalogBrand[] = [
-  {
-    id: "brand-mercedes",
-    name: "奔驰",
-    logoUrl: `${assetRoot}/logos/brand-mercedes.webp`,
-    models: [
-      { id: "vehicle-mercedes-s", brandId: "brand-mercedes", name: "S级", imageUrl: `${assetRoot}/owner-models/vehicle-mercedes-s.webp` },
-      { id: "vehicle-mercedes-e", brandId: "brand-mercedes", name: "E级", imageUrl: `${assetRoot}/owner-models/vehicle-mercedes-e.webp` },
-      { id: "vehicle-mercedes-glc", brandId: "brand-mercedes", name: "GLC", imageUrl: `${assetRoot}/owner-models/vehicle-mercedes-glc.webp` },
-    ],
-  },
-  {
-    id: "brand-bmw",
-    name: "宝马",
-    logoUrl: `${assetRoot}/logos/brand-bmw.webp`,
-    models: [
-      { id: "vehicle-bmw-3", brandId: "brand-bmw", name: "3系", imageUrl: `${assetRoot}/owner-models/vehicle-bmw-3.webp` },
-      { id: "vehicle-bmw-5", brandId: "brand-bmw", name: "5系", imageUrl: `${assetRoot}/owner-models/vehicle-bmw-5.webp` },
-      { id: "vehicle-bmw-x3", brandId: "brand-bmw", name: "X3", imageUrl: `${assetRoot}/owner-models/vehicle-bmw-x3.webp` },
-    ],
-  },
-  {
-    id: "brand-audi",
-    name: "奥迪",
-    logoUrl: `${assetRoot}/logos/brand-audi.webp`,
-    models: [
-      { id: "vehicle-audi-a4l", brandId: "brand-audi", name: "A4L", imageUrl: `${assetRoot}/owner-models/vehicle-audi-a4l.webp` },
-      { id: "vehicle-audi-a6l", brandId: "brand-audi", name: "A6L", imageUrl: `${assetRoot}/owner-models/vehicle-audi-a6l.webp` },
-      { id: "vehicle-audi-q5l", brandId: "brand-audi", name: "Q5L", imageUrl: `${assetRoot}/owner-models/vehicle-audi-q5l.webp` },
-    ],
-  },
-  {
-    id: "brand-tesla",
-    name: "特斯拉",
-    logoUrl: `${assetRoot}/logos/brand-tesla.webp`,
-    models: [
-      { id: "vehicle-tesla-model-y", brandId: "brand-tesla", name: "Model Y", imageUrl: `${assetRoot}/owner-models/vehicle-tesla-model-y.webp` },
-    ],
-  },
-  {
-    id: "brand-byd",
-    name: "比亚迪",
-    logoUrl: `${assetRoot}/logos/brand-byd.webp`,
-    models: [
-      { id: "vehicle-byd-han", brandId: "brand-byd", name: "汉", imageUrl: `${assetRoot}/owner-models/vehicle-byd-han.webp` },
-    ],
-  },
-  {
-    id: "brand-li",
-    name: "理想",
-    logoUrl: `${assetRoot}/logos/brand-li.webp`,
-    models: [
-      { id: "vehicle-li-l7", brandId: "brand-li", name: "L7", imageUrl: `${assetRoot}/owner-models/vehicle-li-l7.webp` },
-    ],
-  },
-];
+// Persisted ids remain stable; images are independently bound to verified series photos.
+export const VEHICLE_CATALOG: VehicleCatalogBrand[] = VEHICLE_BRAND_SEEDS.map((seed) => {
+  const brandId = `brand-${seed.id}`;
+  return {
+    id: brandId,
+    name: seed.name,
+    logoUrl: LEGACY_BRAND_LOGOS.has(seed.id) ? `${assetRoot}/logos/${brandId}.webp` : "",
+    searchKeywords: [seed.id, ...seed.keywords],
+    models: seed.models.split("|").map((entry) => {
+      const separator = entry.indexOf(":");
+      const slug = entry.slice(0, separator);
+      const name = entry.slice(separator + 1).trim();
+      if (separator < 1 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(seed.id)
+        || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !name) {
+        throw new Error(`Invalid owner vehicle catalog entry: ${seed.id}/${entry}`);
+      }
+      const id = `vehicle-${seed.id}-${slug}`;
+      const imageUrl = OWNER_VEHICLE_PRESENTATION_IMAGE_URLS[id as keyof typeof OWNER_VEHICLE_PRESENTATION_IMAGE_URLS] || "";
+      const vehicleClassCodes = seed.modelVehicleClassCodes?.[slug]
+        ?? seed.vehicleClassCodes
+        ?? ["passenger_car"];
+      return { id, brandId, name, imageUrl, imageKind: imageUrl ? "presentation_cutout" : "unavailable", vehicleClassCodes };
+    }),
+  };
+});
 
 const brandsById = new Map(VEHICLE_CATALOG.map((brand) => [brand.id, brand] as const));
 const modelsById = new Map(
   VEHICLE_CATALOG.flatMap((brand) => brand.models.map((model) => [model.id, model] as const)),
 );
+if (brandsById.size !== VEHICLE_CATALOG.length
+  || modelsById.size !== VEHICLE_CATALOG.reduce((count, brand) => count + brand.models.length, 0)) {
+  throw new Error("Duplicate owner vehicle catalog IDs");
+}
+for (const imageModelId of Object.keys(OWNER_VEHICLE_PRESENTATION_IMAGE_URLS)) {
+  if (!modelsById.has(imageModelId)) throw new Error(`Owner vehicle image maps unknown catalog id: ${imageModelId}`);
+}
 
 export function vehicleCatalogBrand(id: string | null | undefined): VehicleCatalogBrand | null {
   return id ? brandsById.get(id) ?? null : null;
@@ -98,9 +81,9 @@ export function vehicleCatalogDto() {
   return {
     brands: VEHICLE_CATALOG,
     disclosure: {
-      kind: "synthetic_demo" as const,
-      label: "车型示意图",
-      message: "车辆图片为统一风格的合成演示素材，仅用于车辆识别与界面展示，不代表具体年款配置。",
+      kind: "model_reference" as const,
+      label: "车型展示图",
+      message: "选择器只展示已完成统一角度素材的对应车系；图片用于车型识别与首页展示，不代表具体年款、配置、颜色或车主实车。",
     },
   };
 }

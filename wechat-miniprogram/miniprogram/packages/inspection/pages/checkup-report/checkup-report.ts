@@ -4,19 +4,23 @@ import { ensureOperatorPageAccess } from "../../../../services/operator-session"
 import type { Booking, CheckupMedia, CheckupViewId, RepairRequestSummary, VehicleCheckupReport, VehicleFault } from "../../../../types";
 import {
   CHECKUP_REGIONS,
+  CHECKUP_SYSTEM_REGIONS,
   SITE_PHOTO_SLOTS,
   annualFailureDetails,
   buildFaultBubbleStyle,
   buildRegionCallout,
+  checkupVehicleDiagram,
   conclusionLabel,
   extractSummaryText,
   faultMarkerState,
   faultPhotos,
   faultTypeLabel,
+  isCheckupSystemRegion,
   regionLabel,
   reportMedia,
   severityLabel,
 } from "../../utils/checkup-report";
+import type { CheckupDiagramView } from "../../utils/checkup-report";
 import { annualConclusionNarrative, faultAdvice, vehicleConditionNarrative, vehicleConditionTitle } from "../../utils/report-copy";
 import { formatShanghaiDateTime } from "../../../../utils/format";
 
@@ -32,7 +36,8 @@ type Marker = {
   selected: boolean;
   targetFaultId: string;
 };
-type FaultView = VehicleFault & { number: number; regionLabel: string; typeLabel: string; severityLabel: string; viewLabel: string; descriptionText: string; advice: string; photoCount: number; photos: CheckupMedia[] };
+type FaultView = VehicleFault & { number: number; regionLabel: string; typeLabel: string; severityLabel: string; viewLabel: string; isSystemRegion: boolean; descriptionText: string; advice: string; photoCount: number; photos: CheckupMedia[] };
+type SystemMarker = { code: string; label: string; hint: string; count: number; markerLabel: string; selected: boolean; targetFaultId: string };
 type PhotoView = { kind: string; label: string; media: CheckupMedia; url: string };
 type ViewerItem = { url: string; label: string };
 type AttachmentView = { kind: string; number: string; label: string; statusText: string; statusTone: "available" | "missing" | "not-applicable"; url: string };
@@ -53,8 +58,14 @@ type Data = {
   mediaReadFailed: boolean;
   activeView: CheckupViewId;
   activeViewImage: string;
+  activeViewMirrored: boolean;
+  diagramViews: CheckupDiagramView[];
+  diagramVehicleText: string;
+  diagramSourceText: string;
+  diagramRegions: typeof CHECKUP_REGIONS;
   tabs: Tab[];
   markers: Marker[];
+  systemMarkers: SystemMarker[];
   activeFaultId: string;
   activeBubble: Bubble;
   faultViews: FaultView[];
@@ -97,11 +108,8 @@ type Data = {
   operatorAccessReady: boolean;
 };
 
-const VIEWS = [
-  { id: "top" as const, label: "俯视", imagePath: "/packages/inspection/assets/inspection-checkup/car-top.png" },
-  { id: "left" as const, label: "左侧", imagePath: "/packages/inspection/assets/inspection-checkup/car-left.png" },
-  { id: "right" as const, label: "右侧", imagePath: "/packages/inspection/assets/inspection-checkup/car-right.png" },
-];
+const DEFAULT_DIAGRAM = checkupVehicleDiagram(null);
+const VIEWS = DEFAULT_DIAGRAM.views;
 
 function viewLabel(id: CheckupViewId): string { return VIEWS.find((item) => item.id === id)?.label || "车身"; }
 
@@ -116,13 +124,16 @@ Page<Data>({
   data: {
     id: "", operatorMode: false, previewMode: false, booking: null, report: null, repairRequest: null, repairAvailable: false,
     repairCtaText: "一键咨询维修报价", repairCtaHint: "自动带入本报告的全部车损与故障特写", repairCtaTone: "start", loading: true, loadError: "", mediaReadFailed: false,
-    activeView: "left", activeViewImage: VIEWS[1].imagePath, tabs: [], markers: [], activeFaultId: "",
+    activeView: "left", activeViewImage: VIEWS[1].imagePath, activeViewMirrored: false,
+    diagramViews: VIEWS, diagramVehicleText: DEFAULT_DIAGRAM.vehicleLabel, diagramSourceText: DEFAULT_DIAGRAM.sourceLabel,
+    diagramRegions: DEFAULT_DIAGRAM.regions,
+    tabs: [], markers: [], systemMarkers: [], activeFaultId: "",
     activeBubble: { visible: false, title: "", description: "", style: "" },
     faultViews: [], faultPhotoCount: 0, sitePhotos: [], resultMaterials: [], sitePhotoAttachments: [], resultMaterialAttachments: [],
     viewerOpen: false, viewerItems: [], viewerIndex: 0, viewerUrl: "", viewerLabel: "", viewerCounter: "0 / 0", viewerHasPrevious: false, viewerHasNext: false,
     conclusionText: "待填写", conclusionTone: "neutral", annualNarrative: "检测站尚未回传本次年检结论。",
     showFailureDetails: false, failureCategoryText: "", failureReasonText: "", retestAdviceText: "",
-    observationText: "未填写", conditionTitle: "车身状态尚未完成确认", conditionNarrative: "检测站尚未完成车辆可见状态确认。", inspectionNoteText: "检测站未填写检测说明。",
+    observationText: "未填写", conditionTitle: "车辆状态尚未完成确认", conditionNarrative: "检测站尚未完成车辆状态确认。", inspectionNoteText: "检测站未填写检测说明。",
     publishedTime: "待发布", reportTimeLabel: "出具时间", reportNumberText: "未生成平台报告编号", reportStatusText: "草稿", plateText: "车辆信息未提供", vehicleText: "车辆信息未提供",
     serviceModeText: "未提供", stationText: "未提供", appointmentText: "未提供", markStatusText: "未核发", legalMaterialStatusText: "待核验", summaryText: "检测站未填写补充说明", operatorAccessReady: true,
   },
@@ -216,6 +227,8 @@ Page<Data>({
     const faults = report.faults || [];
     const firstFault = faults[0];
     const activeView = firstFault?.viewId || "left";
+    const diagram = checkupVehicleDiagram(currentBooking?.vehicle);
+    const activeVisual = diagram.views.find((item) => item.id === activeView) || diagram.views[1];
     const conclusion = report.annualInspection?.conclusion || null;
     const conclusionStatus = report.annualInspection?.conclusionStatus;
     const mediaReadFailed = [
@@ -287,7 +300,12 @@ Page<Data>({
     const summaryText = extractSummaryText(report.annualInspection?.summary, report.summary);
     this.setData({
       activeView,
-      activeViewImage: VIEWS.find((item) => item.id === activeView)?.imagePath || VIEWS[1].imagePath,
+      activeViewImage: activeVisual.imagePath,
+      activeViewMirrored: activeVisual.mirrored,
+      diagramViews: diagram.views,
+      diagramVehicleText: diagram.vehicleLabel,
+      diagramSourceText: diagram.sourceLabel,
+      diagramRegions: diagram.regions,
       activeFaultId: firstFault?.id || "",
       faultViews: faults.map((fault, index) => ({
         ...fault,
@@ -295,7 +313,8 @@ Page<Data>({
         regionLabel: regionLabel(fault.regionCode),
         typeLabel: faultTypeLabel(fault.faultType),
         severityLabel: severityLabel(fault.severity),
-        viewLabel: viewLabel(fault.viewId),
+        viewLabel: isCheckupSystemRegion(fault.regionCode) ? "功能系统" : viewLabel(fault.viewId),
+        isSystemRegion: isCheckupSystemRegion(fault.regionCode),
         descriptionText: fault.description || "检测站未填写补充描述",
         advice: faultAdvice(fault),
         photoCount: faultPhotos(fault).length,
@@ -314,10 +333,10 @@ Page<Data>({
       failureCategoryText: failure.categoryLabels.length ? failure.categoryLabels.join("、") : "未录入未通过项目类别",
       failureReasonText: failure.reason || "未录入具体原因或检测说明",
       retestAdviceText: failure.retestAdvice || "未录入整改与复检建议",
-      observationText: report.observationMode === "no_visible_faults" ? "未发现明显异常" : faults.length ? `已记录 ${faults.length} 条车身问题` : "未填写",
+      observationText: report.observationMode === "no_visible_faults" ? "未发现明显异常" : faults.length ? `已记录 ${faults.length} 条车辆问题` : "未填写",
       conditionTitle: vehicleConditionTitle(report),
       conditionNarrative: vehicleConditionNarrative(report),
-      inspectionNoteText: summaryText || "检测站已完成现场照片采集、可见车身状态记录并回传本次年检结论。",
+      inspectionNoteText: summaryText || "检测站已完成现场照片采集、车辆状态记录并回传本次年检结论。",
       publishedTime: formatShanghaiDateTime(report.publishedAt || report.updatedAt, "待发布"),
       reportTimeLabel: report.status === "published" ? "出具时间" : "草稿更新时间",
       reportNumberText: report.reportNo || "未生成平台报告编号",
@@ -346,12 +365,12 @@ Page<Data>({
   refreshDiagram() {
     const faults = this.data.report?.faults || [];
     const activeFault = faults.find((item) => item.id === this.data.activeFaultId) || null;
-    const tabs = VIEWS.map((item) => ({
+    const tabs = this.data.diagramViews.map((item) => ({
       ...item,
       selected: item.id === this.data.activeView,
-      faultCount: faults.filter((fault) => fault.viewId === item.id).length,
+      faultCount: faults.filter((fault) => fault.viewId === item.id && !isCheckupSystemRegion(fault.regionCode)).length,
     }));
-    const markers = CHECKUP_REGIONS.filter((region) => region.viewId === this.data.activeView).map((region) => {
+    const markers = this.data.diagramRegions.filter((region) => region.viewId === this.data.activeView).map((region) => {
       const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
       const callout = buildRegionCallout(region);
       return {
@@ -366,9 +385,21 @@ Page<Data>({
         targetFaultId: marker.targetFaultId,
       };
     }).filter((marker) => marker.count > 0);
+    const systemMarkers = CHECKUP_SYSTEM_REGIONS.map((region) => {
+      const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
+      return {
+        code: region.code,
+        label: region.label,
+        hint: region.hint,
+        count: marker.faultCount,
+        markerLabel: marker.markerLabel,
+        selected: Boolean(activeFault && activeFault.regionCode === region.code),
+        targetFaultId: marker.targetFaultId,
+      };
+    }).filter((marker) => marker.count > 0);
     let activeBubble: Bubble = { visible: false, title: "", description: "", style: "" };
     if (activeFault && activeFault.viewId === this.data.activeView) {
-      const region = CHECKUP_REGIONS.find((item) => item.code === activeFault.regionCode);
+      const region = this.data.diagramRegions.find((item) => item.code === activeFault.regionCode);
       if (region) {
         activeBubble = {
           visible: true,
@@ -378,12 +409,13 @@ Page<Data>({
         };
       }
     }
-    this.setData({ tabs, markers, activeBubble });
+    this.setData({ tabs, markers, systemMarkers, activeBubble });
   },
   selectView(event) {
     const id = String(event.currentTarget.dataset.id || "left") as CheckupViewId;
-    const first = this.data.report?.faults.find((fault) => fault.viewId === id);
-    this.setData({ activeView: id, activeViewImage: VIEWS.find((item) => item.id === id)?.imagePath || VIEWS[1].imagePath, activeFaultId: first?.id || "" });
+    const first = this.data.report?.faults.find((fault) => fault.viewId === id && !isCheckupSystemRegion(fault.regionCode));
+    const visual = this.data.diagramViews.find((item) => item.id === id) || this.data.diagramViews[1];
+    this.setData({ activeView: id, activeViewImage: visual.imagePath, activeViewMirrored: visual.mirrored, activeFaultId: first?.id || "" });
     this.refreshDiagram();
   },
   selectMarker(event) {
@@ -395,7 +427,8 @@ Page<Data>({
     const id = String(event.currentTarget.dataset.id || "");
     const fault = this.data.report?.faults.find((item) => item.id === id);
     if (!fault) return;
-    this.setData({ activeFaultId: id, activeView: fault.viewId, activeViewImage: VIEWS.find((item) => item.id === fault.viewId)?.imagePath || VIEWS[1].imagePath });
+    const visual = this.data.diagramViews.find((item) => item.id === fault.viewId) || this.data.diagramViews[1];
+    this.setData({ activeFaultId: id, activeView: fault.viewId, activeViewImage: visual.imagePath, activeViewMirrored: visual.mirrored });
     this.refreshDiagram();
   },
   previewPhoto(event) {

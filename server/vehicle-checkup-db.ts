@@ -44,7 +44,7 @@ export async function migrateVehicleCheckupDatabase(database: AppDatabase): Prom
       view_id TEXT NOT NULL CHECK (view_id IN ('top', 'left', 'right')),
       region_code TEXT NOT NULL,
       fault_type TEXT NOT NULL CHECK (
-        fault_type IN ('scratch', 'dent', 'paint_damage', 'crack', 'broken', 'rust', 'other')
+        fault_type IN ('scratch', 'dent', 'paint_damage', 'crack', 'broken', 'rust', 'warning_light', 'malfunction', 'abnormal_noise', 'leakage', 'wear', 'other')
       ),
       severity TEXT NOT NULL CHECK (severity IN ('minor', 'moderate', 'severe')),
       description TEXT,
@@ -111,6 +111,17 @@ export async function migrateVehicleCheckupDatabase(database: AppDatabase): Prom
 
     ALTER TABLE vehicle_checkup_faults
       ADD COLUMN IF NOT EXISTS client_key TEXT;
+
+    ALTER TABLE vehicle_checkup_faults
+      DROP CONSTRAINT IF EXISTS vehicle_checkup_faults_fault_type_check;
+
+    ALTER TABLE vehicle_checkup_faults
+      ADD CONSTRAINT vehicle_checkup_faults_fault_type_check CHECK (
+        fault_type IN (
+          'scratch', 'dent', 'paint_damage', 'crack', 'broken', 'rust',
+          'warning_light', 'malfunction', 'abnormal_noise', 'leakage', 'wear', 'other'
+        )
+      );
 
     ALTER TABLE vehicle_checkup_media
       ADD COLUMN IF NOT EXISTS fault_id TEXT,

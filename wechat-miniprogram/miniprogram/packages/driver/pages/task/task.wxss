@@ -30,6 +30,7 @@
 .current-card { margin-top: 17rpx; padding: 23rpx 24rpx 20rpx; border: 1rpx solid #cfe0f3; border-radius: 23rpx; background: #fff; box-shadow: 0 9rpx 25rpx rgba(37,70,105,.06); }
 .current-card.current-success { border-color: #b9dfce; }
 .current-card.current-warning { border-color: #f0c498; }
+.workflow-summary-wrap { margin-top: 17rpx; }
 .current-step { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 14rpx; }
 .current-step > text { display: flex; width: 52rpx; height: 52rpx; align-items: center; justify-content: center; color: #fff; border-radius: 16rpx; background: #1768cf; font-size: 24rpx; font-weight: 900; box-shadow: 0 7rpx 17rpx rgba(23,104,207,.2); }
 .current-step > view { display: flex; min-width: 0; flex-direction: column; }

@@ -1,4 +1,6 @@
+import { PLATE_CATEGORIES, plateCategory, legacyPlateCategory, type PlateCategoryCode, type PlateStyle } from "../../../../utils/plate-categories";
 import { api } from "../../../../services/api";
+import { searchVehicleCatalog, type CatalogBrandOption } from "../../utils/catalog-search";
 import type {
   InspectionPowertrainType,
   InspectionValiditySource,
@@ -9,19 +11,28 @@ import type {
   WashVehicleCategory,
 } from "../../../../types";
 
-type PlateMode = "blue" | "green_small" | "green_large";
+type PlateMode = PlateStyle;
 type VehiclePowertrain = InspectionPowertrainType;
 type SourceOption = { value: InspectionValiditySource; label: string };
+type ExteriorColorOption = { value: string; label: string; hex: string };
+type CatalogModelOption = VehicleCatalogModel & { imageLoadFailed?: boolean };
 type Data = {
   id: string;
   mode: PlateMode;
-  cells: string[];
-  selected: number;
+  plateCategories: typeof PLATE_CATEGORIES;
+  plateCategoryIndex: number;
+  plateCategory: PlateCategoryCode;
+  plateCategoryConfirmed: boolean;
+  usageNature: string;
+  plateNumber: string;
   vehicleType: string;
   washVehicleCategory: WashVehicleCategory;
   washVehicleCategoryLegacy: boolean;
   washVehicleCategoryTouched: boolean;
   seats: number;
+  passengerColorEnabled: boolean;
+  exteriorColors: ExteriorColorOption[];
+  exteriorColor: string;
   registrationDate: string;
   powertrainType: VehiclePowertrain;
   powertrainTouched: boolean;
@@ -34,17 +45,18 @@ type Data = {
   originalValidityKey: string;
   nextAfterSave: "" | "inspection_booking";
   requestedServiceMode: ServiceMode | null;
-  provinceOpen: boolean;
-  plateInputOpen: boolean;
   plateComplete: boolean;
   saving: boolean;
-  provinces: string[];
-  numberKeys: string[];
-  letterKeys: string[];
   catalogLoading: boolean;
+  catalogError: boolean;
   catalogBrands: VehicleCatalogBrand[];
+  catalogBrandOptions: CatalogBrandOption[];
+  catalogQuery: string;
+  catalogMatchCount: number;
+  catalogScrollRevision: number;
   activeBrandId: string;
-  activeModels: VehicleCatalogModel[];
+  activeBrandName: string;
+  activeModels: CatalogModelOption[];
   selectedBrandId: string;
   selectedBrandName: string;
   selectedModelId: string;
@@ -52,42 +64,37 @@ type Data = {
   selectedModelImage: string;
   catalogOpen: boolean;
 };
-const provinces = ["津", "京", "冀", "晋", "蒙", "辽", "吉", "黑", "沪", "苏", "浙", "皖", "闽", "赣", "鲁", "豫", "鄂", "湘", "粤", "桂", "琼", "渝", "川", "贵", "云", "藏", "陕", "甘", "青", "宁", "新"];
-const numberKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-const letterKeys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const editablePlatePattern = /^[\p{L}\p{N}\s·•・.\-]+$/u;
 
-function plateLength(mode: PlateMode) { return mode === "blue" ? 7 : 8; }
-function initialSelectedIndex() { return 2; }
-function detectPlateMode(normalized: string): PlateMode {
-  if (normalized.length !== 8) return "blue";
-  const serial = normalized.slice(2);
-  return /^\d{5}[DF]$/.test(serial) ? "green_large" : "green_small";
-}
-function isSerialKeyAllowed(mode: PlateMode, index: number, key: string): boolean {
-  if (key === "I" || key === "O") return false;
-  if (index === 1) return /^[A-HJ-NP-Z]$/.test(key);
-  if (mode === "green_large") {
-    if (index >= 2 && index <= 6) return /^\d$/.test(key);
-    if (index === 7) return key === "D" || key === "F";
-    return false;
-  }
-  return /^[A-HJ-NP-Z0-9]$/.test(key);
-}
-function isPlateComplete(cells: string[], mode: PlateMode): boolean {
-  return cells.length === plateLength(mode) && cells.every(Boolean);
+function isPlateInputSafe(value: string): boolean {
+  const prepared = value.normalize("NFKC").trim();
+  return Boolean(prepared)
+    && prepared.length <= 32
+    && editablePlatePattern.test(prepared)
+    && Boolean(prepared.replace(/[\s·•・.\-]/gu, ""));
 }
 const validitySources: SourceOption[] = [
   { value: "traffic_12123", label: "交管12123" },
   { value: "electronic_driving_license", label: "电子行驶证" },
   { value: "paper_driving_license", label: "纸质行驶证" },
 ];
-
-function makeCells(mode: PlateMode, current: string[] = []): string[] {
-  const next = Array.from({ length: plateLength(mode) }, (_, index) => current[index] || "");
-  if (!next[0]) next[0] = "津";
-  if (current.length === 0 && !next[1]) next[1] = "A";
-  return next;
-}
+const exteriorColors: ExteriorColorOption[] = [
+  { value: "白色", label: "白色", hex: "#f7f8fa" },
+  { value: "黑色", label: "黑色", hex: "#1d232b" },
+  { value: "银色", label: "银色", hex: "#b9c1ca" },
+  { value: "灰色", label: "灰色", hex: "#707780" },
+  { value: "红色", label: "红色", hex: "#c83d43" },
+  { value: "蓝色", label: "蓝色", hex: "#3478c9" },
+  { value: "绿色", label: "绿色", hex: "#477b61" },
+  { value: "棕色", label: "棕色", hex: "#775341" },
+  { value: "粉色", label: "粉色", hex: "#dc9eae" },
+  { value: "金色", label: "金色", hex: "#c8a35e" },
+  { value: "米色", label: "米色", hex: "#d8c8a5" },
+  { value: "黄色", label: "黄色", hex: "#e8bd3e" },
+  { value: "橙色", label: "橙色", hex: "#df7435" },
+  { value: "紫色", label: "紫色", hex: "#765d91" },
+  { value: "双色/其他", label: "双色/其他", hex: "linear-gradient(135deg,#eff3f7 0 50%,#48596b 50%)" },
+];
 
 function isPowertrain(value: string | undefined): value is VehiclePowertrain {
   return ["gasoline", "diesel", "hybrid", "pure_electric", "phev", "erev", "other", "unknown"].includes(value || "");
@@ -99,13 +106,7 @@ function resolveLoadedPowertrain(vehicle: {
 }, mode: PlateMode): VehiclePowertrain {
   const candidate = vehicle.powertrainType || undefined;
   const stored: VehiclePowertrain = isPowertrain(candidate) ? candidate : "unknown";
-  const source = vehicle.facts?.powertrainSource;
-  if (source === "unknown" || source === "conflict" || source === "plate_inferred") {
-    return mode === "blue" ? "unknown" : (stored === "pure_electric" || stored === "phev" || stored === "erev" ? stored : "unknown");
-  }
-  if (mode !== "blue" && (stored === "gasoline" || stored === "diesel" || stored === "hybrid" || stored === "other")) {
-    return "unknown";
-  }
+  if (vehicle.facts?.powertrainSource === "unknown" || vehicle.facts?.powertrainSource === "plate_inferred") return "unknown";
   return stored;
 }
 
@@ -117,17 +118,37 @@ function validityKey(confirmed: boolean, month: string, source: InspectionValidi
   return confirmed ? `confirmed|${month}|${source}` : "unconfirmed";
 }
 
+function vehicleClassCodeForCategory(categoryCode: PlateCategoryCode): string {
+  return plateCategory(categoryCode)?.vehicleClassCode || "passenger_car";
+}
+
+function searchCatalogForCategory(
+  brands: VehicleCatalogBrand[],
+  query: string,
+  preferredBrandId: string,
+  categoryCode: PlateCategoryCode,
+) {
+  return searchVehicleCatalog(brands, query, preferredBrandId, vehicleClassCodeForCategory(categoryCode));
+}
+
 Page<Data>({
   data: {
     id: "",
     mode: "blue",
-    cells: makeCells("blue"),
-    selected: 2,
+    plateCategories: PLATE_CATEGORIES,
+    plateCategoryIndex: 0,
+    plateCategory: "blue_small_passenger",
+    plateCategoryConfirmed: true,
+    usageNature: "非营运",
+    plateNumber: "",
     vehicleType: "小型轿车",
     washVehicleCategory: "sedan",
     washVehicleCategoryLegacy: false,
     washVehicleCategoryTouched: false,
     seats: 5,
+    passengerColorEnabled: true,
+    exteriorColors,
+    exteriorColor: "",
     registrationDate: "2020-01-01",
     powertrainType: "unknown",
     powertrainTouched: false,
@@ -140,16 +161,17 @@ Page<Data>({
     originalValidityKey: "unconfirmed",
     nextAfterSave: "",
     requestedServiceMode: null,
-    provinceOpen: false,
-    plateInputOpen: false,
     plateComplete: false,
     saving: false,
-    provinces,
-    numberKeys,
-    letterKeys,
     catalogLoading: true,
+    catalogError: false,
     catalogBrands: [],
+    catalogBrandOptions: [],
+    catalogQuery: "",
+    catalogMatchCount: 0,
+    catalogScrollRevision: 0,
     activeBrandId: "",
+    activeBrandName: "",
     activeModels: [],
     selectedBrandId: "",
     selectedBrandName: "",
@@ -158,20 +180,22 @@ Page<Data>({
     selectedModelImage: "/assets/brand/hero-car-generic.png",
     catalogOpen: false,
   },
-  async onLoad(query) {
-    let catalogBrands: VehicleCatalogBrand[] = [];
+  async loadCatalog() {
+    this.setData({ catalogLoading: true, catalogError: false });
     try {
       const catalog = await api.vehicleCatalog();
-      catalogBrands = catalog.brands;
+      if (!catalog.brands.length) throw new Error("车型库为空");
       this.setData({
         catalogLoading: false,
-        catalogBrands,
-        activeBrandId: catalogBrands[0]?.id || "",
-        activeModels: catalogBrands[0]?.models || [],
+        catalogBrands: catalog.brands,
+        ...searchCatalogForCategory(catalog.brands, this.data.catalogQuery, this.data.selectedBrandId || this.data.activeBrandId, this.data.plateCategory),
       });
     } catch {
-      this.setData({ catalogLoading: false });
+      this.setData({ catalogLoading: false, catalogError: true });
     }
+  },
+  async onLoad(query) {
+    await this.loadCatalog();
     if (!query.id) {
       const requestedServiceMode: ServiceMode | null = query.serviceMode === "valet"
         ? "valet"
@@ -189,13 +213,15 @@ Page<Data>({
       const validitySourceIndex = hasValiditySource
         ? Math.max(0, validitySources.findIndex((item) => item.value === query.validitySource))
         : 0;
-      const cells = makeCells(mode);
       this.setData({
         mode,
-        cells,
-        selected: initialSelectedIndex(),
+        plateCategory: mode === "blue" ? "blue_small_passenger" : "new_energy_small_passenger",
+        plateCategoryIndex: mode === "blue" ? 0 : 1,
+        plateNumber: "",
         registrationDate,
         seats,
+        passengerColorEnabled: true,
+        exteriorColor: "",
         vehicleType: mode === "blue" ? (seats === 7 ? "7 座乘用车" : "小型轿车") : "新能源小型汽车",
         washVehicleCategory: "sedan",
         washVehicleCategoryLegacy: false,
@@ -209,30 +235,35 @@ Page<Data>({
         originalValidityKey: "unconfirmed",
         nextAfterSave: query.next === "inspection_booking" || query.returnTo === "inspection_booking" ? "inspection_booking" : "",
         requestedServiceMode,
-        plateComplete: isPlateComplete(cells, mode),
+        plateComplete: false,
       });
       return;
     }
     try {
       const vehicle = (await api.vehicles()).find((item) => item.id === query.id);
       if (!vehicle) throw new Error("未找到车辆");
-      const normalized = vehicle.plateNumber.replace(/[·\s]/g, "");
-      const mode: PlateMode = detectPlateMode(normalized);
-      const cells = makeCells(mode, normalized.split(""));
+      const resolvedCategory = plateCategory(vehicle.plateCategory) ?? legacyPlateCategory(vehicle.vehicleType, vehicle.plateNumber, vehicle.vehicleClassCode);
+      const category = resolvedCategory ?? PLATE_CATEGORIES[0];
+      const mode: PlateMode = category.plateKind;
       const validity = vehicle.inspectionValidity;
       const sourceIndex = validity?.mode === "confirmed"
         ? Math.max(0, validitySources.findIndex((item) => item.value === validity.source))
         : 0;
-      const activeBrand = catalogBrands.find((item) => item.id === vehicle.brand?.id) || catalogBrands[0];
       this.setData({
         id: vehicle.id,
         mode,
-        cells,
+        plateCategory: category.code,
+        plateCategoryConfirmed: Boolean(resolvedCategory),
+        plateCategoryIndex: PLATE_CATEGORIES.indexOf(category),
+        usageNature: vehicle.usageNature,
+        plateNumber: vehicle.plateNumber,
         vehicleType: vehicle.vehicleType,
         washVehicleCategory: vehicle.washVehicleCategory === "mpv" ? "mpv" : vehicle.washVehicleCategory === "suv" || vehicle.washVehicleCategory === "suv_mpv" ? "suv" : "sedan",
         washVehicleCategoryLegacy: Boolean(vehicle.washVehicleCategoryLegacy || vehicle.washVehicleCategory === "suv_mpv"),
         washVehicleCategoryTouched: true,
         seats: vehicle.seats,
+        passengerColorEnabled: category.vehicleClassCode === "passenger_car" || category.vehicleClassCode === "large_bus",
+        exteriorColor: vehicle.exteriorColor || "",
         registrationDate: vehicle.registrationDate,
         powertrainType: resolveLoadedPowertrain(vehicle, mode),
         powertrainTouched: false,
@@ -244,112 +275,98 @@ Page<Data>({
         originalValidityKey: validity?.mode === "confirmed"
           ? validityKey(true, validity.validThroughMonth, validity.source)
           : "unconfirmed",
-        plateComplete: isPlateComplete(cells, mode),
-        activeBrandId: activeBrand?.id || "",
-        activeModels: activeBrand?.models || [],
+        plateComplete: isPlateInputSafe(vehicle.plateNumber),
+        ...searchCatalogForCategory(this.data.catalogBrands, this.data.catalogQuery, vehicle.brand?.id || "", category.code),
         selectedBrandId: vehicle.brand?.id || "",
         selectedBrandName: vehicle.brand?.name || "",
         selectedModelId: vehicle.model?.id || "",
         selectedModelName: vehicle.model?.name || "",
-      selectedModelImage: vehicle.visual?.imageUrl || "/assets/brand/hero-car-generic.png",
+        selectedModelImage: vehicle.model?.id ? vehicle.visual?.imageUrl || "" : "/assets/brand/hero-car-generic.png",
       });
       wx.setNavigationBarTitle({ title: "编辑车辆" });
     } catch (error) { wx.showToast({ title: error instanceof Error ? error.message : "读取车辆失败", icon: "none" }); }
   },
-  selectCell(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    this.setData({ selected: index, provinceOpen: index === 0, plateInputOpen: true });
+  categoryChange(event) {
+    const plateCategoryIndex = Number(event.detail.value);
+    const category = PLATE_CATEGORIES[plateCategoryIndex];
+    if (!category) return;
+    const mode = category.plateKind;
+    const sameClass = plateCategory(this.data.plateCategory)?.vehicleClassCode === category.vehicleClassCode;
+    const selectedModel = this.data.catalogBrands.flatMap((brand) => brand.models)
+      .find((model) => model.id === this.data.selectedModelId);
+    const selectionStillApplies = !this.data.selectedModelId
+      || Boolean(selectedModel && (selectedModel.vehicleClassCodes || ["passenger_car"]).includes(category.vehicleClassCode));
+    this.setData({ plateCategoryIndex, plateCategory: category.code, plateCategoryConfirmed: true, mode,
+      vehicleType: sameClass ? this.data.vehicleType : category.vehicleType,
+      seats: sameClass ? this.data.seats : category.defaultSeats,
+      passengerColorEnabled: category.vehicleClassCode === "passenger_car" || category.vehicleClassCode === "large_bus",
+      exteriorColor: category.vehicleClassCode === "passenger_car" || category.vehicleClassCode === "large_bus" ? this.data.exteriorColor : "",
+      ...searchCatalogForCategory(this.data.catalogBrands, "", selectionStillApplies ? this.data.selectedBrandId : "", category.code),
+      catalogQuery: "",
+      ...(!selectionStillApplies ? {
+        selectedBrandId: "", selectedBrandName: "", selectedModelId: "", selectedModelName: "",
+        selectedModelImage: "/assets/brand/hero-car-generic.png",
+      } : {}),
+      plateComplete: isPlateInputSafe(this.data.plateNumber) });
   },
-  chooseMode(event) {
-    const mode = event.currentTarget.dataset.mode as PlateMode;
-    if (mode === this.data.mode) return;
-    const preservedPrefix = [this.data.cells[0] || "津", this.data.cells[1] || "A"];
-    const switchingBetweenGreen = this.data.mode !== "blue" && mode !== "blue";
-    const powertrainType: VehiclePowertrain = mode === "blue"
-      ? "unknown"
-      : switchingBetweenGreen && ["pure_electric", "phev", "erev", "unknown"].includes(this.data.powertrainType)
-        ? this.data.powertrainType
-        : "unknown";
-    const cells = makeCells(mode, preservedPrefix);
-    const vehicleType = mode === "blue" ? "小型轿车" : "新能源小型汽车";
-    this.setData({
-      mode,
-      cells,
-      selected: initialSelectedIndex(),
-      provinceOpen: false,
-      vehicleType,
-      ...(!this.data.washVehicleCategoryTouched ? { washVehicleCategory: "sedan" as WashVehicleCategory } : {}),
-      powertrainType,
-      powertrainTouched: true,
-      plateComplete: isPlateComplete(cells, mode),
-    });
+  plateNumberInput(event) {
+    const plateNumber = String(event.detail.value || "");
+    this.setData({ plateNumber, plateComplete: isPlateInputSafe(plateNumber) });
   },
+  vehicleTypeInput(event) { this.setData({ vehicleType: String(event.detail.value) }); },
+  usageNatureInput(event) { this.setData({ usageNature: String(event.detail.value) }); },
+  seatsInput(event) { this.setData({ seats: event.detail.value === "" ? -1 : Number(event.detail.value) }); },
+  chooseExteriorColor(event) { this.setData({ exteriorColor: String(event.currentTarget.dataset.value || "") }); },
+  exteriorColorInput(event) { this.setData({ exteriorColor: String(event.detail.value || "") }); },
+  clearExteriorColor() { this.setData({ exteriorColor: "" }); },
   choosePowertrain(event) {
     const powertrainType = event.currentTarget.dataset.value as VehiclePowertrain;
     this.setData({ powertrainType, powertrainTouched: true });
   },
-  chooseProvince(event) {
-    const cells = [...this.data.cells]; cells[0] = event.currentTarget.dataset.key as string;
-    this.setData({ cells, selected: 1, provinceOpen: false, plateInputOpen: true, plateComplete: isPlateComplete(cells, this.data.mode) });
-  },
-  key(event) {
-    const key = event.currentTarget.dataset.key as string;
-    const cells = [...this.data.cells];
-    let selected = this.data.selected;
-    if (key === "delete") {
-      if (cells[selected]) {
-        cells[selected] = "";
-      } else if (selected > 0) {
-        selected -= 1;
-        cells[selected] = "";
-      }
-      this.setData({
-        cells,
-        selected,
-        provinceOpen: selected === 0,
-        plateComplete: isPlateComplete(cells, this.data.mode),
-      });
-      return;
-    }
-    if (selected === 0) { cells[0] = key; this.setData({ cells, selected: 1, provinceOpen: false, plateComplete: isPlateComplete(cells, this.data.mode) }); return; }
-    if (selected >= cells.length) return;
-    if (!isSerialKeyAllowed(this.data.mode, selected, key)) return;
-    cells[selected] = key;
-    selected = Math.min(selected + 1, cells.length - 1);
-    this.setData({ cells, selected, plateComplete: isPlateComplete(cells, this.data.mode) });
-  },
-  clearPlateSerial() {
-    const province = this.data.cells[0] || "津";
-    const cells = makeCells(this.data.mode, [province]);
-    this.setData({ cells, selected: 1, provinceOpen: false, plateComplete: false });
-  },
-  closePlateInput() { this.setData({ plateInputOpen: false, provinceOpen: false }); },
   openCatalog() {
-    this.setData({ plateInputOpen: false, provinceOpen: false, catalogOpen: true });
+    wx.hideKeyboard();
+    this.setData({
+      catalogOpen: true, catalogQuery: "",
+      catalogScrollRevision: this.data.catalogScrollRevision + 1,
+      ...searchCatalogForCategory(this.data.catalogBrands, "", this.data.selectedBrandId || this.data.activeBrandId, this.data.plateCategory),
+    });
   },
-  closeCatalog() { this.setData({ catalogOpen: false }); },
+  closeCatalog() { wx.hideKeyboard(); this.setData({ catalogOpen: false }); },
   noop() { /* Stops the sheet tap from reaching the dismiss mask. */ },
+  searchCatalog(event) {
+    const catalogQuery = String(event.detail.value || "");
+    this.setData({
+      catalogQuery,
+      catalogScrollRevision: this.data.catalogScrollRevision + 1,
+      ...searchCatalogForCategory(this.data.catalogBrands, catalogQuery, this.data.activeBrandId, this.data.plateCategory),
+    });
+  },
+  clearCatalogSearch() { this.searchCatalog({ detail: { value: "" } }); },
   chooseCatalogBrand(event) {
     const activeBrandId = String(event.currentTarget.dataset.id || "");
-    const brand = this.data.catalogBrands.find((item) => item.id === activeBrandId);
-    if (!brand) return;
-    this.setData({ activeBrandId, activeModels: brand.models });
+    if (!this.data.catalogBrandOptions.some((item) => item.id === activeBrandId)) return;
+    wx.hideKeyboard();
+    this.setData({
+      catalogScrollRevision: this.data.catalogScrollRevision + 1,
+      ...searchCatalogForCategory(this.data.catalogBrands, this.data.catalogQuery, activeBrandId, this.data.plateCategory),
+    });
   },
   chooseCatalogModel(event) {
     const selectedModelId = String(event.currentTarget.dataset.id || "");
     const brand = this.data.catalogBrands.find((item) => item.id === this.data.activeBrandId);
-    const model = brand?.models.find((item) => item.id === selectedModelId);
+    const model = this.data.activeModels.find((item) => item.id === selectedModelId);
     if (!brand || !model) return;
+    wx.hideKeyboard();
     this.setData({
       selectedBrandId: brand.id,
       selectedBrandName: brand.name,
       selectedModelId: model.id,
       selectedModelName: model.name,
       selectedModelImage: model.imageUrl,
-      catalogOpen: false,
     });
   },
   clearCatalogSelection() {
+    wx.hideKeyboard();
     this.setData({
       selectedBrandId: "",
       selectedBrandName: "",
@@ -360,9 +377,19 @@ Page<Data>({
     });
   },
   vehicleImageError() {
-    if (this.data.selectedModelImage !== "/assets/brand/hero-car-generic.png") {
-      this.setData({ selectedModelImage: "/assets/brand/hero-car-generic.png" });
+    if (this.data.selectedModelId) {
+      this.setData({ selectedModelImage: "" });
     }
+  },
+  catalogModelImageError(event) {
+    const failedModelId = String(event.currentTarget.dataset.id || "");
+    if (!failedModelId) return;
+    this.setData({
+      activeModels: this.data.activeModels.map((model) => model.id === failedModelId
+        ? { ...model, imageLoadFailed: true }
+        : model),
+      ...(this.data.selectedModelId === failedModelId ? { selectedModelImage: "" } : {}),
+    });
   },
   typeChange(event) {
     const vehicleType = event.currentTarget.dataset.type as string;
@@ -396,26 +423,31 @@ Page<Data>({
     this.setData({ validitySourceIndex: Number(event.detail.value), validitySourceSelected: true });
   },
   async submit() {
-    const plateNumber = this.data.cells.join("");
-    if (this.data.cells.some((item) => !item) || plateNumber.length !== plateLength(this.data.mode)) { wx.showToast({ title: "请补全车牌号", icon: "none" }); return; }
+    if (!this.data.plateCategoryConfirmed) { wx.showToast({ title: "请选择实际号牌类型", icon: "none" }); return; }
+    const plateNumber = this.data.plateNumber.trim();
+    if (!plateNumber) { wx.showToast({ title: "请输入车牌号", icon: "none" }); return; }
+    if (!isPlateInputSafe(plateNumber)) { wx.showToast({ title: "请只填写实际号牌中的文字、字母、数字或分隔符", icon: "none" }); return; }
     if (this.data.validityConfirmed && !/^\d{4}-(0[1-9]|1[0-2])$/.test(this.data.validThroughMonth)) { wx.showToast({ title: "请选择检验有效期月份", icon: "none" }); return; }
     if (this.data.validityConfirmed && !this.data.validitySourceSelected) { wx.showToast({ title: "请选择看到日期的位置", icon: "none" }); return; }
+    if (!this.data.vehicleType.trim() || !this.data.usageNature.trim()) { wx.showToast({ title: "请填写车型和使用性质", icon: "none" }); return; }
+    if (!Number.isInteger(this.data.seats) || this.data.seats < (this.data.plateCategory === "yellow_trailer" ? 0 : 1) || this.data.seats > 99) { wx.showToast({ title: "请填写实际核定座位数", icon: "none" }); return; }
     this.setData({ saving: true });
     const selectedValiditySource = this.data.validitySources[this.data.validitySourceIndex].value;
     const nextValidityKey = validityKey(this.data.validityConfirmed, this.data.validThroughMonth, selectedValiditySource);
     const data: Partial<VehicleInput> = {
       plateNumber,
+      plateCategory: this.data.plateCategory,
+      usageNature: this.data.usageNature,
       vehicleType: this.data.vehicleType,
       seats: this.data.seats,
       registrationDate: this.data.registrationDate,
+      exteriorColor: this.data.passengerColorEnabled ? this.data.exteriorColor || null : null,
       brandId: this.data.selectedBrandId || null,
       modelId: this.data.selectedModelId || null,
       washVehicleCategory: this.data.washVehicleCategory,
     };
     if (!this.data.id) {
-      data.usageNature = "非营运";
-      data.vehicleClassCode = "passenger_car";
-      data.isVan = false;
+      data.isVan = this.data.vehicleType.includes("面包");
       data.isDefault = true;
     }
     if (!this.data.id || this.data.powertrainTouched) data.powertrainType = this.data.powertrainType;

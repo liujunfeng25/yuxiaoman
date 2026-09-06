@@ -14,6 +14,9 @@ import {
 import { driverApi, isDriverSessionAccessError } from "../../services/driver-api";
 import { clearDriverTaskSession, readDriverTaskSession } from "../../services/driver-session";
 import { formatShanghaiDateTime } from "../../../../utils/format";
+import { driverWorkflowApi } from "../../services/workflow-api";
+import { workflowDueLabel } from "../../../../utils/workflow";
+import type { WorkflowTaskSummary } from "../../../../types/workflow";
 
 type PhotoSlotView = {
   kind: DriverEvidencePhotoKind;
@@ -71,6 +74,9 @@ type Data = {
   viewerCounter: string;
   viewerHasPrevious: boolean;
   viewerHasNext: boolean;
+  workflowSummary: WorkflowTaskSummary;
+  workflowNextDueLabel: string;
+  workflowLoading: boolean;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -224,6 +230,9 @@ Page<Data>({
     viewerCounter: "0 / 0",
     viewerHasPrevious: false,
     viewerHasNext: false,
+    workflowSummary: { openCount: 0, dueSoonCount: 0, overdueCount: 0, nextDueAt: null },
+    workflowNextDueLabel: "",
+    workflowLoading: false,
   },
 
   async onLoad(query) {
@@ -231,12 +240,15 @@ Page<Data>({
   },
 
   onShow() {
-    if (this.data.initialized && this.data.bookingId && !this.data.loading && !this.data.acting) void this.loadTask(false);
+    if (this.data.initialized && this.data.bookingId && !this.data.loading && !this.data.acting) {
+      void this.loadTask(false);
+      void this.loadWorkflowSummary();
+    }
   },
 
   async onPullDownRefresh() {
     this.setData({ refreshing: true });
-    await this.loadTask(false);
+    await Promise.all([this.loadTask(false), this.loadWorkflowSummary()]);
     this.setData({ refreshing: false });
     wx.stopPullDownRefresh();
   },
@@ -254,7 +266,7 @@ Page<Data>({
       }
       if (queryBookingId && queryBookingId !== session.bookingId) throw new Error("任务入口与预约信息不一致");
       this.setData({ bookingId: session.bookingId, initialized: true, exchanging: false });
-      await this.loadTask(false);
+      await Promise.all([this.loadTask(false), this.loadWorkflowSummary()]);
     } catch (error) {
       this.setData({
         initialized: true,
@@ -281,6 +293,25 @@ Page<Data>({
     } finally {
       this.setData({ loading: false });
     }
+  },
+
+  async loadWorkflowSummary() {
+    if (!this.data.bookingId) return;
+    this.setData({ workflowLoading: true });
+    try {
+      const summary = await driverWorkflowApi.summary(this.data.bookingId);
+      const urgency = summary.overdueCount > 0 ? "overdue" : summary.dueSoonCount > 0 ? "attention" : "normal";
+      this.setData({ workflowSummary: summary, workflowNextDueLabel: workflowDueLabel(summary.nextDueAt, urgency) });
+    } catch {
+      // 时限摘要失败不影响司机继续拍照和推进当前任务。
+    } finally {
+      this.setData({ workflowLoading: false });
+    }
+  },
+
+  openWorkflowTasks() {
+    if (!this.data.bookingId || this.data.workflowLoading) return;
+    void this.loadWorkflowSummary();
   },
 
   retryTask() {

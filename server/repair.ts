@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
+import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -14,8 +15,17 @@ import {
 } from "./backoffice.js";
 import type { AppDatabase } from "./database.js";
 import { officialInspectionConclusionView } from "./inspection-conclusion.js";
+import { precheckGuidance, precheckVehiclePhotoKinds } from "./precheck-policy.js";
+import {
+  enableRepairWorkflowForRequest,
+  syncRepairWorkflowForRequest,
+} from "./workflow-integration.js";
 
 type Row = Record<string, unknown>;
+function jsonArray(value: unknown): unknown[] {
+  try { const parsed: unknown = JSON.parse(String(value ?? "[]")); return Array.isArray(parsed) ? parsed : []; }
+  catch { return []; }
+}
 type ProblemFactory = (
   statusCode: number,
   code: string,
@@ -153,6 +163,7 @@ function ownerVehicleDto(snapshot: Record<string, unknown>) {
     id: String(snapshot.id ?? ""),
     plateNumber: String(snapshot.plateNumber ?? ""),
     vehicleType: String(snapshot.vehicleType ?? ""),
+    exteriorColor: snapshot.exteriorColor == null ? null : String(snapshot.exteriorColor),
     brandName: snapshot.brandName == null ? null : String(snapshot.brandName),
     modelName: snapshot.modelName == null ? null : String(snapshot.modelName),
     displayName: String(snapshot.displayName ?? snapshot.vehicleType ?? "车辆档案"),
@@ -173,6 +184,11 @@ function repairConclusionLabel(
 
 function safeRepairReportSnapshot(value: unknown): Record<string, unknown> {
   const snapshot = jsonObject(value);
+  if (snapshot.sourceType === "precheck") return {
+    sourceType: "precheck", reportNo: "年检预检问题", publishedAt: null,
+    annualConclusion: null, annualConclusionStatus: "pending", observationMode: "faults_recorded",
+    summary: { conclusionLabel: "预检问题记录，非正式检验结论" },
+  };
   const conclusion = snapshot.annualConclusion === "passed" || snapshot.annualConclusion === "failed"
     ? snapshot.annualConclusion
     : null;
@@ -223,7 +239,7 @@ function mediaDto(row: Row, requestId: string, audience: "owner" | "shop") {
   const id = String(row.id);
   return {
     id,
-    sourceMediaId: String(row.source_media_id),
+    sourceMediaId: String(row.source_media_id ?? row.precheck_media_id ?? ""),
     kind: String(row.kind),
     faultId: row.fault_id == null ? null : String(row.fault_id),
     sequence: row.sequence_no == null ? null : Number(row.sequence_no),
@@ -315,6 +331,7 @@ function operatorListItem(row: Row) {
     vehicle: {
       plateNumberMasked: maskedPlate(vehicle.plateNumber),
       vehicleType: String(vehicle.vehicleType ?? ""),
+      exteriorColor: vehicle.exteriorColor == null ? null : String(vehicle.exteriorColor),
       displayName: String(vehicle.displayName ?? vehicle.vehicleType ?? "车辆档案"),
     },
     report: safeRepairReportSnapshot(row.report_snapshot_json),
@@ -388,6 +405,8 @@ async function ownerRequestDetail(database: AppDatabase, requestId: string, user
   return {
     id: requestId,
     requestNo: String(request.request_no),
+    sourceType: String(request.source_type ?? "report"),
+    sourceBookingId: String(request.source_booking_id),
     status: String(request.status),
     createdAt: String(request.created_at),
     updatedAt: String(request.updated_at),
@@ -399,7 +418,7 @@ async function ownerRequestDetail(database: AppDatabase, requestId: string, user
     report,
     faults: rows.faults.map((fault) => ({
       id: String(fault.id),
-      sourceFaultId: String(fault.source_fault_id),
+      sourceFaultId: String(fault.source_fault_id ?? fault.precheck_reason_code ?? ""),
       sequence: Number(fault.sequence_no),
       viewId: String(fault.view_id),
       regionCode: String(fault.region_code),
@@ -511,6 +530,7 @@ async function shopRequestDetail(
       id: String(vehicleSnapshot.id ?? ""),
       plateNumberMasked: maskedPlate(vehicleSnapshot.plateNumber),
       vehicleType: String(vehicleSnapshot.vehicleType ?? ""),
+      exteriorColor: vehicleSnapshot.exteriorColor == null ? null : String(vehicleSnapshot.exteriorColor),
       brandName: vehicleSnapshot.brandName == null ? null : String(vehicleSnapshot.brandName),
       modelName: vehicleSnapshot.modelName == null ? null : String(vehicleSnapshot.modelName),
       displayName: String(vehicleSnapshot.displayName ?? vehicleSnapshot.vehicleType ?? "车辆档案"),
@@ -547,6 +567,76 @@ export async function registerRepairRoutes(
 ): Promise<void> {
   const now = options.now ?? (() => new Date());
   const checkupUploadDir = join(options.uploadDir, "vehicle-checkup");
+
+  app.post("/api/repair/precheck-requests", async (request, reply) => {
+    const userId = await requireCurrentUser(request, database);
+    const body = parseBody(z.object({
+      bookingId: idSchema, expectedVersion: z.number().int().positive(), consented: z.literal(true),
+      reasonCodes: z.array(z.enum(["body_damage", "dashboard_warning"])).min(1).max(2),
+    }).strict(), request.body, options.problem);
+    const copiedFiles: string[] = [];
+    const result = await database.transaction(async (tx) => {
+      const booking = await tx.prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE").get(body.bookingId, userId);
+      if (!booking) throw options.problem(404, "BOOKING_NOT_FOUND", "未找到该预约");
+      const precheck = await tx.prepare<Row>("SELECT * FROM booking_prechecks WHERE booking_id = ? FOR UPDATE").get(body.bookingId);
+      if (!precheck || booking.fulfillment_status !== "precheck_action_required" || booking.payment_status !== "paid") throw options.problem(409, "PRECHECK_STATE_CHANGED", "当前预检状态不能发起维修报价");
+      const existing = await tx.prepare<Row>("SELECT id FROM repair_requests WHERE source_booking_id = ? AND source_type = 'precheck' AND status IN ('open', 'paid')").get(body.bookingId);
+      if (existing) return { id: String(existing.id), created: false };
+      if (Number(precheck.version) !== body.expectedVersion) throw options.problem(409, "PRECHECK_VERSION_CONFLICT", "预检记录已更新，请重新确认共享内容");
+      const codes = new Set(jsonArray(precheck.reason_codes_json).map(String));
+      if (new Set(body.reasonCodes).size !== body.reasonCodes.length || body.reasonCodes.some((code) => !codes.has(code))) throw options.problem(400, "PRECHECK_REPAIR_SCOPE_INVALID", "只能共享检测站本次标注的车损或故障灯问题");
+      const selectedKinds = new Set(jsonArray(precheck.issue_photo_kinds_json).map(String));
+      const media = (await tx.prepare<Row>("SELECT * FROM booking_media WHERE booking_id = ? AND is_current = 1 ORDER BY kind").all(body.bookingId))
+        .filter((item) => precheckVehiclePhotoKinds.includes(String(item.kind)) && selectedKinds.has(String(item.kind))
+          && (item.kind === "dashboard_started" ? body.reasonCodes.includes("dashboard_warning") : body.reasonCodes.includes("body_damage")));
+      for (const code of body.reasonCodes) {
+        if (!media.some((item) => code === "dashboard_warning" ? item.kind === "dashboard_started" : String(item.kind).startsWith("vehicle_"))) throw options.problem(409, "PRECHECK_REPAIR_MEDIA_REQUIRED", "维修问题缺少对应照片，请先联系检测站补充标注");
+      }
+      const id = randomUUID();
+      const createdAt = now().toISOString();
+      const vehicle = vehicleSnapshotFromSource({ ...booking, report_vehicle_snapshot_json: booking.vehicle_snapshot_json });
+      const report = safeRepairReportSnapshot({ sourceType: "precheck" });
+      await tx.prepare(`INSERT INTO repair_requests (id, request_no, user_id, source_report_id, source_booking_id, source_vehicle_id,
+        vehicle_snapshot_json, report_snapshot_json, synthetic_owner_contact_json, created_at, updated_at, source_type, source_precheck_version)
+        VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 'precheck', ?)`)
+        .run(id, requestNumber(new Date(createdAt)), userId, body.bookingId, String(booking.vehicle_id), JSON.stringify(vehicle), JSON.stringify(report),
+          JSON.stringify({ name: "演示车主", phone: "13800006666", isSynthetic: true, notice: "合成演示联系方式" }), createdAt, createdAt, body.expectedVersion);
+      await mkdir(checkupUploadDir, { recursive: true });
+      for (const [index, code] of body.reasonCodes.entries()) {
+        const faultId = randomUUID();
+        const label = precheckGuidance.find((item) => item.code === code)!.label;
+        await tx.prepare(`INSERT INTO repair_request_faults (id, request_id, source_fault_id, precheck_reason_code, sequence_no, view_id, region_code, fault_type, severity, description, created_at)
+          VALUES (?, ?, NULL, ?, ?, 'top', ?, 'other', 'unassessed', ?, ?)`)
+          .run(faultId, id, code, index + 1, code === "dashboard_warning" ? "dashboard" : "body", label + "；由门店核对维修范围，需到店确认的项目和费用应在报价中说明。", createdAt);
+        const photos = media.filter((item) => code === "dashboard_warning" ? item.kind === "dashboard_started" : String(item.kind).startsWith("vehicle_"));
+        for (const [photoIndex, photo] of photos.entries()) {
+          // Independent private copies survive resubmission, cancellation and source retention cleanup.
+          const bytes = await readFile(join(options.uploadDir, String(photo.storage_key)));
+          const key = `precheck-${randomUUID()}.jpg`;
+          await writeFile(join(checkupUploadDir, key), bytes, { flag: "wx" });
+          copiedFiles.push(join(checkupUploadDir, key));
+          await tx.prepare(`INSERT INTO repair_request_media (id, request_id, fault_id, source_media_id, precheck_media_id, kind, sequence_no, storage_key,
+            mime_type, size_bytes, width, height, sha256, created_at) VALUES (?, ?, ?, NULL, ?, 'fault_closeup', ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .run(randomUUID(), id, faultId, String(photo.id), photoIndex + 1, key, String(photo.mime_type), Number(photo.size_bytes),
+              Number(photo.width), Number(photo.height), createHash("sha256").update(bytes).digest("hex"), createdAt);
+        }
+      }
+      await tx.prepare(`INSERT INTO booking_events (id, booking_id, status, title, description, actor_type, created_at, metadata_json)
+        VALUES (?, ?, 'precheck_action_required', '车主已发起维修报价', '已授权共享所选问题及相关车辆照片，行驶证不向维修大厅共享。', 'owner', ?, ?)`)
+        .run(randomUUID(), body.bookingId, createdAt, JSON.stringify({ requestId: id, reasonCodes: body.reasonCodes, consented: true, precheckVersion: body.expectedVersion }));
+      await enableRepairWorkflowForRequest(tx, id, {
+        now: new Date(createdAt),
+        actorType: "owner",
+        actorId: userId,
+      });
+      return { id, created: true };
+    }).catch(async (error: unknown) => {
+      await Promise.all(copiedFiles.map((path) => unlink(path).catch(() => undefined)));
+      throw error;
+    });
+    if (result.created) reply.status(201);
+    return { data: await ownerRequestDetail(database, result.id, userId, options.problem) };
+  });
 
   app.post("/api/repair/requests", async (request, reply) => {
     const userId = await requireCurrentUser(request, database);
@@ -669,6 +759,11 @@ export async function registerRepairRoutes(
           createdAt,
         );
       }
+      await enableRepairWorkflowForRequest(transaction, id, {
+        now: new Date(createdAt),
+        actorType: "owner",
+        actorId: userId,
+      });
       return { id, created: true };
     });
     if (result.created) reply.status(201);
@@ -736,6 +831,11 @@ export async function registerRepairRoutes(
         SET status = 'lost', updated_at = ?
         WHERE request_id = ? AND status <> 'lost'
       `).run(cancelledAt, request.params.id);
+      await syncRepairWorkflowForRequest(transaction, request.params.id, {
+        now: new Date(cancelledAt),
+        actorType: "owner",
+        actorId: userId,
+      });
     });
     return { data: await ownerRequestDetail(database, request.params.id, userId, options.problem) };
   });
@@ -812,14 +912,14 @@ export async function registerRepairRoutes(
         vehicle: jsonObject(repairRequest.vehicle_snapshot_json),
         report: jsonObject(repairRequest.report_snapshot_json),
         faults: faults.map((fault) => ({
-          id: String(fault.id), sourceFaultId: String(fault.source_fault_id),
+          id: String(fault.id), sourceFaultId: String(fault.source_fault_id ?? fault.precheck_reason_code ?? ""),
           sequence: Number(fault.sequence_no), viewId: String(fault.view_id),
           regionCode: String(fault.region_code), faultType: String(fault.fault_type),
           severity: String(fault.severity),
           description: fault.description == null ? null : String(fault.description),
         })),
         media: media.map((item) => ({
-          id: String(item.id), sourceMediaId: String(item.source_media_id),
+          id: String(item.id), sourceMediaId: String(item.source_media_id ?? item.precheck_media_id ?? ""),
           faultId: item.fault_id == null ? null : String(item.fault_id),
           kind: String(item.kind), sequence: item.sequence_no == null ? null : Number(item.sequence_no),
           mimeType: String(item.mime_type), sizeBytes: Number(item.size_bytes),
@@ -878,6 +978,11 @@ export async function registerRepairRoutes(
           status = 'paid', selected_quote_id = ?, paid_at = ?, updated_at = ?
         WHERE id = ?
       `).run(body.quoteId, paidAt, paidAt, request.params.id);
+      await syncRepairWorkflowForRequest(transaction, request.params.id, {
+        now: new Date(paidAt),
+        actorType: "owner",
+        actorId: userId,
+      });
     });
     return {
       data: await ownerRequestDetail(database, request.params.id, userId, options.problem),
@@ -1087,6 +1192,11 @@ export async function registerRepairRoutes(
             occurredAt: updatedAt,
           });
         }
+        await syncRepairWorkflowForRequest(transaction, request.params.requestId, {
+          now: new Date(updatedAt),
+          actorType: "repair_shop",
+          actorId: principal.account.id,
+        });
       });
       return {
         data: await shopRequestDetail(
@@ -1168,6 +1278,11 @@ export async function registerRepairRoutes(
             }],
           },
           occurredAt: withdrawnAt,
+        });
+        await syncRepairWorkflowForRequest(transaction, request.params.requestId, {
+          now: new Date(withdrawnAt),
+          actorType: "repair_shop",
+          actorId: principal.account.id,
         });
       });
       return {
