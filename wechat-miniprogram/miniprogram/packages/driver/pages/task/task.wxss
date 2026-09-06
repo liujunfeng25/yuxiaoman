@@ -50,7 +50,7 @@
 .section-heading > view text:last-child { color: #20384f; font-size: 27rpx; font-weight: 850; }
 .section-heading > text { color: #7d8c9c; font-size: 17rpx; }
 
-.route-card,.capture-card,.evidence-card,.event-card,.return-action-card { border: 1rpx solid #dee7ef; border-radius: 23rpx; background: #fff; box-shadow: 0 9rpx 26rpx rgba(32,65,99,.05); }
+.route-card,.capture-card,.evidence-card,.event-card,.return-action-card,.handoff-action-card { border: 1rpx solid #dee7ef; border-radius: 23rpx; background: #fff; box-shadow: 0 9rpx 26rpx rgba(32,65,99,.05); }
 .route-card { position: relative; overflow: hidden; padding: 7rpx 22rpx 0; }
 .route-line { position: absolute; top: 71rpx; bottom: 119rpx; left: 46rpx; border-left: 2rpx dashed #a9c7e4; }
 .route-stop { position: relative; z-index: 1; display: grid; min-height: 116rpx; padding: 17rpx 0; grid-template-columns: 45rpx minmax(0,1fr) auto; align-items: center; gap: 12rpx; }
@@ -118,6 +118,21 @@
 .return-action-card text:last-child { margin-top: 4rpx; color: #718499; font-size: 17rpx; line-height: 1.5; }
 .return-action-card > button { display: flex; width: 100%; min-height: 88rpx; margin-top: 15rpx; align-items: center; justify-content: center; color: #fff; border-radius: 16rpx; background: #1768cf; font-size: 20rpx; font-weight: 850; }
 .return-action-card > button[disabled] { color: #99a6b2; background: #e4e9ee; }
+
+.handoff-action-card { margin-top: 20rpx; padding: 20rpx; }
+.handoff-intro { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: start; gap: 12rpx; }
+.handoff-intro > image { width: 42rpx; height: 42rpx; padding: 9rpx; border-radius: 14rpx; background: #fff4e8; box-sizing: border-box; }
+.handoff-intro > view { display: flex; flex-direction: column; }
+.handoff-intro text:first-child { color: #23415d; font-size: 22rpx; font-weight: 850; }
+.handoff-intro text:last-child { margin-top: 4rpx; color: #718499; font-size: 17rpx; line-height: 1.5; }
+.handoff-code-panel { display: flex; margin-top: 16rpx; padding: 16rpx 15rpx; align-items: center; justify-content: space-between; gap: 12rpx; border: 1rpx solid #d7e6f5; border-radius: 16rpx; background: #f5f9fd; }
+.handoff-code-panel > view { display: flex; min-width: 0; flex-direction: column; }
+.handoff-code-panel > view text:first-child { color: #7a8c9e; font-size: 15rpx; }
+.handoff-code { margin-top: 4rpx; color: #163a5c; font-size: 40rpx; font-weight: 900; letter-spacing: 6rpx; }
+.handoff-code-panel > button { display: flex; min-width: 112rpx; min-height: 88rpx; padding: 0 16rpx; align-items: center; justify-content: center; color: #1768cf; border: 1rpx solid #c8dcf1; border-radius: 12rpx; background: #fff; font-size: 20rpx; font-weight: 800; }
+.handoff-code-panel > button[disabled] { color: #9ba7b3; border-color: #e1e6eb; background: #f2f4f6; }
+.handoff-primary { display: flex; width: 100%; min-height: 88rpx; margin-top: 15rpx; align-items: center; justify-content: center; color: #fff; border-radius: 16rpx; background: #c56a1a; font-size: 20rpx; font-weight: 850; }
+.handoff-primary[disabled] { color: #99a6b2; background: #e4e9ee; }
 
 .evidence-card { padding: 7rpx 20rpx; }
 .evidence-row { display: grid; min-height: 112rpx; grid-template-columns: 46rpx minmax(0,1fr); align-items: stretch; gap: 10rpx; }

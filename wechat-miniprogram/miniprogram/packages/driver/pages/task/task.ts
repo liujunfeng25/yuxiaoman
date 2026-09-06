@@ -51,6 +51,8 @@ type TaskView = DriverTask & {
 
 type ViewerItem = { url: string; label: string };
 
+const HANDOFF_ELIGIBLE_STATUSES = new Set(["checked_in", "inspecting", "result_received"]);
+
 type Data = {
   initialized: boolean;
   loading: boolean;
@@ -68,6 +70,9 @@ type Data = {
   canCompleteEvidence: boolean;
   showStartReturn: boolean;
   canStartReturn: boolean;
+  showHandoff: boolean;
+  handoffVerificationCode: string;
+  handoffActing: boolean;
   viewerOpen: boolean;
   viewerItems: ViewerItem[];
   viewerIndex: number;
@@ -212,6 +217,20 @@ function clearCompletedRequestKeys(task: DriverTask): void {
   }
 }
 
+function returnDriverBound(task: DriverTask): boolean {
+  return Boolean(task.driverAssignment?.returnDriverPhone);
+}
+
+function isPickupDriver(task: DriverTask): boolean {
+  // 送车司机绑定前，当前会话仍是取车代驾（绑定后原会话会被吊销）。
+  return Boolean(task.driverAssignment) && !returnDriverBound(task);
+}
+
+function canShowHandoff(task: DriverTask): boolean {
+  if (driverTaskTerminal(task) || !isPickupDriver(task) || returnDriverBound(task)) return false;
+  return HANDOFF_ELIGIBLE_STATUSES.has(taskStatus(task));
+}
+
 Page<Data>({
   data: {
     initialized: false,
@@ -230,6 +249,9 @@ Page<Data>({
     canCompleteEvidence: false,
     showStartReturn: false,
     canStartReturn: false,
+    showHandoff: false,
+    handoffVerificationCode: "",
+    handoffActing: false,
     viewerOpen: false,
     viewerItems: [],
     viewerIndex: 0,
@@ -337,6 +359,7 @@ Page<Data>({
     const slots = photoSlotViews(task, activeStage, uploadingKinds);
     const photoCompleteCount = slots.filter((slot) => Boolean(slot.media)).length;
     const status = taskStatus(task);
+    const showHandoff = canShowHandoff(task);
     this.setData({
       task: taskView(task),
       evidenceViews: evidenceViews(task),
@@ -347,6 +370,8 @@ Page<Data>({
       canCompleteEvidence: Boolean(activeStage) && photoCompleteCount === DRIVER_PHOTO_SLOTS.length && !uploadingKinds.length,
       showStartReturn: status === "result_received",
       canStartReturn: canStartReturn(task),
+      showHandoff,
+      handoffVerificationCode: showHandoff ? this.data.handoffVerificationCode : "",
       error: "",
     });
   },
@@ -460,6 +485,50 @@ Page<Data>({
     } finally {
       this.setData({ acting: false });
     }
+  },
+
+  requestHandoff() {
+    const task = this.data.task;
+    if (!task || !this.data.showHandoff || this.data.acting || this.data.handoffActing) return;
+    wx.showModal({
+      title: "确认换人？",
+      content: "将生成新的送车验证码。接班司机输入新码后，你将无法再操作本单。",
+      confirmText: "确认换人",
+      cancelText: "取消",
+      success: ({ confirm }) => {
+        if (!confirm) return;
+        void this.performCreateHandoffCode();
+      },
+    });
+  },
+
+  async performCreateHandoffCode() {
+    const task = this.data.task;
+    if (!task || !this.data.showHandoff || this.data.acting || this.data.handoffActing) return;
+    this.setData({ handoffActing: true });
+    try {
+      const { handoffVerificationCode } = await driverApi.createHandoffCode(task.bookingId);
+      this.setData({ handoffVerificationCode });
+      wx.showToast({ title: "换班码已生成", icon: "success" });
+    } catch (error) {
+      if (isDriverSessionAccessError(error)) {
+        clearDriverTaskSession();
+        wx.redirectTo({ url: "/packages/driver/pages/login/login?reason=session" });
+        return;
+      }
+      wx.showToast({ title: error instanceof Error ? error.message : "换班码生成失败", icon: "none" });
+    } finally {
+      this.setData({ handoffActing: false });
+    }
+  },
+
+  copyHandoffCode() {
+    const code = this.data.handoffVerificationCode;
+    if (!code) return;
+    wx.setClipboardData({
+      data: code,
+      success: () => wx.showToast({ title: "换班码已复制", icon: "success" }),
+    });
   },
 
   navigate(event) {

@@ -188,7 +188,7 @@ test("司机端使用独立 Bearer、私有图片本地化与失败可重试幂�
   assert.match(markup, /aria-label="关闭留证图片查看器"/, "图片弹窗关闭操作应有可访问名称");
   assert.match(style, /\.driver-task-page\s*\{[^}]*env\(safe-area-inset-bottom\)/, "任务页底部应避让安全区");
   assert.match(style, /\.error-card > button\s*\{[^}]*min-height:\s*88rpx/);
-  for (const selector of ["inline-task-error button", "route-stop > button,.contact-row > button", "photo-actions button", "primary-action", "return-action-card > button", "image-viewer-head button", "image-viewer-controls > button"]) {
+  for (const selector of ["inline-task-error button", "route-stop > button,.contact-row > button", "photo-actions button", "primary-action", "return-action-card > button", "handoff-primary", "handoff-code-panel > button", "image-viewer-head button", "image-viewer-controls > button"]) {
     const pattern = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\,/g, ",");
     assert.match(style, new RegExp(`\\.${pattern}\\s*\\{[^}]*min-height:\\s*88rpx`), `${selector} 的触控高度不得小于 88rpx`);
   }
@@ -199,4 +199,33 @@ test("代驾取车与检测站接车留证均允许相机或相册", () => {
   const operatorPage = readFileSync(new URL("../miniprogram/packages/operator/pages/operator-detail/operator-detail.ts", import.meta.url), "utf8");
   assert.match(driverPage, /choosePhoto[\s\S]*sourceType:\s*\["camera",\s*"album"\]/u);
   assert.match(operatorPage, /chooseArrivalEvidence[\s\S]*sourceType:\s*\["camera",\s*"album"\]/u);
+});
+
+test("到站后取车代驾可二次确认换人并展示可复制换班码", () => {
+  const api = readFileSync(new URL("../miniprogram/packages/driver/services/driver-api.ts", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../miniprogram/packages/driver/pages/task/task.ts", import.meta.url), "utf8");
+  const markup = readFileSync(new URL("../miniprogram/packages/driver/pages/task/task.wxml", import.meta.url), "utf8");
+  const style = readFileSync(new URL("../miniprogram/packages/driver/pages/task/task.wxss", import.meta.url), "utf8");
+
+  assert.match(api, /createHandoffCode\(bookingId:\s*string\)[\s\S]*\/driver\/tasks\/\$\{encodeURIComponent\(bookingId\)\}\/handoff-code/u);
+  assert.match(api, /handoffVerificationCode/u);
+
+  assert.match(page, /HANDOFF_ELIGIBLE_STATUSES\s*=\s*new Set\(\["checked_in",\s*"inspecting",\s*"result_received"\]\)/u);
+  assert.match(page, /canShowHandoff\([\s\S]*driverTaskTerminal[\s\S]*isPickupDriver[\s\S]*returnDriverBound[\s\S]*HANDOFF_ELIGIBLE_STATUSES/u);
+  assert.match(page, /const showHandoff = canShowHandoff\(task\)/u);
+  assert.match(page, /showHandoff,/u);
+  assert.match(page, /requestHandoff\(\)[\s\S]*wx\.showModal\(\{[\s\S]*title:\s*"确认换人？"/u);
+  assert.match(page, /content:\s*"将生成新的送车验证码。接班司机输入新码后，你将无法再操作本单。"/u);
+  assert.match(page, /confirmText:\s*"确认换人"/u);
+  assert.match(page, /if\s*\(!confirm\)\s*return;[\s\S]*void this\.performCreateHandoffCode\(\)/u);
+  assert.match(page, /performCreateHandoffCode\(\)[\s\S]*driverApi\.createHandoffCode\(task\.bookingId\)/u);
+  assert.match(page, /copyHandoffCode\(\)[\s\S]*wx\.setClipboardData\(\{[\s\S]*data:\s*code/u);
+
+  assert.match(markup, /wx:if="\{\{showHandoff\}\}"[\s\S]*换人送车/u);
+  assert.match(markup, /handoffVerificationCode[\s\S]*bindtap="copyHandoffCode"/u);
+  assert.match(markup, /bindtap="requestHandoff"[\s\S]*\{\{handoffVerificationCode \? '重新生成换班码' : '换人'\}\}/u);
+
+  assert.match(style, /\.handoff-action-card\s*\{/u);
+  assert.match(style, /\.handoff-primary\s*\{[^}]*min-height:\s*88rpx/u);
+  assert.match(style, /\.handoff-code-panel > button\s*\{[^}]*min-height:\s*88rpx/u);
 });

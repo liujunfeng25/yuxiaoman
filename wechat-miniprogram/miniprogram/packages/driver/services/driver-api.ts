@@ -257,4 +257,19 @@ export const driverApi = {
       { idempotencyKey },
     )));
   },
+
+  async createHandoffCode(bookingId: string): Promise<{ handoffVerificationCode: string; expiresAt: string }> {
+    const payload = await driverRequest<{
+      handoffVerificationCode?: unknown;
+      expiresAt?: unknown;
+    }>(`/driver/tasks/${encodeURIComponent(bookingId)}/handoff-code`, "POST");
+    const handoffVerificationCode = String(payload?.handoffVerificationCode || "").replace(/\D/gu, "").slice(0, 6);
+    if (!/^\d{6}$/u.test(handoffVerificationCode)) {
+      throw new Error("换班码生成失败，请重试");
+    }
+    return {
+      handoffVerificationCode,
+      expiresAt: String(payload?.expiresAt || ""),
+    };
+  },
 };

@@ -85,6 +85,24 @@
       <button bindtap="startReturn" loading="{{acting}}" disabled="{{!canStartReturn || acting}}">开始送回车辆</button>
     </view>
 
+    <view wx:if="{{showHandoff}}" class="handoff-action-card">
+      <view class="handoff-intro">
+        <image src="/assets/icons/recycle.png"/>
+        <view>
+          <text>换人送车</text>
+          <text>车辆已到站。若由另一位司机送回，请生成新的送车验证码交给接班人。</text>
+        </view>
+      </view>
+      <view wx:if="{{handoffVerificationCode}}" class="handoff-code-panel">
+        <view>
+          <text>送车验证码</text>
+          <text class="handoff-code">{{handoffVerificationCode}}</text>
+        </view>
+        <button bindtap="copyHandoffCode" disabled="{{handoffActing || acting}}">复制</button>
+      </view>
+      <button class="handoff-primary" bindtap="requestHandoff" loading="{{handoffActing}}" disabled="{{handoffActing || acting}}">{{handoffVerificationCode ? '重新生成换班码' : '换人'}}</button>
+    </view>
+
     <view class="section-heading evidence-heading"><view><text>{{activeStage ? '03' : '02'}}</text><text>全程留证</text></view><text>车主与后台同步可见</text></view>
     <view class="evidence-card">
       <view wx:for="{{evidenceViews}}" wx:key="stage" class="evidence-row evidence-{{item.statusTone}}">
