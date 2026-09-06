@@ -499,6 +499,26 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
   await migrateWorkflowDatabase(database);
   await seedDefaultWorkflowConfiguration(database);
   await migrateValetHandoffDatabase(database);
+  await database.execute(`
+    ALTER TABLE valet_driver_assignments
+      ADD COLUMN IF NOT EXISTS receptionist_name TEXT,
+      ADD COLUMN IF NOT EXISTS receptionist_phone TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_driver_phone TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_bound_user_id TEXT,
+      ADD COLUMN IF NOT EXISTS pickup_bound_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS return_driver_phone TEXT,
+      ADD COLUMN IF NOT EXISTS return_bound_user_id TEXT,
+      ADD COLUMN IF NOT EXISTS return_bound_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_hmac TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_ciphertext TEXT,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_expires_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS handoff_verification_code_created_at TIMESTAMPTZ;
+
+    UPDATE valet_driver_assignments
+    SET receptionist_name = COALESCE(receptionist_name, driver_name),
+        receptionist_phone = COALESCE(receptionist_phone, driver_phone)
+    WHERE receptionist_name IS NULL;
+  `);
   await migrateInsuranceDatabase(database);
   await migrateSubsidyConsultationDatabase(database);
   await migrateUsedCarDatabase(database);

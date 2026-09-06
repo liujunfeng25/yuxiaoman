@@ -17,7 +17,7 @@ import { readAdminSubsidyConsultationMaterial } from "./subsidy-consultation.js"
 
 type Row = Record<string, unknown>;
 
-const CUSTOMER_TAGS = ["重点客户", "待跟进", "复购客户", "资料待补"] as const;
+const CUSTOMER_TAGS = ["重点客户", "待跟进", "复购客户", "资料待补", "代驾"] as const;
 const CUSTOMER_DOMAINS = [
   "annual_inspection",
   "car_wash",
@@ -290,7 +290,7 @@ export async function migrateCustomerCenterDatabase(database: AppDatabase): Prom
 
     CREATE TABLE IF NOT EXISTS customer_admin_tags (
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-      tag TEXT NOT NULL CHECK (tag IN ('重点客户','待跟进','复购客户','资料待补')),
+      tag TEXT NOT NULL CHECK (tag IN ('重点客户','待跟进','复购客户','资料待补','代驾')),
       actor_account_id TEXT,
       actor_display_name TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL,
@@ -328,6 +328,11 @@ export async function migrateCustomerCenterDatabase(database: AppDatabase): Prom
     CREATE INDEX IF NOT EXISTS subsidy_materials_owner_created_index
       ON subsidy_consultation_materials(user_id, created_at DESC, id DESC)
       WHERE user_id IS NOT NULL;
+
+    ALTER TABLE customer_admin_tags DROP CONSTRAINT IF EXISTS customer_admin_tags_tag_check;
+    ALTER TABLE customer_admin_tags
+      ADD CONSTRAINT customer_admin_tags_tag_check
+      CHECK (tag IN ('重点客户','待跟进','复购客户','资料待补','代驾'));
   `);
 
   // These historical columns were introduced without hard foreign keys. Abort
@@ -883,7 +888,7 @@ async function listCustomers(database: AppDatabase, query: z.infer<typeof custom
       LEFT JOIN LATERAL (
         SELECT array_agg(t.tag ORDER BY CASE t.tag
           WHEN '重点客户' THEN 1 WHEN '待跟进' THEN 2
-          WHEN '复购客户' THEN 3 WHEN '资料待补' THEN 4 ELSE 99 END) AS tags
+          WHEN '复购客户' THEN 3 WHEN '资料待补' THEN 4 WHEN '代驾' THEN 5 ELSE 99 END) AS tags
         FROM customer_admin_tags t WHERE t.user_id = u.id
       ) tags ON TRUE
     )
@@ -953,7 +958,7 @@ async function customerDetail(database: AppDatabase, userId: string) {
     `).all(userId),
     database.prepare<Row>(`SELECT tag FROM customer_admin_tags WHERE user_id = ? ORDER BY CASE tag
       WHEN '重点客户' THEN 1 WHEN '待跟进' THEN 2
-      WHEN '复购客户' THEN 3 WHEN '资料待补' THEN 4 ELSE 99 END`).all(userId),
+      WHEN '复购客户' THEN 3 WHEN '资料待补' THEN 4 WHEN '代驾' THEN 5 ELSE 99 END`).all(userId),
     database.prepare<Row>(`
       SELECT id, content, actor_account_id, actor_display_name, created_at
       FROM customer_admin_notes WHERE user_id = ? ORDER BY created_at DESC, id DESC
