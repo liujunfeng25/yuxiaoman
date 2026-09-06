@@ -805,7 +805,7 @@ async function runValetFlow(
   await pay(app, ownerToken, booking, "local-valet-payment-0001");
 
   const assignment = await mutate(app, "POST", `/api/admin/bookings/${booking.id}/driver-assignment`, 201, {
-    payload: { driverName: "王大海", driverPhone: "13900139000" },
+    payload: { receptionistName: "王大海", receptionistPhone: "13900139000" },
   });
   const verificationCode = String(assignment.assignment?.verificationCode ?? assignment.verificationCode ?? "");
   if (!/^\d{6}$/u.test(verificationCode)) throw new Error("后台未生成 6 位代驾验证码");

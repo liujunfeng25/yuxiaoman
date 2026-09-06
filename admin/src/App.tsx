@@ -932,7 +932,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     </div>
     {!assignmentEditable && !taskEnded ? <p className="assignment-security-note">车辆已进入现场履约，接待人安排和验证码绑定已锁定，后台不能中途换人或撤销。</p> : null}
     {message ? <p className="assignment-success" role="status"><CheckCircle weight="fill" />{message}</p> : null}
-    <p className="assignment-boundary"><ShieldCheck />生成验证码会自动推进到“司机已安排”；验证码首次领取后绑定代驾微信，取车、到站和送回必须由对应端完成留证，后台不能代替推进。</p>
+    <p className="assignment-boundary"><ShieldCheck />生成验证码会自动推进到“任务已安排”；验证码首次领取后绑定代驾微信，取车、到站和送回必须由对应端完成留证，后台不能代替推进。</p>
   </section>;
 }
 

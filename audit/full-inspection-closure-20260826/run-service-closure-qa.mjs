@@ -523,8 +523,8 @@ async function ensureDriverSession(scenario, booking) {
       method: "POST",
       headers: adminHeaders(),
       json: {
-        driverName: scenario.driver?.name ?? "演示司机",
-        driverPhone: scenario.driver?.phone ?? "13900000000",
+        receptionistName: scenario.driver?.name ?? "演示司机",
+        receptionistPhone: scenario.driver?.phone ?? "13900000000",
       },
     });
     scenarioState.verificationCode = assigned.data.verificationCode

@@ -1122,7 +1122,7 @@ test("代驾详情按真实事件展示全链路、取送地址与司机调度�
   await expect(unassignedInfo).toContainText("司机尚未安排");
   await expect(unassignedInfo).toContainText("调度人员未记录");
   await expect(unassignedInfo).toContainText("暂无司机与调度备注");
-  await expect(drawer.getByLabel("代驾司机安排").getByRole("button", { name: "安排司机并生成验证码" })).toBeVisible();
+  await expect(drawer.getByLabel("接待人安排").getByRole("button", { name: "安排接待人并生成验证码" })).toBeVisible();
 
   await drawer.getByRole("button", { name: "关闭预约详情" }).click();
   await page.getByText("津C·T2608", { exact: true }).click();
@@ -1179,7 +1179,7 @@ test("代驾详情支持一单一司机验证码、四阶段留证预览并保�
     station: { id: "station-evidence", name: "华洋机动车检测站", district: "滨海新区", address: "天津市滨海新区海滨大道 3680 号" },
     pickupAddress: { title: "天津文化中心地下停车场", address: "天津市河西区平江道 58 号", district: "河西区", detail: "B2-156", latitude: 39.0837, longitude: 117.2197 },
     vehicle: { plateNumber: "津A·E0520", vehicleType: "小型轿车", seats: 5 },
-    driverAssignment: { id: "assignment-1", status: "assigned", driverName: "王师傅", driverPhone: "13800138888", assignedAt: "2026-08-24T09:00:00+08:00", boundAt: null, verificationCode: "351240", verificationCodeExpiresAt: "2026-08-25T09:00:00+08:00", verificationCodeStatus: "active" },
+    driverAssignment: { id: "assignment-1", status: "assigned", receptionistName: "王师傅", receptionistPhone: "13800138888", assignedAt: "2026-08-24T09:00:00+08:00", boundAt: null, verificationCode: "351240", verificationCodeExpiresAt: "2026-08-25T09:00:00+08:00", verificationCodeStatus: "active" },
     evidencePolicyVersion: "valet-handoff-v1",
     evidencePackages: [
       evidence("owner_pickup", "completed"),
@@ -1224,19 +1224,19 @@ test("代驾详情支持一单一司机验证码、四阶段留证预览并保�
   await page.getByText("津A·E0520", { exact: true }).click();
   const drawer = page.getByLabel("预约与账务详情");
 
-  const driverPanel = drawer.getByLabel("代驾司机安排");
-  await expect(driverPanel).toContainText("一单一司机任务验证码");
-  await expect(driverPanel.getByLabel("司机姓名")).toHaveValue("王师傅");
-  await expect(driverPanel.getByLabel("司机手机号")).toHaveValue("13800138888");
-  await expect(driverPanel.getByLabel("司机任务验证码", { exact: true })).toContainText("351 240");
-  await expect(driverPanel.getByLabel("司机任务验证码", { exact: true })).toContainText("24小时内首次领取");
+  const driverPanel = drawer.getByLabel("接待人安排");
+  await expect(driverPanel).toContainText("取车任务验证码（发群抢单）");
+  await expect(driverPanel.getByLabel("接待人员姓名")).toHaveValue("王师傅");
+  await expect(driverPanel.getByLabel("接待人员电话")).toHaveValue("13800138888");
+  await expect(driverPanel.getByLabel("取车任务验证码", { exact: true })).toContainText("351 240");
+  await expect(driverPanel.getByLabel("取车任务验证码", { exact: true })).toContainText("24小时内首次领取");
   await driverPanel.getByRole("button", { name: "重新生成验证码" }).click();
-  await expect(driverPanel.getByLabel("司机任务验证码", { exact: true })).toContainText("482 719");
+  await expect(driverPanel.getByLabel("取车任务验证码", { exact: true })).toContainText("482 719");
   await expect(driverPanel).not.toContainText("legacy-long-entry");
-  await expect(driverPanel.getByRole("button", { name: "复制司机任务验证码" })).toBeVisible();
-  expect(assignmentWrites.at(-1)).toEqual({ method: "POST", body: { driverName: "王师傅", driverPhone: "13800138888" } });
+  await expect(driverPanel.getByRole("button", { name: "复制取车任务验证码" })).toBeVisible();
+  expect(assignmentWrites.at(-1)).toEqual({ method: "POST", body: { receptionistName: "王师傅", receptionistPhone: "13800138888" } });
   await driverPanel.getByRole("button", { name: "使当前验证码失效" }).click();
-  await expect(driverPanel).toContainText("司机任务验证码已失效，订单已恢复为等待安排司机");
+  await expect(driverPanel).toContainText("取车任务验证码已失效，订单已恢复为等待安排接待人");
   expect(assignmentWrites.at(-1)?.method).toBe("DELETE");
   await page.setViewportSize({ width: 390, height: 844 });
   const arrangeDriverBounds = await driverPanel.locator(".driver-assignment-actions button").first().boundingBox();
@@ -1291,18 +1291,18 @@ test("代驾详情支持一单一司机验证码、四阶段留证预览并保�
   await page.context().clearCookies();
   await page.reload();
   await page.getByRole("button", { name: "查看津A·E0520预约详情" }).click();
-  const boundDriverPanel = page.getByLabel("预约与账务详情").getByLabel("代驾司机安排");
-  await expect(boundDriverPanel.getByLabel("司机任务验证码", { exact: true })).toContainText("482 719");
-  await expect(boundDriverPanel.getByLabel("司机任务验证码", { exact: true })).toContainText("已绑定，仅原微信可继续使用");
+  const boundDriverPanel = page.getByLabel("预约与账务详情").getByLabel("接待人安排");
+  await expect(boundDriverPanel.getByLabel("取车任务验证码", { exact: true })).toContainText("482 719");
+  await expect(boundDriverPanel.getByLabel("取车任务验证码", { exact: true })).toContainText("已绑定，仅原微信可继续使用");
   await expect(boundDriverPanel.getByRole("button", { name: "重新生成验证码" })).toBeDisabled();
 
   Object.assign(booking, { fulfillmentStatus: "completed" });
   Object.assign(booking.driverAssignment, { status: "completed", verificationCodeStatus: "completed" });
   await page.reload();
   await page.getByRole("button", { name: "查看津A·E0520预约详情" }).click();
-  const completedDriverPanel = page.getByLabel("预约与账务详情").getByLabel("代驾司机安排");
+  const completedDriverPanel = page.getByLabel("预约与账务详情").getByLabel("接待人安排");
   await expect(completedDriverPanel).toContainText("任务已结束");
-  await expect(completedDriverPanel.getByLabel("司机任务验证码", { exact: true })).toHaveCount(0);
+  await expect(completedDriverPanel.getByLabel("取车任务验证码", { exact: true })).toHaveCount(0);
 });
 
 test("后台不能绕过取车和到站留证状态", async ({ page }) => {
