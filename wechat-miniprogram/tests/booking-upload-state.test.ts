@@ -714,17 +714,19 @@ test("年检快捷预约页面使用明确阶段文案、错误恢复和安全�
   assert.match(bookingTemplate, /!quote\.serviceable/);
 });
 
-test("自由车牌输入与检测站任务卡在窄屏保持可用", () => {
+test("停车场式车牌格子与检测站任务卡在窄屏保持可用", () => {
   const vehicleMarkup = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxml", import.meta.url), "utf8");
   const vehicleStyle = readFileSync(new URL("../miniprogram/packages/vehicle/pages/vehicle-form/vehicle-form.wxss", import.meta.url), "utf8");
+  const keyboardMarkup = readFileSync(new URL("../miniprogram/components/plate-keyboard/plate-keyboard.wxml", import.meta.url), "utf8");
   const operatorMarkup = readFileSync(new URL("../miniprogram/packages/operator/pages/operator/operator.wxml", import.meta.url), "utf8");
   const operatorStyle = readFileSync(new URL("../miniprogram/packages/operator/pages/operator/operator.wxss", import.meta.url), "utf8");
 
-  assert.match(vehicleMarkup, /class="plate-free-input"[^>]*aria-label="车牌号码"[^>]*bindinput="plateNumberInput"/);
-  assert.match(vehicleMarkup, /按实际号牌自由填写，不固定字符位数/);
-  assert.doesNotMatch(vehicleMarkup, /号码位数|>7 位<|>8 位<|plate-keyboard-sheet|plate-cells/);
-  assert.match(vehicleMarkup, /aria-label="自定义车身颜色"[^>]*bindinput="exteriorColorInput"/);
-  assert.match(vehicleStyle, /\.plate-free-input\s*\{[^}]*width:\s*100%[^}]*box-sizing:\s*border-box/);
+  assert.match(vehicleMarkup, /<plate-keyboard[\s\S]*bind:change="onPlateKeyboardChange"/);
+  assert.match(vehicleMarkup, /slotCount="\{\{slotCount\}\}"/);
+  assert.doesNotMatch(vehicleMarkup, /plate-free-input|按实际号牌自由填写/);
+  assert.match(keyboardMarkup, /class="plate-cells"/);
+  assert.match(keyboardMarkup, /plate-keyboard-sheet/);
+  assert.match(vehicleStyle, /\.plate-status\s*\{/);
 
   assert.match(operatorMarkup, /class="task-time"><text>\{\{item\.startTime\}\}<\/text><text>至 \{\{item\.endTime\}\}<\/text><text>\{\{item\.dateLabel\}\}<\/text>/);
   assert.match(operatorStyle, /\.task-row\s*\{[^}]*grid-template-columns:\s*104rpx minmax\(0, 1fr\) 26rpx[^}]*grid-template-rows:\s*auto auto auto/);

@@ -118,10 +118,6 @@ type Data = {
   photoSlots: PhotoSlotView[];
   photoCompleteCount: number;
   fixedPhotoUploadingCount: number;
-  safetyReportMedia: CheckupMedia | null;
-  safetyReportUploading: boolean;
-  emissionsReportMedia: CheckupMedia | null;
-  emissionsReportUploading: boolean;
   markMedia: CheckupMedia | null;
   markUploading: boolean;
   observationMode: CheckupObservationMode | null;
@@ -215,7 +211,10 @@ function photoViews(report: VehicleCheckupReport, uploadingKinds: string[] = [])
 function reportFromData(data: Data): VehicleCheckupReport {
   const base = data.report || emptyReport(data.id);
   const siteMedia = data.photoSlots.map((slot) => slot.media).filter(Boolean) as CheckupMedia[];
-  const legalMedia = [data.safetyReportMedia, data.emissionsReportMedia].filter(Boolean) as CheckupMedia[];
+  const legacyLegalMedia = [
+    reportMedia(base, "safety_inspection_report"),
+    reportMedia(base, "emissions_inspection_report"),
+  ].filter(Boolean) as CheckupMedia[];
   const markMedia = data.markMedia ? [data.markMedia] : [];
   return {
     ...base,
@@ -234,14 +233,14 @@ function reportFromData(data: Data): VehicleCheckupReport {
       markPhoto: data.markMedia,
     },
     legalMaterials: {
-      safetyInspectionReport: data.safetyReportMedia,
-      emissionsInspectionReport: data.emissionsReportMedia,
+      safetyInspectionReport: reportMedia(base, "safety_inspection_report"),
+      emissionsInspectionReport: reportMedia(base, "emissions_inspection_report"),
       annualInspectionMark: data.markMedia,
       status: data.conclusion === "failed" || (data.conclusion === "passed" && Boolean(data.markMedia))
         ? "available"
         : "pending",
     },
-    media: [...siteMedia, ...legalMedia, ...markMedia],
+    media: [...siteMedia, ...legacyLegalMedia, ...markMedia],
   };
 }
 
@@ -263,8 +262,6 @@ function initialData(): Data {
     faultPhotoAttempts: [], faultPhotoDeletingIds: [], faultPhotoBusyCount: 0, activeFaultId: "",
     activeBubble: { visible: false, title: "", description: "", style: "" },
     photoSlots: photoViews(report), photoCompleteCount: 0, fixedPhotoUploadingCount: 0,
-    safetyReportMedia: null, safetyReportUploading: false,
-    emissionsReportMedia: null, emissionsReportUploading: false,
     markMedia: null, markUploading: false,
     observationMode: null, conclusion: null, conclusionLabel: conclusionLabel(null), legacyConclusionNeedsReentry: false,
     failureCategories: [], failureCategoryOptions: multiChoices(ANNUAL_FAILURE_CATEGORIES, []), failureReason: "", retestAdvice: "",
@@ -351,20 +348,19 @@ Page<Data>({
       summary,
       photoSlots: slots,
       photoCompleteCount: slots.filter((slot) => slot.media).length,
-      safetyReportMedia: reportMedia(report, "safety_inspection_report"),
-      emissionsReportMedia: reportMedia(report, "emissions_inspection_report"),
       markMedia: reportMedia(report, "annual_inspection_mark"),
       dirty: preserveDraft ? this.data.dirty : false,
       conclusionOptions: choices(CONCLUSIONS, conclusion),
     });
     this.refreshDiagram();
   },
-  refreshDiagram() {
-    const activeView = this.data.activeView;
+  refreshDiagram(next?: { activeView?: CheckupViewId; activeFaultId?: string }) {
+    const activeView = next?.activeView ?? this.data.activeView;
     const faults = this.data.faults;
-    const activeFault = faults.find((item) => item.id === this.data.activeFaultId) || null;
+    const activeFaultId = next?.activeFaultId ?? this.data.activeFaultId;
+    const activeFault = faults.find((item) => item.id === activeFaultId) || null;
     const regions = this.data.diagramRegions.filter((item) => item.viewId === activeView).map((region) => {
-      const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
+      const marker = faultMarkerState(faults, region.code, activeFaultId);
       const callout = buildRegionCallout(region);
       return {
         code: region.code,
@@ -400,7 +396,7 @@ Page<Data>({
       thumbnailUrl: faultPhotos(fault)[0]?.url || "",
     }));
     const systemRegions = CHECKUP_SYSTEM_REGIONS.map((region) => {
-      const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
+      const marker = faultMarkerState(faults, region.code, activeFaultId);
       return {
         code: region.code,
         label: region.label,
@@ -442,14 +438,15 @@ Page<Data>({
   selectView(event) {
     const id = String(event.currentTarget.dataset.id || "left") as CheckupViewId;
     const meta = this.data.viewTabs.find((item) => item.id === id) || this.data.viewTabs[1];
+    const activeFaultId = this.data.faults.find((fault) => fault.viewId === id && !isCheckupSystemRegion(fault.regionCode))?.id || "";
     this.setData({
       activeView: id,
       activeViewImage: meta.imagePath,
       activeViewMirrored: meta.mirrored,
       viewTabs: this.data.viewTabs.map((item) => ({ ...item, selected: item.id === id })),
-      activeFaultId: this.data.faults.find((fault) => fault.viewId === id)?.id || "",
+      activeFaultId,
     });
-    this.refreshDiagram();
+    this.refreshDiagram({ activeView: id, activeFaultId });
   },
   tapRegion(event) {
     if (this.data.saving || this.data.submitting) return;
@@ -643,9 +640,7 @@ Page<Data>({
     });
   },
   async uploadPhoto(kind: CheckupMediaKind, filePath: string) {
-    if (kind === "safety_inspection_report") this.setData({ safetyReportUploading: true });
-    else if (kind === "emissions_inspection_report") this.setData({ emissionsReportUploading: true });
-    else if (kind === "annual_inspection_mark") this.setData({ markUploading: true });
+    if (kind === "annual_inspection_mark") this.setData({ markUploading: true });
     else this.setData({
       photoSlots: this.data.photoSlots.map((slot) => slot.kind === kind ? { ...slot, uploading: true, stateLabel: "上传中" } : slot),
       fixedPhotoUploadingCount: this.data.fixedPhotoUploadingCount + 1,
@@ -655,17 +650,13 @@ Page<Data>({
       const report = await api.operatorCheckupReport(this.data.id);
       if (report) this.applyReport(report, true);
       wx.showToast({
-        title: ["safety_inspection_report", "emissions_inspection_report", "annual_inspection_mark"].includes(kind)
-          ? "材料已保存"
-          : "照片已保存",
+        title: kind === "annual_inspection_mark" ? "材料已保存" : "照片已保存",
         icon: "success",
       });
     } catch (error) {
       wx.showToast({ title: error instanceof Error ? error.message : "照片上传失败", icon: "none" });
     } finally {
-      if (kind === "safety_inspection_report") this.setData({ safetyReportUploading: false });
-      else if (kind === "emissions_inspection_report") this.setData({ emissionsReportUploading: false });
-      else if (kind === "annual_inspection_mark") this.setData({ markUploading: false });
+      if (kind === "annual_inspection_mark") this.setData({ markUploading: false });
       else this.setData({
         photoSlots: this.data.photoSlots.map((slot) => slot.kind === kind ? { ...slot, uploading: false, stateLabel: slot.media ? "已完成" : "待上传" } : slot),
         fixedPhotoUploadingCount: Math.max(0, this.data.fixedPhotoUploadingCount - 1),
@@ -887,7 +878,7 @@ Page<Data>({
   inputSummary(event) { this.setData({ summary: String(event.detail.value || ""), dirty: true }); },
   async saveDraft(showToast = true): Promise<VehicleCheckupReport | null> {
     if (this.data.saving) return null;
-    if (this.data.fixedPhotoUploadingCount > 0 || this.data.safetyReportUploading || this.data.emissionsReportUploading || this.data.markUploading || this.data.faultPhotoBusyCount > 0) {
+    if (this.data.fixedPhotoUploadingCount > 0 || this.data.markUploading || this.data.faultPhotoBusyCount > 0) {
       if (showToast) wx.showToast({ title: "请等待照片处理完成", icon: "none" });
       return null;
     }
@@ -920,7 +911,7 @@ Page<Data>({
   },
   async submitReport() {
     if (this.data.submitting) return;
-    if (this.data.fixedPhotoUploadingCount > 0 || this.data.safetyReportUploading || this.data.emissionsReportUploading || this.data.markUploading || this.data.faultPhotoBusyCount > 0) {
+    if (this.data.fixedPhotoUploadingCount > 0 || this.data.markUploading || this.data.faultPhotoBusyCount > 0) {
       wx.showModal({ title: "材料仍在上传", content: "请等待现场状态照片或法定检测材料上传完成。", confirmText: "我知道了", success: () => undefined });
       return;
     }

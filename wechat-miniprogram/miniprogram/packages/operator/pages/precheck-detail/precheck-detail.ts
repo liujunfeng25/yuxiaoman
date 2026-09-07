@@ -28,7 +28,8 @@ Page({
     submittedLabel: "", serviceModeLabel: "", appointmentLabel: "", paymentLabel: "", showReject: false,
     requiredPhotoCount: 0, photoCount: 0, requiredPhotoDescription: "", vehiclePhotosRequired: true,
     reasons: reasonDefinitions.map((item) => ({ ...item, selected: false, effect: "", action: "materials" })), reasonText: "", selectedPhotoKinds: [] as string[],
-    approveIdempotencyKey: "", rejectIdempotencyKey: "",
+    photoPickHint: "存在问题的照片（可多选；行驶证问题须标注正页或副页）",
+    approveIdempotencyKey: "", rejectIdempotencyKey: "", rejectConfirming: false,
   },
   onLoad(query) {
     const id = String(query.id || "");
@@ -53,9 +54,11 @@ Page({
         selected: selected.has(definition.kind),
       }));
       const guidance = booking.precheck?.guidance || reasonDefinitions.map((item) => ({ ...item, action: "materials" as const, effect: "补充资料后重新审核" }));
+      const reasons = guidance.map((item) => ({ ...item, selected: this.data.reasons.some((old) => old.code === item.code && old.selected) }));
       this.setData({
         booking, photos, selectedPhotoKinds: [...selected],
-        reasons: guidance.map((item) => ({ ...item, selected: this.data.reasons.some((old) => old.code === item.code && old.selected) })),
+        reasons,
+        photoPickHint: this.photoPickHintFor(reasons),
         submittedLabel: formatShanghaiDateTime(booking.precheck?.submittedAt),
         serviceModeLabel: booking.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站",
         appointmentLabel: `${booking.appointmentDate} ${booking.startTime}–${booking.endTime}`,
@@ -89,10 +92,13 @@ Page({
       finally { this.setData({ deciding: false }); }
     } });
   },
-  openReject() { this.setData({ showReject: true }); }, closeReject() { if (!this.data.deciding) this.setData({ showReject: false }); },
+  openReject() { this.setData({ showReject: true, rejectConfirming: false }); },
+  closeReject() { if (!this.data.deciding) this.setData({ showReject: false, rejectConfirming: false }); },
+  backToRejectForm() { if (!this.data.deciding) this.setData({ rejectConfirming: false }); },
   toggleReason(event) {
     const code = String(event.currentTarget.dataset.code);
-    this.setData({ reasons: this.data.reasons.map((item) => item.code === code ? { ...item, selected: !item.selected } : item) });
+    const reasons = this.data.reasons.map((item) => item.code === code ? { ...item, selected: !item.selected } : item);
+    this.setData({ reasons, photoPickHint: this.photoPickHintFor(reasons) });
   },
   togglePhoto(event) {
     const kind = String(event.currentTarget.dataset.kind);
@@ -101,24 +107,89 @@ Page({
     const selectedPhotoKinds = [...selected];
     this.setData({ selectedPhotoKinds, photos: this.data.photos.map((item) => ({ ...item, selected: selected.has(item.kind) })) });
   },
+  photoPickHintFor(reasons: Array<{ code: string; selected: boolean }>) {
+    const selected = reasons.filter((item) => item.selected).map((item) => item.code);
+    if (selected.includes("license_unclear")) return "存在问题的照片（行驶证问题必须标注正页或副页，便于车主补拍高亮）";
+    if (selected.includes("vehicle_photos_incomplete")) return "存在问题的照片（车辆照片问题必须标注对应车身/仪表盘）";
+    if (selected.includes("dashboard_warning")) return "存在问题的照片（故障灯必须标注启动后仪表盘）";
+    if (selected.some((code) => code === "body_dirty" || code === "body_damage")) return "存在问题的照片（脏污/车损必须标注对应车身照片）";
+    return "存在问题的照片（可多选；资料类问题建议标注对应照片，车主端才会高亮补拍）";
+  },
+  rejectIssuePhotoError(reasonCodes: string[], issuePhotoKinds: string[]) {
+    if (reasonCodes.includes("dashboard_warning") && !issuePhotoKinds.includes("dashboard_started")) {
+      return "故障灯问题请标注启动后仪表盘照片";
+    }
+    if (reasonCodes.some((code) => code === "body_dirty" || code === "body_damage")
+      && !issuePhotoKinds.some((kind) => kind.startsWith("vehicle_"))) {
+      return "脏污或车损问题请标注对应车身照片";
+    }
+    if (reasonCodes.includes("license_unclear")
+      && !issuePhotoKinds.some((kind) => kind === "license_front" || kind === "license_back")) {
+      return "行驶证模糊或缺页请标注对应的行驶证照片";
+    }
+    if (reasonCodes.includes("vehicle_photos_incomplete")
+      && !issuePhotoKinds.some((kind) => kind.startsWith("vehicle_") || kind === "dashboard_started")) {
+      return "车辆照片不完整或不清晰请标注对应车辆照片";
+    }
+    return "";
+  },
   reasonInput(event) { this.setData({ reasonText: String(event.detail.value || "") }); },
   submitReject() {
     const booking = this.data.booking;
     const reasonCodes = this.data.reasons.filter((item) => item.selected).map((item) => item.code);
     const reasonText = this.data.reasonText.trim();
+    if (this.data.deciding) {
+      wx.showToast({ title: "正在提交，请稍候", icon: "none" });
+      return;
+    }
+    if (!booking?.precheck) {
+      wx.showToast({ title: "预审资料未加载完成，请关闭后重试", icon: "none" });
+      return;
+    }
+    if (!reasonCodes.length) {
+      wx.showToast({ title: "请选择不通过原因", icon: "none" });
+      return;
+    }
+    if (reasonText.length < 5) {
+      wx.showToast({ title: "请填写至少 5 个字的具体说明", icon: "none" });
+      return;
+    }
+    const photoError = this.rejectIssuePhotoError(reasonCodes, this.data.selectedPhotoKinds);
+    if (photoError) {
+      wx.showToast({ title: photoError, icon: "none" });
+      return;
+    }
+    // 真机调试下 wx.showModal 可能失败；改用弹层内二次确认。
+    if (!this.data.rejectConfirming) {
+      this.setData({ rejectConfirming: true });
+      return;
+    }
+    void this.confirmReject();
+  },
+  async confirmReject() {
+    const booking = this.data.booking;
     if (!booking?.precheck || this.data.deciding) return;
-    if (!reasonCodes.length) { wx.showToast({ title: "请选择不通过原因", icon: "none" }); return; }
-    if (reasonText.length < 5) { wx.showToast({ title: "请填写至少 5 个字的具体说明", icon: "none" }); return; }
-    wx.showModal({ title: "确认发送问题处理清单", content: `订单与已付款 ${this.data.paymentLabel} 保留，原时段释放。车主可补充资料、选择洗车或维修后重新提交；是否退款由车主主动决定。`, confirmText: "发送给车主", confirmColor: "#1768cf", success: async ({ confirm }) => {
-      if (!confirm) return;
-      this.setData({ deciding: true });
-      try {
-        await api.rejectOperatorPrecheck(booking.id, { idempotencyKey: this.data.rejectIdempotencyKey, expectedVersion: booking.precheck!.version, reasonCodes, reasonText, issuePhotoKinds: this.data.selectedPhotoKinds });
-        wx.showToast({ title: "已发送处理清单", icon: "success" });
-        setTimeout(() => wx.navigateBack(), 600);
-      } catch (error) { wx.showToast({ title: error instanceof Error ? error.message : "处理清单提交失败", icon: "none" }); await this.load(); }
-      finally { this.setData({ deciding: false }); }
-    } });
+    const reasonCodes = this.data.reasons.filter((item) => item.selected).map((item) => item.code);
+    const reasonText = this.data.reasonText.trim();
+    this.setData({ deciding: true });
+    try {
+      await api.rejectOperatorPrecheck(booking.id, {
+        idempotencyKey: this.data.rejectIdempotencyKey,
+        expectedVersion: booking.precheck.version,
+        reasonCodes,
+        reasonText,
+        issuePhotoKinds: this.data.selectedPhotoKinds,
+      });
+      this.setData({ showReject: false, rejectConfirming: false });
+      wx.showToast({ title: "已发送处理清单", icon: "success" });
+      setTimeout(() => wx.navigateBack(), 600);
+    } catch (error) {
+      wx.showToast({ title: error instanceof Error ? error.message : "处理清单提交失败", icon: "none" });
+      this.setData({ rejectConfirming: false });
+      await this.load();
+    } finally {
+      this.setData({ deciding: false });
+    }
   },
   noop() {},
 });

@@ -182,7 +182,7 @@ test("native add/edit handlers load, search, select and save new catalog identit
     assert.equal(saved?.seats, 5);
     assert.equal(saved?.washVehicleCategory, "sedan");
     assert.equal(saved?.exteriorColor, "海湾蓝（个性定制）", "a custom passenger-car exterior color must be saved");
-    assert.ok(!Object.hasOwn(saved!, "powertrainType"));
+    assert.equal(saved?.powertrainType, "gasoline", "saving must keep an explicit powertrain type");
     assert.ok(!Object.hasOwn(saved!, "inspectionValidity"));
     assert.deepEqual(navigationCalls, ["navigateBack"], "only a successful explicit save may leave the editor");
 

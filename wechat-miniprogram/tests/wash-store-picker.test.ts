@@ -120,6 +120,8 @@ test("独立门店页完整承接详情、选择回传与预约页防串价刷�
   assert.match(apiSource, /washStore: async \(storeId:[\s\S]+\/wash\/stores\//);
   assert.match(pageSource, /api\.washPackages\(store\.id, category\)/);
   assert.match(pageSource, /api\.washSlots\(card\.id, date, card\.startingPackageId\)/);
+  assert.match(pageSource, /bootstrap\(\)[\s\S]*initialLocationAttempted[\s\S]*locate\(\)/);
+  assert.match(pageSource, /serviceMode === "self_drive" && !origin && !this\.initialLocationAttempted/);
   assert.match(pageSource, /patchWashDraft\(\{ storeId, packageId: undefined, slotId: undefined \}\)/);
   assert.match(pageSource, /draft\.selfDriveOrigin\?\.type === "self_drive"/);
   assert.match(pageSource, /patchWashDraft\(\{ selfDriveOrigin: \{ \.\.\.origin, type: "self_drive" \} \}\)/);

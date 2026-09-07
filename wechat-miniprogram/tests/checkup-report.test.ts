@@ -220,7 +220,7 @@ test("左右侧后视镜、前后车门和翼子板热点按镜像关系落在�
   assert.ok((byCode.get("right_rear_door")?.x || 0) < (byCode.get("right_front_door")?.x || 0));
 });
 
-test("车辆定位图优先使用车主所选车型图片并为右侧生成镜像", () => {
+test("车辆定位图始终使用校准示意模板，并为右侧生成镜像", () => {
   const exact = checkupVehicleDiagram({
     id: "vehicle-1", plateNumber: "津A00001", vehicleType: "小型轿车", usageNature: "非营运", seats: 5,
     registrationDate: "2022-01-01", inspectionDueDate: "2026-12-31", isDefault: true,
@@ -229,7 +229,9 @@ test("车辆定位图优先使用车主所选车型图片并为右侧生成镜�
   });
   assert.equal(exact.vehicleLabel, "比亚迪 汉");
   assert.equal(exact.bodyType, "sedan");
-  assert.equal(exact.sourceLabel, "轿车 · 车主所选车型参考图");
+  assert.equal(exact.sourceLabel, "轿车 · 通用车身示意（不代表实车外观）");
+  assert.match(exact.views.find((item) => item.id === "left")?.imagePath || "", /car-sedan-left-v1\.png$/u);
+  assert.match(exact.views.find((item) => item.id === "top")?.imagePath || "", /car-sedan-top-v1\.png$/u);
   assert.equal(exact.views.find((item) => item.id === "left")?.imagePath, exact.views.find((item) => item.id === "right")?.imagePath);
   assert.equal(exact.views.find((item) => item.id === "left")?.mirrored, false);
   assert.equal(exact.views.find((item) => item.id === "right")?.mirrored, true);
@@ -249,8 +251,8 @@ test("车辆定位图优先使用车主所选车型图片并为右侧生成镜�
     visual: { imageUrl: "http://127.0.0.1:8792/assets/vehicle-li-l7.webp", kind: "presentation_cutout", label: "车型展示图" },
   });
   assert.equal(suv.bodyType, "suv");
-  assert.equal(suv.sourceLabel, "SUV · 车主所选车型参考图");
-  assert.equal(suv.regions.find((item) => item.code === "left_front_wheel")?.y, 66);
+  assert.match(suv.views.find((item) => item.id === "left")?.imagePath || "", /car-suv-left-v1\.png$/u);
+  assert.equal(suv.regions.find((item) => item.code === "left_front_wheel")?.y, 65);
 
   const mpv = checkupVehicleDiagram({ ...baseVehicle, id: "vehicle-4", washVehicleCategory: "mpv", vehicleType: "小型MPV" });
   assert.equal(mpv.bodyType, "mpv");
@@ -378,10 +380,12 @@ test("提交校验要求五张现场照和状态确认，仅通过结果强制�
   const missingSafety = { ...complete, media: complete.media.filter((item) => !["safety_inspection_report", "annual_inspection_mark"].includes(item.kind)) };
   assert.deepEqual(validateCheckupForSubmit(missingSafety), []);
   assert.deepEqual(LEGAL_MATERIAL_SLOTS.map((item) => [item.kind, item.required]), [
-    ["safety_inspection_report", false],
-    ["emissions_inspection_report", false],
     ["annual_inspection_mark", true],
   ]);
+  assert.doesNotMatch(
+    readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxml", import.meta.url), "utf8"),
+    /data-kind="safety_inspection_report"|data-kind="emissions_inspection_report"|拍摄或从相册选择检验报告|拍摄或从相册选择排放检验报告/,
+  );
 
   const missing = { ...complete, media: complete.media.filter((item) => item.kind !== "rear_right") };
   assert.match(validateCheckupForSubmit(missing).join(" "), /右后/);
@@ -538,8 +542,8 @@ test("检测端上传或提交期间锁定可变字段并给出明确等待状�
   const markup = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxml", import.meta.url), "utf8");
   assert.match(source, /fixedPhotoUploadingCount:\s*this\.data\.fixedPhotoUploadingCount \+ 1/);
   assert.match(source, /faultPhotoBusyCount:\s*this\.data\.faultPhotoAttempts\.filter/);
-  assert.match(source, /if \(this\.data\.fixedPhotoUploadingCount > 0 \|\| this\.data\.safetyReportUploading \|\| this\.data\.emissionsReportUploading \|\| this\.data\.markUploading \|\| this\.data\.faultPhotoBusyCount > 0\)/);
-  assert.match(markup, /disabled="\{\{saving \|\| submitting \|\| fixedPhotoUploadingCount > 0 \|\| safetyReportUploading \|\| emissionsReportUploading \|\| markUploading \|\| faultPhotoBusyCount > 0\}\}"/);
+  assert.match(source, /if \(this\.data\.fixedPhotoUploadingCount > 0 \|\| this\.data\.markUploading \|\| this\.data\.faultPhotoBusyCount > 0\)/);
+  assert.match(markup, /disabled="\{\{saving \|\| submitting \|\| fixedPhotoUploadingCount > 0 \|\| markUploading \|\| faultPhotoBusyCount > 0\}\}"/);
   assert.match(markup, /材料处理中/);
   assert.match(markup, /等待材料完成/);
   assert.match(markup, /bindtap="selectConclusion" disabled="\{\{saving \|\| submitting\}\}"/);
@@ -618,9 +622,14 @@ test("每条故障生成克制且与类型程度相关的处理建议", () => {
 
 test("只读页面包含完整文字报告结构且不伪造官方报告要素", () => {
   const source = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.wxml", import.meta.url), "utf8");
-  for (const heading of ["报告与车辆信息", "年检结论", "车辆体检记录", "故障明细与建议", "法定检测材料", "平台车辆体检留证", "车辆问题定位", "照片材料预览"]) {
+  const headings = ["车辆问题定位", "故障明细与建议", "年检结论", "车辆体检记录", "报告与车辆信息", "法定检测材料", "平台车辆体检留证", "照片材料预览"];
+  for (const heading of headings) {
     assert.match(source, new RegExp(heading));
   }
+  // 故障定位与明细靠前，便于车主一眼看到位置
+  assert.ok(source.indexOf("车辆问题定位") < source.indexOf("故障明细与建议"));
+  assert.ok(source.indexOf("故障明细与建议") < source.indexOf("年检结论"));
+  assert.ok(source.indexOf("年检结论") < source.indexOf("报告与车辆信息"));
   assert.match(source, /平台报告编号/);
   assert.match(source, /不是机动车安全技术检验机构出具的官方报告/);
   assert.match(source, /不含官方报告号或检验机构签章/);
@@ -713,9 +722,11 @@ test("车主报告把法定检测材料与平台车辆体检留证分组且关�
 test("订单详情同时概览法定检测材料与平台车辆体检留证且诚实提示历史缺失", () => {
   const script = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.ts", import.meta.url), "utf8");
   const markup = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.wxml", import.meta.url), "utf8");
-  assert.match(script, /reportMedia\(report, "safety_inspection_report"\)/);
-  assert.match(script, /安全检验报告选填 · 未提供/);
-  assert.match(script, /排放报告选填 · 未提供/);
+  assert.match(script, /reportMedia\(report, "annual_inspection_mark"\)/);
+  assert.match(script, /合格凭证已归档/);
+  assert.match(script, /合格凭证不适用/);
+  assert.doesNotMatch(script, /安全检验报告选填 · 未提供/);
+  assert.doesNotMatch(script, /排放报告选填 · 未提供/);
   assert.match(script, /missing:\s*passed && !mark/);
   assert.match(markup, /法定检测材料/);
   assert.match(markup, /平台车辆体检留证/);

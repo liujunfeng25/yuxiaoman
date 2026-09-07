@@ -63,7 +63,93 @@ export const WORKFLOW_TEMPLATE_VARIABLES = [
   "remainingTime",
   "maskedBusinessCode",
   "verificationCode",
+  "serviceAmount",
+  "serviceItem",
+  "warmTip",
+  "taskSummary",
+  "reviewStatus",
+  "reviewResult",
+  "eventTime",
 ] as const;
+
+/** Official WeChat subscribe-message bindings for the first six annual notify scenarios. */
+export const OFFICIAL_WECHAT_TEMPLATE_BINDINGS: Readonly<Record<string, {
+  providerTemplateId: string;
+  fieldMappings: ReadonlyArray<{ field: string; variable: typeof WORKFLOW_TEMPLATE_VARIABLES[number] }>;
+  contentSnapshot: string;
+}>> = {
+  "annual.precheck.pending.station": {
+    providerTemplateId: "d4feXT5LI5m4soPpWT-nhH9zc9W8N3BHkWudyY9AxEQ",
+    contentSnapshot: "工作任务待办通知",
+    fieldMappings: [
+      { field: "thing2", variable: "taskSummary" },
+      { field: "time3", variable: "eventTime" },
+      { field: "character_string10", variable: "maskedBusinessCode" },
+      { field: "thing11", variable: "remainingTime" },
+    ],
+  },
+  "annual.payment.pending.owner": {
+    providerTemplateId: "eU9ADFE2KA8gMPFgcV8rePfr__d2dB-pDO3QfsbaeD4",
+    contentSnapshot: "待付款提醒",
+    fieldMappings: [
+      { field: "character_string3", variable: "maskedBusinessCode" },
+      { field: "thing5", variable: "maskedPlate" },
+      { field: "amount10", variable: "serviceAmount" },
+      { field: "thing4", variable: "warmTip" },
+    ],
+  },
+  "annual.precheck.action_required.owner": {
+    providerTemplateId: "5cIV444lkpQ4CEyakK6Y4OGJJAQZc6CHbsMPvAKuag84",
+    contentSnapshot: "素材审核通知",
+    fieldMappings: [
+      { field: "phrase4", variable: "reviewStatus" },
+      { field: "phrase1", variable: "reviewResult" },
+      { field: "character_string3", variable: "maskedBusinessCode" },
+      { field: "thing2", variable: "warmTip" },
+      { field: "time5", variable: "eventTime" },
+    ],
+  },
+  "annual.arrival.reminder.owner": {
+    providerTemplateId: "uMToVS4KO3GzecV8e3K6YBlmJJtjRPL31iPIfklHtfU",
+    contentSnapshot: "预约提醒",
+    fieldMappings: [
+      { field: "thing21", variable: "stationName" },
+      { field: "time3", variable: "appointmentTime" },
+      { field: "thing8", variable: "maskedPlate" },
+      { field: "character_string32", variable: "maskedBusinessCode" },
+      { field: "thing4", variable: "warmTip" },
+    ],
+  },
+  "annual.report.ready.owner": {
+    providerTemplateId: "JZ1PWcyFls-lt7VMnt9FEhcti0lnffMkRcDjx_B2pcc",
+    contentSnapshot: "检测报告完成通知",
+    fieldMappings: [
+      { field: "phrase4", variable: "reportConclusion" },
+      { field: "character_string2", variable: "maskedBusinessCode" },
+      { field: "thing5", variable: "maskedPlate" },
+      { field: "time8", variable: "eventTime" },
+    ],
+  },
+  "annual.service.completed.owner": {
+    providerTemplateId: "Wjt3IX-qQJumXwXZd0CMDzSCCTx2UErI_bfApVmYn2c",
+    contentSnapshot: "服务完成通知",
+    fieldMappings: [
+      { field: "character_string1", variable: "maskedBusinessCode" },
+      { field: "thing5", variable: "serviceItem" },
+      { field: "time3", variable: "eventTime" },
+      { field: "thing4", variable: "warmTip" },
+    ],
+  },
+};
+
+const WECHAT_CHANNEL_ENABLED_NODE_CODES = new Set<WorkflowNodeCode>([
+  "annual.precheck.pending",
+  "annual.pending_payment",
+  "annual.precheck.action_required",
+  "annual.arrival.owner",
+  "annual.report.ready",
+  "annual.service.completed",
+]);
 
 export type SeedWorkflowOptions = { now?: Date; actor?: string };
 
@@ -78,10 +164,10 @@ type DefaultTemplate = {
 };
 
 export const DEFAULT_WORKFLOW_TEMPLATES: readonly DefaultTemplate[] = [
-  { code: "annual.payment.pending.owner", name: "车主年检待支付提醒", nodeCode: "annual.pending_payment", title: "待完成年检订单支付", body: "{{maskedPlate}} 的年检订单尚未支付，请进入订单完成支付；支付成功后将自动进入资料预检。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode"] },
-  { code: "annual.precheck.pending.station", name: "检测站预检待办", nodeCode: "annual.precheck.pending", title: "有预约资料待预检", body: "当前有 {{pendingCount}} 笔预约资料待预检，请在 {{remainingTime}} 内处理。", actionCode: "operator.precheck.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode"] },
-  { code: "annual.precheck.action_required.owner", name: "车主预检处理提醒", nodeCode: "annual.precheck.action_required", title: "年检资料需要处理", body: "{{maskedPlate}} 的预检需要补充资料或处理问题，请进入订单查看。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode"] },
-  { code: "annual.arrival.reminder.owner", name: "车主到站提醒", nodeCode: "annual.arrival.owner", title: "请按预约时间到站", body: "{{maskedPlate}} 已预约 {{appointmentTime}} 到 {{stationName}} 验车。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "maskedBusinessCode"] },
+  { code: "annual.payment.pending.owner", name: "车主年检待支付提醒", nodeCode: "annual.pending_payment", title: "待完成年检订单支付", body: "{{maskedPlate}} 的年检订单尚未支付，请进入订单完成支付；支付成功后将自动进入资料预检。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode", "serviceAmount", "warmTip"] },
+  { code: "annual.precheck.pending.station", name: "检测站预检待办", nodeCode: "annual.precheck.pending", title: "有预约资料待预检", body: "当前有 {{pendingCount}} 笔预约资料待预检，请在 {{remainingTime}} 内处理。", actionCode: "operator.precheck.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode", "taskSummary", "eventTime"] },
+  { code: "annual.precheck.action_required.owner", name: "车主预检处理提醒", nodeCode: "annual.precheck.action_required", title: "年检资料需要处理", body: "{{maskedPlate}} 的预检需要补充资料或处理问题，请进入订单查看。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode", "reviewStatus", "reviewResult", "warmTip", "eventTime"] },
+  { code: "annual.arrival.reminder.owner", name: "车主到站提醒", nodeCode: "annual.arrival.owner", title: "请按预约时间到站", body: "{{maskedPlate}} 已预约 {{appointmentTime}} 到 {{stationName}} 验车。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "maskedBusinessCode", "warmTip"] },
   { code: "annual.driver.assignment.platform", name: "平台安排代驾司机待办", nodeCode: "annual.driver.assign", title: "代驾订单待安排司机", body: "当前有 {{pendingCount}} 笔代驾验车订单等待安排司机，请在 {{remainingTime}} 内处理。", actionCode: "workflow.task.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode"] },
   { code: "annual.driver.assigned", name: "代驾司机任务", nodeCode: "annual.driver.claim", title: "您有新的代驾验车任务", body: "任务 {{maskedBusinessCode}} 已安排，验证码 {{verificationCode}}，请及时进入代驾端领取。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "remainingTime", "maskedBusinessCode", "verificationCode"] },
   { code: "annual.pickup.evidence.driver", name: "司机取车留证待办", nodeCode: "annual.pickup.driver", title: "请完成取车留证", body: "{{maskedPlate}} 的代驾任务已领取，请在 {{remainingTime}} 内完成四角和启动后仪表盘共 5 张取车照片并提交。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "remainingTime", "maskedBusinessCode"] },
@@ -89,10 +175,10 @@ export const DEFAULT_WORKFLOW_TEMPLATES: readonly DefaultTemplate[] = [
   { code: "annual.station.arrival", name: "代驾车辆到站", nodeCode: "annual.station.arrival", title: "代驾车辆待交接", body: "当前有 {{pendingCount}} 辆代驾车辆待完成到站交接留证，请及时处理。", actionCode: "operator.booking.detail", allowedVariables: ["pendingCount", "stationName", "remainingTime", "maskedBusinessCode"] },
   { code: "annual.inspection.start.station", name: "检测站开始检测待办", nodeCode: "annual.inspection.start", title: "到站车辆待开始检测", body: "当前有 {{pendingCount}} 辆到站车辆待开始检测，请在 {{remainingTime}} 内处理。", actionCode: "operator.booking.detail", allowedVariables: ["pendingCount", "stationName", "remainingTime", "maskedBusinessCode"] },
   { code: "annual.inspection.overdue", name: "检测与报告发布提醒", nodeCode: "annual.inspection.report", title: "检测报告待发布", body: "当前有 {{pendingCount}} 笔检测报告待发布，请及时完成检测并发布结果；逾期任务将升级处理。", actionCode: "operator.booking.detail", allowedVariables: ["pendingCount", "stationName", "maskedBusinessCode"] },
-  { code: "annual.report.ready.owner", name: "年检报告已生成", nodeCode: "annual.report.ready", title: "车辆检测报告已生成", body: "{{maskedPlate}} 年检结论：{{reportConclusion}}。点击查看完整报告。", actionCode: "annual.report.detail", allowedVariables: ["maskedPlate", "reportConclusion", "maskedBusinessCode"] },
+  { code: "annual.report.ready.owner", name: "年检报告已生成", nodeCode: "annual.report.ready", title: "车辆检测报告已生成", body: "{{maskedPlate}} 年检结论：{{reportConclusion}}。点击查看完整报告。", actionCode: "annual.report.detail", allowedVariables: ["maskedPlate", "reportConclusion", "maskedBusinessCode", "eventTime"] },
   { code: "annual.return.required.driver", name: "司机返程待办", nodeCode: "annual.return.driver", title: "车辆待送回", body: "{{maskedPlate}} 报告已发布，请在 {{remainingTime}} 内开始返程。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "remainingTime", "maskedBusinessCode"] },
   { code: "annual.return.delivery.driver", name: "司机送回留证待办", nodeCode: "annual.return.delivery", title: "请完成车辆送回留证", body: "{{maskedPlate}} 已在返程中，请送达后提交四角和启动后仪表盘共 5 张送回照片。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode"] },
-  { code: "annual.service.completed.owner", name: "年检服务完成", nodeCode: "annual.service.completed", title: "本次年检服务已完成", body: "{{maskedPlate}} 的年检服务已完成，可查看节点留证和检测报告。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "reportConclusion", "maskedBusinessCode"] },
+  { code: "annual.service.completed.owner", name: "年检服务完成", nodeCode: "annual.service.completed", title: "本次年检服务已完成", body: "{{maskedPlate}} 的年检服务已完成，可查看节点留证和检测报告。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "reportConclusion", "maskedBusinessCode", "serviceItem", "eventTime", "warmTip"] },
   { code: "repair.request.new.shop", name: "维修店新报价机会", nodeCode: "repair.quote.first", title: "有新的维修报价需求", body: "当前有 {{pendingCount}} 笔维修需求正在等待首份报价，请及时查看。", actionCode: "repair.shop.request.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode"] },
   { code: "repair.quote.first.owner", name: "车主收到首份报价", nodeCode: "repair.quote.owner_action", title: "已收到首份维修报价", body: "{{maskedPlate}} 已收到首份维修报价，请进入需求详情比较和选择。", actionCode: "repair.request.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode"] },
   { code: "repair.order.selected.shop", name: "维修店中选通知", nodeCode: "repair.order.selected", title: "维修报价已被车主选中", body: "当前有 {{pendingCount}} 笔维修需求已完成选店，请查看授权后的订单信息。", actionCode: "repair.shop.request.detail", allowedVariables: ["pendingCount", "maskedBusinessCode"] },
@@ -476,6 +562,13 @@ const EXAMPLE_DATA: Record<string, string | number> = {
   remainingTime: "30分钟",
   maskedBusinessCode: "YXM-***-8A21",
   verificationCode: "******",
+  serviceAmount: "260.00",
+  serviceItem: "机动车年检",
+  warmTip: "请打开小程序查看详情",
+  taskSummary: "预约资料待预检",
+  reviewStatus: "待处理",
+  reviewResult: "需补充",
+  eventTime: "2026-09-07 10:00:00",
 };
 
 async function ensureBootstrapReleaseEvent(
@@ -525,14 +618,27 @@ async function seedTemplateChannel(
 ): Promise<string> {
   const id = `workflow-template-${template.code.replaceAll(".", "-")}-${channel}-v1`;
   const body = channel === "sms" ? `【驭小满】${template.body}` : template.body;
-  const filingStatus = channel === "in_app" ? "not_required" : channel === "sms" ? "unreported" : "unconfigured";
+  const wechatBinding = channel === "wechat" ? OFFICIAL_WECHAT_TEMPLATE_BINDINGS[template.code] : undefined;
+  const filingStatus = channel === "in_app"
+    ? "not_required"
+    : channel === "sms"
+      ? "unreported"
+      : wechatBinding
+        ? "configured"
+        : "unconfigured";
+  const providerSnapshot = wechatBinding
+    ? {
+      fieldMappings: [...wechatBinding.fieldMappings],
+      contentSnapshot: wechatBinding.contentSnapshot,
+    }
+    : {};
   await database.prepare(`
     INSERT INTO notification_templates (
       id, stable_code, name, node_code, channel, version, state, revision, is_current,
       title, body, button_text, action_code, allowed_variables_json, example_data_json,
       provider_template_id, provider_snapshot_json, filing_status,
       created_by, published_by, created_at, updated_at, published_at
-    ) VALUES (?, ?, ?, ?, ?, 1, 'published', 1, 1, ?, ?, ?, ?, ?, ?, NULL, '{}', ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, 1, 'published', 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (id) DO NOTHING
   `).run(
     id,
@@ -546,6 +652,8 @@ async function seedTemplateChannel(
     template.actionCode,
     JSON.stringify(template.allowedVariables),
     JSON.stringify(EXAMPLE_DATA),
+    wechatBinding?.providerTemplateId ?? null,
+    JSON.stringify(providerSnapshot),
     filingStatus,
     actor,
     actor,
@@ -613,7 +721,7 @@ async function insertDefaultPolicyNode(
     node.escalationMinutes,
     node.maxReminders,
     node.reminderIntervalMinutes,
-    JSON.stringify(["in_app"]),
+    JSON.stringify(WECHAT_CHANNEL_ENABLED_NODE_CODES.has(node.code) ? ["in_app", "wechat"] : ["in_app"]),
     JSON.stringify([]),
     JSON.stringify({ in_app: inAppTemplateId, sms: smsTemplateId, wechat: wechatTemplateId }),
     JSON.stringify({ start: "22:00", end: "08:00", appliesTo: "owner_non_urgent" }),
@@ -1028,6 +1136,200 @@ async function migrateAnnualTemplateSemanticBindings(
   );
 }
 
+async function migrateOfficialWechatProviderBindings(
+  database: AppDatabase,
+  now: string,
+): Promise<void> {
+  for (const template of DEFAULT_WORKFLOW_TEMPLATES) {
+    const binding = OFFICIAL_WECHAT_TEMPLATE_BINDINGS[template.code];
+    if (!binding) continue;
+    const current = await database.prepare<Row>(`
+      SELECT * FROM notification_templates
+      WHERE stable_code = ? AND channel = 'wechat' AND state = 'published' AND is_current = 1
+      FOR UPDATE
+    `).get(template.code);
+    if (!current) continue;
+    const providerSnapshot = {
+      fieldMappings: [...binding.fieldMappings],
+      contentSnapshot: binding.contentSnapshot,
+    };
+    const alreadyConfigured = String(current.provider_template_id ?? "") === binding.providerTemplateId
+      && String(current.filing_status) === "configured"
+      && String(current.allowed_variables_json) === JSON.stringify(template.allowedVariables)
+      && String(current.provider_snapshot_json) === JSON.stringify(providerSnapshot);
+    if (alreadyConfigured) continue;
+
+    const maxVersion = await database.prepare<Row>(`
+      SELECT COALESCE(MAX(version), 0) AS version
+      FROM notification_templates
+      WHERE stable_code = ? AND channel = 'wechat' AND state = 'published'
+    `).get(template.code);
+    const version = Number(maxVersion?.version ?? 0) + 1;
+    const id = `workflow-template-${template.code.replaceAll(".", "-")}-wechat-v${version}`;
+    await database.prepare(`
+      UPDATE notification_templates SET is_current = 0, updated_at = ?
+      WHERE id = ? AND is_current = 1
+    `).run(now, String(current.id));
+    await database.prepare(`
+      INSERT INTO notification_templates (
+        id, stable_code, name, node_code, channel, version, state, revision, is_current,
+        title, body, button_text, action_code, allowed_variables_json, example_data_json,
+        provider_template_id, provider_snapshot_json, filing_status,
+        created_by, published_by, created_at, updated_at, published_at
+      ) VALUES (?, ?, ?, ?, 'wechat', ?, 'published', 1, 1,
+        ?, ?, ?, ?, ?, ?, ?, ?, 'configured',
+        'system-migration', 'system-migration', ?, ?, ?)
+    `).run(
+      id,
+      template.code,
+      String(current.name),
+      String(current.node_code),
+      version,
+      String(current.title ?? ""),
+      String(current.body),
+      current.button_text == null ? null : String(current.button_text),
+      String(current.action_code),
+      JSON.stringify(template.allowedVariables),
+      JSON.stringify(EXAMPLE_DATA),
+      binding.providerTemplateId,
+      JSON.stringify(providerSnapshot),
+      now,
+      now,
+      now,
+    );
+    await database.prepare(`
+      INSERT INTO workflow_release_events (
+        id, resource_type, resource_id, domain, version, actor_id, action, summary_json, occurred_at
+      ) VALUES (?, 'notification_template', ?, ?, ?, 'system-migration', 'published', ?, ?)
+    `).run(
+      randomUUID(),
+      id,
+      workflowTemplateDomain(template.code),
+      version,
+      JSON.stringify({
+        sourceTemplateId: String(current.id),
+        providerTemplateId: binding.providerTemplateId,
+        changeSummary: `绑定微信订阅消息模板「${binding.contentSnapshot}」及字段映射`,
+      }),
+      now,
+    );
+  }
+}
+
+async function migrateOfficialWechatNotifyChannels(
+  database: AppDatabase,
+  now: string,
+): Promise<void> {
+  await database.prepare("SELECT pg_advisory_xact_lock(hashtext(?))")
+    .get("workflow-policy-migration:annual.official-wechat-channels");
+  const current = await database.prepare<Row>(`
+    SELECT * FROM workflow_policy_sets
+    WHERE domain = 'annual_inspection' AND state = 'published' AND is_current = 1
+    FOR UPDATE
+  `).get();
+  if (!current) return;
+
+  const nodes = await database.prepare<Row>(`
+    SELECT node_code, enabled_channels_json
+    FROM workflow_policy_nodes
+    WHERE policy_set_id = ? AND node_code = ANY(?::text[])
+  `).all(String(current.id), [...WECHAT_CHANNEL_ENABLED_NODE_CODES]);
+  const needsUpgrade = nodes.filter((row) => {
+    try {
+      const channels = JSON.parse(String(row.enabled_channels_json)) as unknown;
+      return !Array.isArray(channels) || !channels.includes("wechat");
+    } catch {
+      return true;
+    }
+  });
+  if (needsUpgrade.length === 0) return;
+
+  const maxVersion = await database.prepare<Row>(`
+    SELECT COALESCE(MAX(version), 0) AS version FROM workflow_policy_sets
+    WHERE domain = 'annual_inspection' AND state = 'published'
+  `).get();
+  const version = Number(maxVersion?.version ?? 0) + 1;
+  const nextId = `annual-workflow-v${version}-wechat-notify`;
+  await database.prepare(`
+    UPDATE workflow_policy_sets SET is_current = 0, updated_at = ?
+    WHERE id = ? AND is_current = 1
+  `).run(now, String(current.id));
+  await database.prepare(`
+    INSERT INTO workflow_policy_sets (
+      id, domain, stable_code, name, state, version, revision, is_current,
+      timezone, business_hours_json, source_policy_set_id, created_by,
+      published_by, created_at, updated_at, published_at
+    ) VALUES (?, 'annual_inspection', ?, ?, 'published', ?, 1, 1, ?, ?, ?,
+      'system-migration', 'system-migration', ?, ?, ?)
+  `).run(
+    nextId,
+    String(current.stable_code),
+    `${String(current.name).replace(/（微信订阅启用）$/u, "")}（微信订阅启用）`,
+    version,
+    String(current.timezone),
+    String(current.business_hours_json),
+    String(current.id),
+    now,
+    now,
+    now,
+  );
+  await database.prepare(`
+    INSERT INTO workflow_policy_nodes (
+      id, policy_set_id, node_code, node_name, workflow_variant, is_enabled,
+      trigger_state, next_state, assignee_role, subject_scope, closure_action,
+      task_kind, timer_mode, first_reminder_minutes, deadline_minutes,
+      escalation_minutes, max_reminders, reminder_interval_minutes,
+      enabled_channels_json, fallback_order_json, template_bindings_json,
+      escalation_level, quiet_hours_json, immutable_rules_json, sort_order
+    )
+    SELECT ? || ':' || node_code, ?, node_code, node_name, workflow_variant, is_enabled,
+      trigger_state, next_state, assignee_role, subject_scope, closure_action,
+      task_kind, timer_mode, first_reminder_minutes, deadline_minutes,
+      escalation_minutes, max_reminders, reminder_interval_minutes,
+      enabled_channels_json, fallback_order_json, template_bindings_json,
+      escalation_level, quiet_hours_json, immutable_rules_json, sort_order
+    FROM workflow_policy_nodes WHERE policy_set_id = ?
+  `).run(nextId, nextId, String(current.id));
+
+  for (const nodeCode of WECHAT_CHANNEL_ENABLED_NODE_CODES) {
+    const row = await database.prepare<Row>(`
+      SELECT enabled_channels_json FROM workflow_policy_nodes
+      WHERE policy_set_id = ? AND node_code = ?
+    `).get(nextId, nodeCode);
+    if (!row) continue;
+    let channels: string[] = [];
+    try {
+      const parsed = JSON.parse(String(row.enabled_channels_json)) as unknown;
+      channels = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    } catch {
+      channels = ["in_app"];
+    }
+    if (!channels.includes("in_app")) channels.unshift("in_app");
+    if (!channels.includes("wechat")) channels.push("wechat");
+    await database.prepare(`
+      UPDATE workflow_policy_nodes SET enabled_channels_json = ?
+      WHERE policy_set_id = ? AND node_code = ?
+    `).run(JSON.stringify(channels), nextId, nodeCode);
+  }
+
+  await database.prepare(`
+    INSERT INTO workflow_release_events (
+      id, resource_type, resource_id, domain, version, actor_id, action, summary_json, occurred_at
+    ) VALUES (?, 'workflow_policy', ?, 'annual_inspection', ?, 'system-migration', 'published', ?, ?)
+  `).run(
+    randomUUID(),
+    nextId,
+    version,
+    JSON.stringify({
+      sourcePolicySetId: String(current.id),
+      sourceVersion: Number(current.version),
+      enabledNodes: [...WECHAT_CHANNEL_ENABLED_NODE_CODES],
+      changeSummary: "为首批年检通知节点启用微信订阅消息渠道；站内待办保持不变",
+    }),
+    now,
+  );
+}
+
 /**
  * The pickup task was added after the first published annual policy shipped.
  * Published policies are immutable, so an upgraded database receives a cloned
@@ -1200,6 +1502,7 @@ export async function seedDefaultWorkflowConfiguration(
     await migrateLegacyReportReadyTemplates(transaction, now);
     await migrateLegacyPrecheckTemplateActions(transaction, now);
     await migrateLegacyInspectionReportTemplateCopy(transaction, now);
+    await migrateOfficialWechatProviderBindings(transaction, now);
 
     for (const domain of WORKFLOW_DOMAINS) {
       const policyId = domain === "annual_inspection" ? "annual-workflow-v1" : "repair-workflow-v1";
@@ -1260,6 +1563,7 @@ export async function seedDefaultWorkflowConfiguration(
     }
     await migrateAnnualDriverPickupPolicy(transaction, now);
     await migrateAnnualTemplateSemanticBindings(transaction, now);
+    await migrateOfficialWechatNotifyChannels(transaction, now);
   });
 }
 

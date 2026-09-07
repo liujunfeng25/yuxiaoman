@@ -225,8 +225,9 @@ Page<Data>({
   applyReport(report: VehicleCheckupReport, booking?: Booking | null) {
     const currentBooking = booking || this.data.booking;
     const faults = report.faults || [];
-    const firstFault = faults[0];
-    const activeView = firstFault?.viewId || "left";
+    const firstBodyFault = faults.find((item) => !isCheckupSystemRegion(item.regionCode));
+    const activeView = firstBodyFault?.viewId || "left";
+    const activeFaultId = firstBodyFault?.id || faults[0]?.id || "";
     const diagram = checkupVehicleDiagram(currentBooking?.vehicle);
     const activeVisual = diagram.views.find((item) => item.id === activeView) || diagram.views[1];
     const conclusion = report.annualInspection?.conclusion || null;
@@ -239,15 +240,13 @@ Page<Data>({
       const media = reportMedia(report, slot.kind);
       return media ? { kind: slot.kind, label: slot.label, media, url: media.url } : null;
     }).filter(Boolean) as PhotoView[];
-    const safetySlot = { kind: "safety_inspection_report" as const, label: "机动车安全技术检验报告" };
-    const emissionsSlot = { kind: "emissions_inspection_report" as const, label: "排放检验报告" };
     const markSlot = { kind: "annual_inspection_mark" as const, label: "检验合格标志/电子凭证留证" };
-    const safetyMedia = reportMedia(report, safetySlot.kind);
-    const emissionsMedia = reportMedia(report, emissionsSlot.kind);
+    const safetyMedia = reportMedia(report, "safety_inspection_report");
+    const emissionsMedia = reportMedia(report, "emissions_inspection_report");
     const markMedia = conclusion === "passed" ? reportMedia(report, markSlot.kind) : null;
     const resultMaterials = [
-      safetyMedia ? { kind: safetySlot.kind, label: safetySlot.label, media: safetyMedia, url: safetyMedia.url } : null,
-      emissionsMedia ? { kind: emissionsSlot.kind, label: emissionsSlot.label, media: emissionsMedia, url: emissionsMedia.url } : null,
+      safetyMedia ? { kind: "safety_inspection_report" as const, label: "机动车安全技术检验报告", media: safetyMedia, url: safetyMedia.url } : null,
+      emissionsMedia ? { kind: "emissions_inspection_report" as const, label: "排放检验报告", media: emissionsMedia, url: emissionsMedia.url } : null,
       markMedia ? { kind: markSlot.kind, label: markSlot.label, media: markMedia, url: markMedia.url } : null,
     ].filter(Boolean) as PhotoView[];
     const failure = annualFailureDetails(report.annualInspection?.failureDetails);
@@ -264,22 +263,22 @@ Page<Data>({
     });
     const missingRequiredStatus = report.status === "published" ? "历史报告未采集" : "待上传";
     const resultMaterialAttachments: AttachmentView[] = [
-      {
-        kind: safetySlot.kind,
-        number: "选填",
-        label: safetySlot.label,
-        statusText: safetyMedia?.loadState === "failed" ? "安全读取失败" : safetyMedia ? "已归档" : "未提供",
-        statusTone: safetyMedia?.loadState === "failed" ? "missing" : safetyMedia ? "available" : "not-applicable",
-        url: safetyMedia?.url || "",
-      },
-      {
-        kind: emissionsSlot.kind,
-        number: "选填",
-        label: emissionsSlot.label,
-        statusText: emissionsMedia?.loadState === "failed" ? "安全读取失败" : emissionsMedia ? "已归档" : "未提供",
-        statusTone: emissionsMedia?.loadState === "failed" ? "missing" : emissionsMedia ? "available" : "not-applicable",
-        url: emissionsMedia?.url || "",
-      },
+      ...(safetyMedia ? [{
+        kind: "safety_inspection_report" as const,
+        number: "历史",
+        label: "机动车安全技术检验报告",
+        statusText: safetyMedia.loadState === "failed" ? "安全读取失败" : "已归档",
+        statusTone: (safetyMedia.loadState === "failed" ? "missing" : "available") as AttachmentView["statusTone"],
+        url: safetyMedia.url || "",
+      }] : []),
+      ...(emissionsMedia ? [{
+        kind: "emissions_inspection_report" as const,
+        number: "历史",
+        label: "排放检验报告",
+        statusText: emissionsMedia.loadState === "failed" ? "安全读取失败" : "已归档",
+        statusTone: (emissionsMedia.loadState === "failed" ? "missing" : "available") as AttachmentView["statusTone"],
+        url: emissionsMedia.url || "",
+      }] : []),
       {
         kind: markSlot.kind,
         number: "通过",
@@ -306,7 +305,7 @@ Page<Data>({
       diagramVehicleText: diagram.vehicleLabel,
       diagramSourceText: diagram.sourceLabel,
       diagramRegions: diagram.regions,
-      activeFaultId: firstFault?.id || "",
+      activeFaultId,
       faultViews: faults.map((fault, index) => ({
         ...fault,
         number: index + 1,
@@ -360,18 +359,20 @@ Page<Data>({
           : "年检结果待确认",
       summaryText: summaryText || "检测站未填写补充说明",
     });
-    this.refreshDiagram();
+    this.refreshDiagram({ activeView, activeFaultId });
   },
-  refreshDiagram() {
+  refreshDiagram(next?: { activeView?: CheckupViewId; activeFaultId?: string }) {
     const faults = this.data.report?.faults || [];
-    const activeFault = faults.find((item) => item.id === this.data.activeFaultId) || null;
+    const activeView = next?.activeView ?? this.data.activeView;
+    const activeFaultId = next?.activeFaultId ?? this.data.activeFaultId;
+    const activeFault = faults.find((item) => item.id === activeFaultId) || null;
     const tabs = this.data.diagramViews.map((item) => ({
       ...item,
-      selected: item.id === this.data.activeView,
+      selected: item.id === activeView,
       faultCount: faults.filter((fault) => fault.viewId === item.id && !isCheckupSystemRegion(fault.regionCode)).length,
     }));
-    const markers = this.data.diagramRegions.filter((region) => region.viewId === this.data.activeView).map((region) => {
-      const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
+    const markers = this.data.diagramRegions.filter((region) => region.viewId === activeView).map((region) => {
+      const marker = faultMarkerState(faults, region.code, activeFaultId);
       const callout = buildRegionCallout(region);
       return {
         code: region.code,
@@ -386,7 +387,7 @@ Page<Data>({
       };
     }).filter((marker) => marker.count > 0);
     const systemMarkers = CHECKUP_SYSTEM_REGIONS.map((region) => {
-      const marker = faultMarkerState(faults, region.code, this.data.activeFaultId);
+      const marker = faultMarkerState(faults, region.code, activeFaultId);
       return {
         code: region.code,
         label: region.label,
@@ -398,7 +399,7 @@ Page<Data>({
       };
     }).filter((marker) => marker.count > 0);
     let activeBubble: Bubble = { visible: false, title: "", description: "", style: "" };
-    if (activeFault && activeFault.viewId === this.data.activeView) {
+    if (activeFault && activeFault.viewId === activeView) {
       const region = this.data.diagramRegions.find((item) => item.code === activeFault.regionCode);
       if (region) {
         activeBubble = {
@@ -415,21 +416,28 @@ Page<Data>({
     const id = String(event.currentTarget.dataset.id || "left") as CheckupViewId;
     const first = this.data.report?.faults.find((fault) => fault.viewId === id && !isCheckupSystemRegion(fault.regionCode));
     const visual = this.data.diagramViews.find((item) => item.id === id) || this.data.diagramViews[1];
-    this.setData({ activeView: id, activeViewImage: visual.imagePath, activeViewMirrored: visual.mirrored, activeFaultId: first?.id || "" });
-    this.refreshDiagram();
+    const activeFaultId = first?.id || "";
+    this.setData({ activeView: id, activeViewImage: visual.imagePath, activeViewMirrored: visual.mirrored, activeFaultId });
+    this.refreshDiagram({ activeView: id, activeFaultId });
   },
   selectMarker(event) {
     const id = String(event.currentTarget.dataset.id || "");
     if (id) this.setData({ activeFaultId: id });
-    this.refreshDiagram();
+    this.refreshDiagram({ activeFaultId: id || this.data.activeFaultId });
   },
   selectFault(event) {
     const id = String(event.currentTarget.dataset.id || "");
     const fault = this.data.report?.faults.find((item) => item.id === id);
     if (!fault) return;
+    // 功能系统记录挂在 top viewId 上，点选时不要把三视图切走，只高亮系统卡片。
+    if (isCheckupSystemRegion(fault.regionCode)) {
+      this.setData({ activeFaultId: id });
+      this.refreshDiagram({ activeFaultId: id });
+      return;
+    }
     const visual = this.data.diagramViews.find((item) => item.id === fault.viewId) || this.data.diagramViews[1];
     this.setData({ activeFaultId: id, activeView: fault.viewId, activeViewImage: visual.imagePath, activeViewMirrored: visual.mirrored });
-    this.refreshDiagram();
+    this.refreshDiagram({ activeView: fault.viewId, activeFaultId: id });
   },
   previewPhoto(event) {
     const current = String(event.currentTarget.dataset.url || "");

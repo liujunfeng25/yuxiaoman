@@ -2052,7 +2052,20 @@ export function mediaUrl(path: string): string {
   // prefix used by bundled mini-program resources. Resolve them before the
   // local-resource branch; otherwise every failed catalog image collapses to
   // the same page fallback on a real device.
-  if (/^\/assets\/(?:used-cars|driving-schools)\//iu.test(value)) return `${apiOrigin}${value}`;
+  if (/^\/assets\/(?:used-cars|driving-schools)\//iu.test(value)) {
+    // Base library 3.8+ blocks HTTP <image> even in DevTools; catalog assets
+    // are mirrored on the public HTTPS host, so prefer that in the simulator.
+    if (apiOrigin.startsWith("http://")) {
+      try {
+        if (typeof wx !== "undefined" && wx.getSystemInfoSync().platform === "devtools") {
+          return `https://app.yuxiaomancs.com${value}`;
+        }
+      } catch {
+        // Fall through to the LAN API origin.
+      }
+    }
+    return `${apiOrigin}${value}`;
+  }
   if (/^(wxfile:|data:|blob:|file:)/iu.test(value)
     || value.startsWith("/assets/")
     || value.startsWith("/packages/")
@@ -2060,6 +2073,17 @@ export function mediaUrl(path: string): string {
     || value.startsWith("./")) return value;
   const legacyLoopback = value.match(/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(\/.*)?$/iu);
   if (legacyLoopback) return `${apiOrigin}${legacyLoopback[1] || ""}`;
+  // DevTools no longer renders LAN HTTP images; rewrite catalog asset hosts.
+  if (value.startsWith("http://")) {
+    try {
+      if (typeof wx !== "undefined" && wx.getSystemInfoSync().platform === "devtools") {
+        const lanAsset = value.match(/^https?:\/\/[^/]+(\/assets\/(?:used-cars|driving-schools)\/.*)$/iu);
+        if (lanAsset) return `https://app.yuxiaomancs.com${lanAsset[1]}`;
+      }
+    } catch {
+      // Keep the original URL.
+    }
+  }
   if (/^https?:\/\//iu.test(value)) return value;
   return `${apiOrigin}${value.startsWith("/") ? value : `/${value}`}`;
 }

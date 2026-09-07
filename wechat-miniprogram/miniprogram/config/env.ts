@@ -12,9 +12,10 @@
  * same HTTPS API as production. Only the developer-tools / develop build keeps
  * the local LAN endpoints.
  */
-const DEVICE_LAN_HOST = "192.168.1.16";
-// 开发者工具连接本机 API；真机局域网调试使用这台电脑的 WLAN 地址。
-const DEVELOPMENT_API_BASE_LOCAL = "http://127.0.0.1:8792/api";
+const DEVICE_LAN_HOST = "192.168.1.87";
+// 开发者工具 / 桌面端调试也走局域网 IP：Cursor 常会占用 127.0.0.1:8792，
+// 导致 wx.request 对 loopback 出现 request:fail（Connection reset）。
+const DEVELOPMENT_API_BASE_LOCAL = `http://${DEVICE_LAN_HOST}:8792/api`;
 const DEVELOPMENT_API_BASE_DEVICE = `http://${DEVICE_LAN_HOST}:8792/api`;
 const PRODUCTION_API_BASE = "https://app.yuxiaomancs.com/api";
 

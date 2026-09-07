@@ -2825,27 +2825,53 @@ export function registerWorkflowRoutes(
             domainError(
               409,
               "WORKFLOW_EXTRA_NOTIFICATION_UNAVAILABLE",
-              "任务中心站内督办已生效，当前未配置额外推送渠道",
+              "任务已在督办列表中。要让责任方收到额外提醒，请先在「通知联系人」配置短信，或确保接收人已授权微信订阅消息",
             );
           }
           domainError(409, "WORKFLOW_NOTIFICATION_UNAVAILABLE", "当前任务没有可用的通知接收人或投递渠道");
         }
+        const remindedAt = now().toISOString();
         await transaction.prepare(`
           UPDATE workflow_tasks SET reminder_count = reminder_count + 1, last_reminded_at = ?, updated_at = ? WHERE id = ?
-        `).run(now().toISOString(), now().toISOString(), taskId);
+        `).run(remindedAt, remindedAt, taskId);
         await transaction.prepare(`
           INSERT INTO workflow_task_events (
             id, task_id, event_type, actor_type, actor_id, from_status, to_status, metadata_json, occurred_at
-          ) VALUES (?, ?, 'manual_reminder', 'platform', ?, 'open', 'open', '{}', ?)
-        `).run(randomUUID(), taskId, principal.account.id, now().toISOString());
+          ) VALUES (?, ?, 'manual_reminder', 'platform', ?, 'open', 'open', ?, ?)
+        `).run(
+          randomUUID(),
+          taskId,
+          principal.account.id,
+          JSON.stringify({
+            inboxQueued: notification.inboxQueued,
+            outboxQueued: notification.outboxQueued,
+          }),
+          remindedAt,
+        );
         await auditBackofficeEvent(transaction, {
           request,
           action: "workflow.task.remind",
           outcome: "success",
           resource: { type: "workflow_task", id: taskId },
-          occurredAt: now().toISOString(),
+          occurredAt: remindedAt,
         });
-        return { data: { reminded: true, cooldownSeconds: 600 } };
+        const cooldownSeconds = 600;
+        return {
+          data: {
+            reminded: true,
+            cooldownSeconds,
+            nextManualReminderAt: new Date(now().getTime() + cooldownSeconds * 1_000).toISOString(),
+            delivery: {
+              inboxQueued: notification.inboxQueued,
+              outboxQueued: notification.outboxQueued,
+            },
+            message: notification.outboxQueued
+              ? "人工提醒已进入短信/微信发送队列"
+              : notification.inboxQueued
+                ? "人工提醒已写入站内消息"
+                : "人工提醒已受理",
+          },
+        };
       });
     } catch (error) {
       workflowProblem(error, options.problem);
@@ -2965,12 +2991,46 @@ export function registerWorkflowRoutes(
     await platformPrincipal(request, database, allowTestFallback);
     const code = String((request.params as { code?: unknown }).code ?? "");
     const body = (request.body ?? {}) as Json;
+    const channel = String(body.channel ?? "in_app");
     const row = await database.prepare<Row>(`
       SELECT * FROM notification_templates WHERE stable_code = ? AND channel = ?
-      ORDER BY CASE state WHEN 'draft' THEN 0 ELSE 1 END LIMIT 1
-    `).get(code, String(body.channel ?? "in_app"));
+      ORDER BY CASE state WHEN 'draft' THEN 0 ELSE 1 END, CASE WHEN is_current = 1 THEN 0 ELSE 1 END, version DESC NULLS LAST
+      LIMIT 1
+    `).get(code, channel);
     if (!row) throw new BackofficeError(404, "WORKFLOW_TEMPLATE_NOT_FOUND", "未找到通知模板");
-    return { data: templateDto(row) };
+    const dto = templateDto(row);
+    const exampleOverride = body.exampleData && typeof body.exampleData === "object" && !Array.isArray(body.exampleData)
+      ? body.exampleData as WorkflowTemplateVariables
+      : null;
+    const exampleData = exampleOverride
+      ? { ...dto.exampleData, ...exampleOverride }
+      : dto.exampleData as WorkflowTemplateVariables;
+    const renderedBody = renderWorkflowTemplate(String(row.body), exampleData);
+    const renderedTitle = renderWorkflowTemplate(String(row.title ?? ""), exampleData);
+    const providerSnapshot = jsonObject(row.provider_snapshot_json);
+    const mappings = Array.isArray(providerSnapshot.fieldMappings) ? providerSnapshot.fieldMappings : [];
+    const wechatFieldPreview = channel === "wechat"
+      ? mappings.flatMap((raw) => {
+        const mapping = jsonObject(raw);
+        const field = typeof mapping.field === "string" ? mapping.field.trim() : "";
+        const variable = typeof mapping.variable === "string" ? mapping.variable.trim() : "";
+        if (!field || !variable) return [];
+        const value = exampleData[variable as keyof WorkflowTemplateVariables];
+        return [{ field, variable, value: value == null ? "—" : String(value) }];
+      })
+      : [];
+    return {
+      data: {
+        ...dto,
+        exampleData,
+        renderedTitle,
+        renderedPreview: renderedBody,
+        renderedBody,
+        characterCount: renderedBody.length,
+        smsSegments: channel === "sms" ? estimateSmsSegments(renderedBody) : null,
+        wechatFieldPreview,
+      },
+    };
   });
   app.post("/api/admin/workflow/templates/:code/publish", async (request) => {
     const principal = await platformPrincipal(request, database, allowTestFallback);

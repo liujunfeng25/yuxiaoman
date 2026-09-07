@@ -6,7 +6,7 @@
     "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
     "check:main-package": "node scripts/check-main-package-budget.cjs",
     "test:workflow": "node ../node_modules/tsx/dist/cli.mjs --test tests/workflow-notifications.test.ts",
-    "test:vehicle-catalog": "node ../node_modules/tsx/dist/cli.mjs --test tests/vehicle-catalog.test.ts tests/plate-categories.test.ts",
+    "test:vehicle-catalog": "node ../node_modules/tsx/dist/cli.mjs --test tests/vehicle-catalog.test.ts tests/plate-categories.test.ts tests/plate-keyboard-layout.test.ts",
     "test:booking-upload": "node ../node_modules/tsx/dist/cli.mjs --test tests/booking-upload-state.test.ts",
     "test:owner-session": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-session.test.ts",
     "test:owner-media": "node ../node_modules/tsx/dist/cli.mjs --test tests/owner-media.test.ts",

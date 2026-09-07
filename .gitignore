@@ -31,3 +31,6 @@ audit/full-inspection-closure-20260826/scenario-config.local.json
 # Large original presentation PNG sources stay local; committed WebP assets under
 # public/assets/used-cars/owner-presentation-v2 are the runtime copy.
 source-assets/owner-vehicle-presentation-v2/
+
+# Superpowers brainstorm/local session artifacts
+.superpowers/

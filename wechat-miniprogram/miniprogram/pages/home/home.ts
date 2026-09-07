@@ -313,25 +313,54 @@ Page<Data>({
     this.setData({ entryTarget: target });
     wx.navigateTo({
       url,
-      fail: () => {
+      fail: (error) => {
         if (this.data.entryTarget === target) this.setData({ entryTarget: "" });
-        wx.showToast({ title: "页面打开失败，请重试", icon: "none" });
+        const detail = String(error.errMsg || "");
+        wx.showModal({
+          title: "页面打开失败",
+          content: detail.includes("not found") || detail.includes("未找到") || detail.includes("is not found")
+            ? "目标页未正确编译进当前调试包。请在开发者工具中点击「清缓存 → 全部清除」后重新编译。"
+            : (detail || "页面打开失败，请重试"),
+          showCancel: false,
+        });
+      },
+    });
+  },
+  openPage(url: string) {
+    if (!url) return;
+    if (["/pages/home/home", "/pages/orders/orders", "/pages/profile/profile"].includes(url)) {
+      wx.switchTab({
+        url,
+        fail: (error) => {
+          wx.showToast({ title: error.errMsg || "页面打开失败", icon: "none" });
+        },
+      });
+      return;
+    }
+    wx.navigateTo({
+      url,
+      fail: (error) => {
+        const detail = String(error.errMsg || "");
+        wx.showModal({
+          title: "页面打开失败",
+          content: detail.includes("not found") || detail.includes("未找到") || detail.includes("is not found")
+            ? "目标页未正确编译进当前调试包。请在开发者工具中点击「清缓存 → 全部清除」后重新编译。"
+            : (detail || "请重试；若仍失败请重新编译小程序。"),
+          showCancel: false,
+        });
       },
     });
   },
   go(event) {
-    const url = String(event.currentTarget.dataset.url || "");
-    if (!url) return;
-    if (["/pages/home/home", "/pages/orders/orders", "/pages/profile/profile"].includes(url)) wx.switchTab({ url });
-    else wx.navigateTo({ url });
+    this.openPage(String(event.currentTarget.dataset.url || ""));
   },
   book() {
     if (!this.data.vehicle) {
-      wx.navigateTo({ url: "/packages/vehicle/pages/vehicle-form/vehicle-form" });
+      this.openPage("/packages/vehicle/pages/vehicle-form/vehicle-form");
       return;
     }
     if (!this.data.hero?.canBookInspection) {
-      wx.navigateTo({ url: "/packages/annual/pages/eligibility/eligibility" });
+      this.openPage("/packages/annual/pages/eligibility/eligibility");
       return;
     }
     this.setData({ serviceFocus: false }, () => {
@@ -370,8 +399,12 @@ Page<Data>({
     this.navigateEntry("/packages/inspection/pages/checkup-reports/checkup-reports", "report");
   },
   editCurrentVehicle() {
-    if (!this.data.vehicle) return;
-    wx.navigateTo({ url: `/packages/vehicle/pages/vehicle-form/vehicle-form?id=${encodeURIComponent(this.data.vehicle.id)}` });
+    const vehicleId = this.data.vehicle?.id || this.data.hero?.vehicleId || "";
+    if (!vehicleId) {
+      this.openPage("/packages/vehicle/pages/vehicle-form/vehicle-form");
+      return;
+    }
+    this.openPage(`/packages/vehicle/pages/vehicle-form/vehicle-form?id=${encodeURIComponent(vehicleId)}`);
   },
   vehicleImageError() {
     if (this.data.hero?.vehicleImage) {

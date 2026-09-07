@@ -17,7 +17,6 @@ const expectedMainPages = ["pages/home/home", "pages/orders/orders", "pages/prof
 const entries = [];
 const uploadIgnores = projectConfig.packOptions?.ignore || [];
 const errors = [];
-const ownerVehicleAssetPrefix = "assets/vehicles/vehicle-";
 
 function belongsToSubpackage(relativePath) {
   const normalized = relativePath.replace(/\\/g, "/");
@@ -37,21 +36,12 @@ function isIgnoredForUpload(relativePath) {
   });
 }
 
-const hasOwnerVehicleAssetIgnore = uploadIgnores.some((rule) =>
-  rule.type === "prefix" && normalize(rule.value) === ownerVehicleAssetPrefix,
-);
-if (!hasOwnerVehicleAssetIgnore) {
-  errors.push(`project.config.json 必须通过 packOptions.ignore 排除 ${ownerVehicleAssetPrefix}，车型展示图只能由 API/服务器加载`);
-}
-
 const misplacedOwnerVehicleAssets = collectFiles(
   path.join(miniprogramRoot, "assets", "vehicles"),
   (file) => /^vehicle-[^/]+\.(?:png|jpe?g|webp|gif|svg)$/iu.test(path.basename(file)),
 ).map((file) => normalize(path.relative(miniprogramRoot, file)));
 for (const relativePath of misplacedOwnerVehicleAssets) {
-  if (!isIgnoredForUpload(relativePath)) {
-    errors.push(`本地车型展示图未被 packOptions.ignore 排除：${relativePath}`);
-  }
+  errors.push(`本地车型展示图不得留在小程序目录（应由 API/服务器加载）：${relativePath}`);
 }
 
 function visit(directory, target = entries, excludeSubpackages = true) {
@@ -262,7 +252,7 @@ const format = (bytes) => `${(bytes / 1024 / 1024).toFixed(3)} MiB`;
 console.log(`主包保守编译估算：${format(totalBytes)} / ${format(targetBytes)} 预算（微信硬上限 ${format(hardLimitBytes)}，${entries.length} 个运行时文件）`);
 console.log(`主包页面：${mainPages.join("、")}`);
 console.log(`已排除普通分包：${subpackageRoots.join("、") || "无"}`);
-console.log(`已由 packOptions.ignore 排除的本地车型展示图：${misplacedOwnerVehicleAssets.length} 个`);
+console.log(`本地遗留车型展示图：${misplacedOwnerVehicleAssets.length} 个（应为 0）`);
 console.log(`JSON 校验：${jsonFiles.length} 个文件通过解析`);
 console.log("包边界校验：页面注册、相对 import、静态资源、WXS、WXML include/import 与 WXSS @import 通过");
 console.log("主包最大文件：");

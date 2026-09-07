@@ -1,0 +1,124 @@
+.plate-keyboard { position: relative; margin-top: 22rpx; }
+.plate-keyboard.is-disabled { opacity: .72; }
+
+.plate-cells {
+  display: flex;
+  width: 100%;
+  min-height: 92rpx;
+  align-items: stretch;
+  gap: 8rpx;
+  box-sizing: border-box;
+}
+
+.plate-dot {
+  display: flex;
+  width: 18rpx;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, .92);
+  font-size: 34rpx;
+  font-weight: 800;
+  flex: none;
+}
+
+.plate-cell {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid rgba(255, 255, 255, .35);
+  border-radius: 12rpx;
+  background: rgba(0, 0, 0, .12);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 850;
+  letter-spacing: 1rpx;
+  box-sizing: border-box;
+}
+
+.plate-cell.is-focused {
+  border-color: #fff;
+  box-shadow: 0 0 0 2rpx rgba(255, 255, 255, .35);
+}
+
+.plate-disabled-hint {
+  margin-top: 14rpx;
+  color: rgba(255, 255, 255, .82);
+  font-size: 20rpx;
+}
+
+.plate-kind-blue .plate-cell,
+.plate-kind-blue .plate-dot { color: #fff; }
+.plate-kind-blue .plate-cell { border-color: #0f58af; background: #1768cf; }
+
+.plate-kind-yellow .plate-cell,
+.plate-kind-yellow .plate-dot { color: #3e3212; }
+.plate-kind-yellow .plate-cell { border-color: #d3ad3b; background: #ffde73; }
+.plate-kind-yellow .plate-cell.is-focused { border-color: #8a6a12; box-shadow: 0 0 0 2rpx rgba(138, 106, 18, .25); }
+
+.plate-kind-green_small .plate-cell,
+.plate-kind-green_large .plate-cell,
+.plate-kind-green_small .plate-dot,
+.plate-kind-green_large .plate-dot { color: #103c2d; }
+.plate-kind-green_small .plate-cell,
+.plate-kind-green_large .plate-cell { border-color: #79b98d; background: #c9edca; }
+.plate-kind-green_small .plate-cell.is-focused,
+.plate-kind-green_large .plate-cell.is-focused { border-color: #2f7a4f; box-shadow: 0 0 0 2rpx rgba(47, 122, 79, .25); }
+
+.plate-kind-yellow .plate-disabled-hint,
+.plate-kind-green_small .plate-disabled-hint,
+.plate-kind-green_large .plate-disabled-hint { color: rgba(30, 40, 30, .72); }
+
+.plate-keyboard-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(16, 24, 40, .28);
+}
+
+.plate-keyboard-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 901;
+  padding: 18rpx 16rpx calc(18rpx + env(safe-area-inset-bottom));
+  border-radius: 28rpx 28rpx 0 0;
+  background: #f3f5f8;
+  box-shadow: 0 -12rpx 40rpx rgba(20, 36, 56, .16);
+}
+
+.keyboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+  padding: 0 8rpx;
+}
+
+.keyboard-title { color: #5d6d80; font-size: 22rpx; font-weight: 650; }
+.keyboard-done { color: #1768cf; font-size: 24rpx; font-weight: 750; }
+
+.keyboard-rows { display: flex; flex-direction: column; gap: 10rpx; }
+.keyboard-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 8rpx; }
+
+.keyboard-key {
+  display: flex;
+  min-width: 62rpx;
+  min-height: 72rpx;
+  padding: 0 8rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12rpx;
+  background: #fff;
+  color: #1d2c3f;
+  font-size: 28rpx;
+  font-weight: 750;
+  box-shadow: 0 2rpx 0 rgba(20, 36, 56, .08);
+}
+
+.keyboard-key.is-wide { min-width: 84rpx; }
+.keyboard-actions { display: flex; gap: 12rpx; margin-top: 14rpx; }
+.keyboard-key.is-action { flex: 1; min-height: 80rpx; background: #e7ecf2; color: #44566c; }
+.keyboard-key.is-primary { background: #1768cf; color: #fff; }

@@ -1,4 +1,5 @@
 import { PLATE_CATEGORIES, plateCategory, legacyPlateCategory, type PlateCategoryCode, type PlateStyle } from "../../../../utils/plate-categories";
+import { formatPlateNumber, isPlateSlotsComplete, normalizePlateChars, plateSlotCount } from "../../../../utils/plate-keyboard-layout";
 import { api } from "../../../../services/api";
 import { searchVehicleCatalog, type CatalogBrandOption } from "../../utils/catalog-search";
 import type {
@@ -25,6 +26,7 @@ type Data = {
   plateCategoryConfirmed: boolean;
   usageNature: string;
   plateNumber: string;
+  slotCount: 7 | 8;
   vehicleType: string;
   washVehicleCategory: WashVehicleCategory;
   washVehicleCategoryLegacy: boolean;
@@ -141,6 +143,7 @@ Page<Data>({
     plateCategoryConfirmed: true,
     usageNature: "非营运",
     plateNumber: "",
+    slotCount: 7,
     vehicleType: "小型轿车",
     washVehicleCategory: "sedan",
     washVehicleCategoryLegacy: false,
@@ -218,6 +221,7 @@ Page<Data>({
         plateCategory: mode === "blue" ? "blue_small_passenger" : "new_energy_small_passenger",
         plateCategoryIndex: mode === "blue" ? 0 : 1,
         plateNumber: "",
+        slotCount: plateSlotCount(mode),
         registrationDate,
         seats,
         passengerColorEnabled: true,
@@ -245,6 +249,8 @@ Page<Data>({
       const resolvedCategory = plateCategory(vehicle.plateCategory) ?? legacyPlateCategory(vehicle.vehicleType, vehicle.plateNumber, vehicle.vehicleClassCode);
       const category = resolvedCategory ?? PLATE_CATEGORIES[0];
       const mode: PlateMode = category.plateKind;
+      const slotCount = plateSlotCount(mode);
+      const formattedPlate = formatPlateNumber(normalizePlateChars(vehicle.plateNumber).slice(0, slotCount));
       const validity = vehicle.inspectionValidity;
       const sourceIndex = validity?.mode === "confirmed"
         ? Math.max(0, validitySources.findIndex((item) => item.value === validity.source))
@@ -256,7 +262,8 @@ Page<Data>({
         plateCategoryConfirmed: Boolean(resolvedCategory),
         plateCategoryIndex: PLATE_CATEGORIES.indexOf(category),
         usageNature: vehicle.usageNature,
-        plateNumber: vehicle.plateNumber,
+        plateNumber: formattedPlate,
+        slotCount,
         vehicleType: vehicle.vehicleType,
         washVehicleCategory: vehicle.washVehicleCategory === "mpv" ? "mpv" : vehicle.washVehicleCategory === "suv" || vehicle.washVehicleCategory === "suv_mpv" ? "suv" : "sedan",
         washVehicleCategoryLegacy: Boolean(vehicle.washVehicleCategoryLegacy || vehicle.washVehicleCategory === "suv_mpv"),
@@ -275,7 +282,7 @@ Page<Data>({
         originalValidityKey: validity?.mode === "confirmed"
           ? validityKey(true, validity.validThroughMonth, validity.source)
           : "unconfirmed",
-        plateComplete: isPlateInputSafe(vehicle.plateNumber),
+        plateComplete: isPlateSlotsComplete(formattedPlate, slotCount) && isPlateInputSafe(formattedPlate),
         ...searchCatalogForCategory(this.data.catalogBrands, this.data.catalogQuery, vehicle.brand?.id || "", category.code),
         selectedBrandId: vehicle.brand?.id || "",
         selectedBrandName: vehicle.brand?.name || "",
@@ -297,6 +304,9 @@ Page<Data>({
     const selectionStillApplies = !this.data.selectedModelId
       || Boolean(selectedModel && (selectedModel.vehicleClassCodes || ["passenger_car"]).includes(category.vehicleClassCode));
     this.setData({ plateCategoryIndex, plateCategory: category.code, plateCategoryConfirmed: true, mode,
+      slotCount: plateSlotCount(mode),
+      plateNumber: "",
+      plateComplete: false,
       vehicleType: sameClass ? this.data.vehicleType : category.vehicleType,
       seats: sameClass ? this.data.seats : category.defaultSeats,
       passengerColorEnabled: category.vehicleClassCode === "passenger_car" || category.vehicleClassCode === "large_bus",
@@ -307,11 +317,20 @@ Page<Data>({
         selectedBrandId: "", selectedBrandName: "", selectedModelId: "", selectedModelName: "",
         selectedModelImage: "/assets/brand/hero-car-generic.png",
       } : {}),
-      plateComplete: isPlateInputSafe(this.data.plateNumber) });
+    });
+  },
+  onPlateKeyboardChange(event) {
+    const plateNumber = String(event.detail.value || "");
+    const complete = Boolean(event.detail.complete) || isPlateSlotsComplete(plateNumber, this.data.slotCount);
+    this.setData({ plateNumber, plateComplete: complete && isPlateInputSafe(plateNumber) });
   },
   plateNumberInput(event) {
-    const plateNumber = String(event.detail.value || "");
-    this.setData({ plateNumber, plateComplete: isPlateInputSafe(plateNumber) });
+    this.onPlateKeyboardChange({
+      detail: {
+        value: String(event.detail.value || ""),
+        complete: isPlateSlotsComplete(String(event.detail.value || ""), this.data.slotCount),
+      },
+    });
   },
   vehicleTypeInput(event) { this.setData({ vehicleType: String(event.detail.value) }); },
   usageNatureInput(event) { this.setData({ usageNature: String(event.detail.value) }); },
@@ -321,6 +340,7 @@ Page<Data>({
   clearExteriorColor() { this.setData({ exteriorColor: "" }); },
   choosePowertrain(event) {
     const powertrainType = event.currentTarget.dataset.value as VehiclePowertrain;
+    if (!isPowertrain(powertrainType) || powertrainType === "unknown") return;
     this.setData({ powertrainType, powertrainTouched: true });
   },
   openCatalog() {
@@ -427,10 +447,18 @@ Page<Data>({
     const plateNumber = this.data.plateNumber.trim();
     if (!plateNumber) { wx.showToast({ title: "请输入车牌号", icon: "none" }); return; }
     if (!isPlateInputSafe(plateNumber)) { wx.showToast({ title: "请只填写实际号牌中的文字、字母、数字或分隔符", icon: "none" }); return; }
+    if (!this.data.plateComplete || !isPlateSlotsComplete(plateNumber, this.data.slotCount)) {
+      wx.showToast({ title: "请将车牌填完整", icon: "none" });
+      return;
+    }
     if (this.data.validityConfirmed && !/^\d{4}-(0[1-9]|1[0-2])$/.test(this.data.validThroughMonth)) { wx.showToast({ title: "请选择检验有效期月份", icon: "none" }); return; }
     if (this.data.validityConfirmed && !this.data.validitySourceSelected) { wx.showToast({ title: "请选择看到日期的位置", icon: "none" }); return; }
     if (!this.data.vehicleType.trim() || !this.data.usageNature.trim()) { wx.showToast({ title: "请填写车型和使用性质", icon: "none" }); return; }
     if (!Number.isInteger(this.data.seats) || this.data.seats < (this.data.plateCategory === "yellow_trailer" ? 0 : 1) || this.data.seats > 99) { wx.showToast({ title: "请填写实际核定座位数", icon: "none" }); return; }
+    if (!isPowertrain(this.data.powertrainType) || this.data.powertrainType === "unknown") {
+      wx.showToast({ title: "请选择动力类型", icon: "none" });
+      return;
+    }
     this.setData({ saving: true });
     const selectedValiditySource = this.data.validitySources[this.data.validitySourceIndex].value;
     const nextValidityKey = validityKey(this.data.validityConfirmed, this.data.validThroughMonth, selectedValiditySource);
@@ -445,12 +473,12 @@ Page<Data>({
       brandId: this.data.selectedBrandId || null,
       modelId: this.data.selectedModelId || null,
       washVehicleCategory: this.data.washVehicleCategory,
+      powertrainType: this.data.powertrainType,
     };
     if (!this.data.id) {
       data.isVan = this.data.vehicleType.includes("面包");
       data.isDefault = true;
     }
-    if (!this.data.id || this.data.powertrainTouched) data.powertrainType = this.data.powertrainType;
     if (!this.data.id || nextValidityKey !== this.data.originalValidityKey) {
       data.inspectionValidity = this.data.validityConfirmed
         ? {

@@ -136,9 +136,11 @@ export function reportCard(item: VehicleCheckupReportSummary): ReportCardView {
           : item.conclusion === "passed"
             ? "检验合格凭证留证尚未同步"
             : "检验合格凭证留证状态待同步";
-  const legalMaterialText = item.hasSafetyInspectionReport
-    ? `安全检验报告已附${item.hasEmissionsInspectionReport ? " · 排放报告已附" : ""}`
-    : "历史报告未采集法定检测材料";
+  const legalMaterialText = [
+    item.hasSafetyInspectionReport ? "安全检验报告已附" : "",
+    item.hasEmissionsInspectionReport ? "排放报告已附" : "",
+  ].filter(Boolean).join(" · ")
+    || (item.schemaVersion === "vehicle-checkup-v1" ? "历史报告未采集法定检测材料" : "以合格凭证留证为准");
   return {
     ...item,
     publishedText: dateTimeText(item.publishedAt),

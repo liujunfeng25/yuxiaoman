@@ -125,7 +125,7 @@
 .workflow-task-owner small,
 .workflow-task-time small { color: #8696a3; font-size: 8px; }
 .workflow-task-owner strong,
-.workflow-task-time strong { margin-top: 4px; color: #39596f; font-size: 10px; }
+.workflow-task-time strong { margin-top: 4px; color: #39596f; font-size: 11px; font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; letter-spacing: 0.02em; }
 .workflow-task-time em { margin-top: 3px; color: #8496a4; font-size: 7px; font-style: normal; }
 .urgency-overdue .workflow-task-time strong { color: #aa493a; }
 .urgency-escalated .workflow-task-time strong { color: #744093; }
@@ -555,7 +555,19 @@
   .workflow-inline-fields { grid-template-columns: 1fr; }
   .workflow-search { grid-column: auto; }
   .workflow-task-main { grid-template-columns: 5px minmax(0, 1fr) 15px; }
-  .workflow-task-time { display: none; }
+  .workflow-task-time {
+    display: flex;
+    grid-column: 2;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    align-items: baseline;
+    margin-top: 2px;
+  }
+  .workflow-task-time small,
+  .workflow-task-time strong,
+  .workflow-task-time em { display: inline; overflow: visible; white-space: normal; }
+  .workflow-task-time strong { margin-top: 0; font-size: 10px; }
+  .workflow-task-time em { margin-top: 0; }
   .workflow-flow-tabs { grid-template-columns: 1fr; }
   .workflow-weekday-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .workflow-fallback-order { grid-template-columns: 1fr; }

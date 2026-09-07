@@ -1,0 +1,60 @@
+<view class="plate-keyboard {{disabled ? 'is-disabled' : ''}} plate-kind-{{plateKind}}">
+  <view
+    class="plate-cells"
+    role="button"
+    aria-label="车牌号码格子"
+    catchtap="openKeyboard"
+  >
+    <block wx:for="{{slots}}" wx:key="index">
+      <view
+        wx:if="{{index === 2}}"
+        class="plate-dot"
+        aria-hidden="true"
+      >·</view>
+      <view
+        class="plate-cell {{focusIndex === index && keyboardOpen ? 'is-focused' : ''}} {{item ? 'has-value' : ''}}"
+        data-index="{{index}}"
+        catchtap="tapCell"
+      >
+        <text>{{item}}</text>
+      </view>
+    </block>
+  </view>
+
+  <view wx:if="{{disabled}}" class="plate-disabled-hint">
+    <text>请先选择号牌类型后再输入车牌</text>
+  </view>
+
+  <view
+    wx:if="{{keyboardOpen && !disabled}}"
+    class="plate-keyboard-mask"
+    catchtap="closeKeyboard"
+  ></view>
+
+  <view
+    wx:if="{{keyboardOpen && !disabled}}"
+    class="plate-keyboard-sheet"
+    catchtap="noop"
+  >
+    <view class="keyboard-toolbar">
+      <text class="keyboard-title">{{focusIndex === 0 ? '选择省份简称' : focusIndex === 1 ? '选择发牌机关代号' : '输入号牌字符'}}</text>
+      <text class="keyboard-done" catchtap="closeKeyboard">完成</text>
+    </view>
+    <view class="keyboard-rows">
+      <view wx:for="{{keyRows}}" wx:for-item="row" wx:key="index" class="keyboard-row">
+        <view
+          wx:for="{{row}}"
+          wx:for-item="key"
+          wx:key="*this"
+          class="keyboard-key {{key.length > 1 ? 'is-wide' : ''}}"
+          data-key="{{key}}"
+          catchtap="tapKey"
+        >{{key}}</view>
+      </view>
+    </view>
+    <view class="keyboard-actions">
+      <view class="keyboard-key is-action" catchtap="tapDelete">删除</view>
+      <view class="keyboard-key is-action is-primary" catchtap="closeKeyboard">收起</view>
+    </view>
+  </view>
+</view>

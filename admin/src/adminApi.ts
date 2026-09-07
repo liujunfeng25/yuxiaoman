@@ -1,4 +1,4 @@
-export type AdminApiError = Error & { status?: number; code?: string };
+export type AdminApiError = Error & { status?: number; code?: string; fields?: Record<string, string> };
 
 export type AdminListPayload<T> = { items: T[]; total: number; page?: number; pageSize?: number };
 export type DrivingSchoolDataKind = "demo" | "real";
@@ -216,9 +216,27 @@ export async function apiEnvelope<T, M = Record<string, unknown>>(path: string, 
     if (response.status === 401 && !credentialsWereRejected && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("yuxiaoman:backoffice-unauthorized", { detail: { path } }));
     }
-    const error = new Error(payload?.error?.message || payload?.message || "操作失败，请稍后重试") as AdminApiError;
+    const fields = payload?.error?.fields && typeof payload.error.fields === "object" && !Array.isArray(payload.error.fields)
+      ? Object.fromEntries(
+        Object.entries(payload.error.fields as Record<string, unknown>)
+          .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim().length > 0),
+      )
+      : undefined;
+    const topMessage = typeof payload?.error?.message === "string"
+      ? payload.error.message
+      : typeof payload?.message === "string"
+        ? payload.message
+        : undefined;
+    const fieldMessage = fields ? Object.values(fields)[0] : undefined;
+    // Prefer field detail only when it is already operator-safe Chinese; otherwise keep the
+    // top-level business message (e.g. 请检查提交内容) so it is not scrubbed to a generic fallback.
+    const preferred = (errorCode === "VALIDATION_ERROR" && fieldMessage && /[\u3400-\u9fff]/u.test(fieldMessage))
+      ? fieldMessage
+      : topMessage;
+    const error = new Error(preferred || "操作失败，请稍后重试") as AdminApiError;
     error.status = response.status;
     error.code = errorCode;
+    error.fields = fields;
     throw error;
   }
   return { data: payload?.data as T, meta: payload?.meta as M | undefined };

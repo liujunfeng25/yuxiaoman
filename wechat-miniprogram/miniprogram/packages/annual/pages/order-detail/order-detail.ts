@@ -194,7 +194,12 @@ function checkupMaterialView(booking: Booking) {
   const emissions = Boolean(reportMedia(report, "emissions_inspection_report"));
   const mark = Boolean(reportMedia(report, "annual_inspection_mark"));
   const passed = report.annualInspection?.conclusion === "passed";
-  const legal = `${safety ? "安全检验报告已归档" : "安全检验报告选填 · 未提供"} · ${emissions ? "排放报告已归档" : "排放报告选填 · 未提供"} · ${passed ? mark ? "合格凭证已归档" : "合格凭证待上传" : "合格凭证不适用"}`;
+  const legacyParts = [
+    safety ? "安全检验报告已归档" : "",
+    emissions ? "排放报告已归档" : "",
+  ].filter(Boolean);
+  const markPart = passed ? (mark ? "合格凭证已归档" : "合格凭证待上传") : "合格凭证不适用";
+  const legal = [...legacyParts, markPart].join(" · ");
   const siteCount = ["front_left", "front_right", "rear_left", "rear_right", "dashboard_started"]
     .filter((kind) => reportMedia(report, kind as Parameters<typeof reportMedia>[1])).length;
   return {

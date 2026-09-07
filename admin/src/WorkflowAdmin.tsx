@@ -179,6 +179,7 @@ type NotificationTemplate = {
   wechatTemplateIdMasked?: string;
   wechatContentSnapshot?: string;
   fieldMappings?: Array<{ field: string; variable: string }>;
+  wechatFieldPreview?: Array<{ field: string; variable: string; value: string }>;
   usedBy?: Array<{ policyCode: string; policyVersion: number; nodeCode: string }>;
   history?: Array<{ version: number; publishedAt: string; publishedBy: string; status: string }>;
   updatedAt?: string | null;
@@ -525,11 +526,15 @@ function durationText(target?: string | null, now = Date.now()) {
   if (!target) return "未设置";
   const delta = new Date(target).getTime() - now;
   if (!Number.isFinite(delta)) return "时间异常";
-  const absoluteMinutes = Math.max(0, Math.ceil(Math.abs(delta) / 60_000));
-  const hours = Math.floor(absoluteMinutes / 60);
-  const minutes = absoluteMinutes % 60;
-  const value = hours ? `${hours}小时${minutes ? `${minutes}分` : ""}` : `${minutes}分钟`;
-  return delta < 0 ? `已超时 ${value}` : `剩余 ${value}`;
+  const overdue = delta < 0;
+  const totalSeconds = Math.max(0, Math[overdue ? "floor" : "ceil"](Math.abs(delta) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [hours, minutes, seconds]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+  return overdue ? `已超时 ${clock}` : `剩余 ${clock}`;
 }
 
 function minuteText(value: number | null, basis?: ClockBasis) {
@@ -960,7 +965,7 @@ function WorkflowOverview({ onError, canRemind, canResolve }: { onError: (messag
     return () => abortRef.current?.abort();
   }, [filters.domain, filters.urgency, filters.role, filters.status]);
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 30_000);
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
   }, []);
   const visibleTasks = useMemo(() => {
@@ -973,17 +978,48 @@ function WorkflowOverview({ onError, canRemind, canResolve }: { onError: (messag
     });
   }, [filters.domain, filters.keyword, filters.role, filters.urgency, tasks]);
   const remind = async (task: WorkflowTask) => {
-    if (!canRemind || remindingId) return;
+    if (!canRemind) {
+      onError("当前账号没有人工提醒权限");
+      return;
+    }
+    if (remindingId) return;
     setRemindingId(task.id);
     try {
-      const result = await workflowRequest<{ task?: unknown; nextManualReminderAt?: string; cooldownSeconds?: number }>(`/tasks/${encodeURIComponent(task.id)}/remind`, { method: "POST" });
+      const result = await workflowRequest<{
+        reminded?: boolean;
+        task?: unknown;
+        nextManualReminderAt?: string;
+        cooldownSeconds?: number;
+        message?: string;
+        delivery?: { inboxQueued?: boolean; outboxQueued?: boolean };
+      }>(`/tasks/${encodeURIComponent(task.id)}/remind`, { method: "POST" });
       const remindedAt = new Date();
-      const nextManualReminderAt = result.nextManualReminderAt ?? new Date(remindedAt.getTime() + (result.cooldownSeconds ?? 600) * 1_000).toISOString();
-      setTasks((current) => current.map((item) => item.id === task.id ? result.task ? normalizeWorkflowTask(result.task) : { ...item, reminderCount: (item.reminderCount ?? 0) + 1, lastReminderAt: remindedAt.toISOString(), nextManualReminderAt } : item));
-      setNotice("人工提醒已进入发送队列；外部渠道失败不会改变业务状态。");
-      window.setTimeout(() => setNotice(""), 3500);
+      const nextManualReminderAt = result.nextManualReminderAt
+        ?? new Date(remindedAt.getTime() + (result.cooldownSeconds ?? 600) * 1_000).toISOString();
+      setTasks((current) => current.map((item) => item.id === task.id
+        ? result.task
+          ? normalizeWorkflowTask(result.task)
+          : {
+            ...item,
+            reminderCount: (item.reminderCount ?? 0) + 1,
+            lastReminderAt: remindedAt.toISOString(),
+            nextManualReminderAt,
+          }
+        : item));
+      setNotice(result.message
+        || (result.delivery?.outboxQueued
+          ? "人工提醒已进入短信/微信发送队列；需 worker 发出后才能到达手机。"
+          : "人工提醒已进入发送队列；外部渠道失败不会改变业务状态。"));
+      window.setTimeout(() => setNotice(""), 6000);
     } catch (reason) {
-      onError(errorMessage(reason));
+      const error = reason as { code?: string; message?: string };
+      if (error.code === "WORKFLOW_EXTRA_NOTIFICATION_UNAVAILABLE") {
+        onError(error.message || "任务已在督办列表中，但未配置短信联系人或微信授权，无法额外推送");
+      } else if (error.code === "WORKFLOW_MANUAL_REMIND_COOLDOWN") {
+        onError(error.message || "同一任务 10 分钟内只能人工提醒一次");
+      } else {
+        onError(errorMessage(reason));
+      }
     } finally {
       setRemindingId("");
     }
@@ -1042,7 +1078,7 @@ function WorkflowOverview({ onError, canRemind, canResolve }: { onError: (messag
               <span className="workflow-task-signal" aria-hidden="true" />
               <span className="workflow-task-copy"><span><em>{domainLabels[task.domain] ?? "业务督办"}</em><b>{urgencyLabels[task.urgency]}</b></span><strong>{task.title}</strong><small>{task.businessCode} · {task.subjectName || "责任主体待补全"}</small></span>
               <span className="workflow-task-owner"><small>责任方</small><strong>{task.responsibleLabel || roleLabels[task.responsibleRole] || "责任方"}</strong></span>
-              <span className="workflow-task-time"><small>截止时间</small><strong>{countdown}</strong><em>{formatDateTime(task.deadlineAt)}</em></span>
+              <span className="workflow-task-time"><small>{task.deadlineAt ? "倒计时" : "截止时间"}</small><strong>{countdown}</strong><em>{formatDateTime(task.deadlineAt)}</em></span>
               <CaretRight />
             </button>
             <button type="button" className="workflow-remind-button" disabled={!canRemind || Boolean(remindingId) || cooldown || ["closed", "completed", "cancelled"].includes(task.status)} title={cooldown ? `人工提醒冷却中，${durationText(task.nextManualReminderAt, now)}` : "发送一次受限人工提醒"} onClick={() => void remind(task)}><PaperPlaneTilt />{remindingId === task.id ? "排队中…" : cooldown ? "冷却中" : "立即提醒"}</button>
@@ -1070,7 +1106,7 @@ function TaskDrawer({ task, now, canRemind, canResolve, reminding, close, onRemi
   return <div className="workflow-drawer-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <aside className="workflow-drawer" role="dialog" aria-modal="true" aria-label="督办任务详情">
       <header><div><small>{domainLabels[task.domain] ?? "业务督办"}</small><h2>{task.title}</h2><p>{task.businessCode}</p></div><button type="button" aria-label="关闭任务详情" onClick={close}><X /></button></header>
-      <section className={`workflow-task-hero urgency-${task.urgency}`}><span><Siren /></span><div><small>当前紧急程度</small><strong>{urgencyLabels[task.urgency]}</strong><p>{durationText(task.deadlineAt, now)} · {task.responsibleLabel || roleLabels[task.responsibleRole]}</p></div></section>
+      <section className={`workflow-task-hero urgency-${task.urgency}`}><span><Siren /></span><div><small>当前紧急程度</small><strong>{urgencyLabels[task.urgency]}</strong><p>{task.deadlineAt ? `倒计时 ${durationText(task.deadlineAt, now)}` : durationText(task.deadlineAt, now)} · {task.responsibleLabel || roleLabels[task.responsibleRole]}</p></div></section>
       <section className="workflow-detail-grid">
         <article><small>任务状态</small><strong>{statusLabels[task.status] ?? "系统状态"}</strong></article>
         <article><small>责任主体</small><strong>{task.subjectName || "待补全"}</strong></article>
@@ -1357,9 +1393,31 @@ function WorkflowTemplateCenter({ onError, canManage }: { onError: (message: str
     if (!draft) return;
     setBusy("preview");
     try {
-      const resultValue = await workflowRequest<unknown>(`/templates/${encodeURIComponent(draft.code)}/preview`, { method: "POST", body: JSON.stringify({ channel: draft.channel }) });
+      const resultValue = await workflowRequest<Record<string, unknown>>(`/templates/${encodeURIComponent(draft.code)}/preview`, {
+        method: "POST",
+        body: JSON.stringify({
+          channel: draft.channel,
+          exampleData: draft.exampleData,
+        }),
+      });
       const result = normalizeTemplateRows([resultValue])[0];
-      if (result) setDraft((current) => current ? { ...current, renderedBody: result.renderedBody, estimatedSegments: result.estimatedSegments, characterCount: result.characterCount } : result);
+      const wechatFieldPreview = Array.isArray(resultValue.wechatFieldPreview)
+        ? resultValue.wechatFieldPreview as Array<{ field: string; variable: string; value: string }>
+        : [];
+      if (!result) throw new Error("预览结果无效，请刷新后重试");
+      setDraft((current) => current
+        ? {
+          ...current,
+          renderedTitle: stringValue(resultValue.renderedTitle, result.renderedTitle),
+          renderedBody: result.renderedBody || stringValue(resultValue.renderedPreview),
+          estimatedSegments: result.estimatedSegments,
+          characterCount: numberValue(resultValue.characterCount, result.characterCount),
+          wechatFieldPreview,
+        }
+        : result);
+      setNotice(draft.channel === "wechat"
+        ? "已按示例数据刷新微信字段预览（右侧）。"
+        : "已按示例数据刷新右侧预览。");
     } catch (reason) {
       onError(errorMessage(reason));
     } finally {

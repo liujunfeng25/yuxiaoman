@@ -46,10 +46,29 @@
 .home-inline-error button { min-width: 112rpx; min-height: 88rpx; padding: 0 18rpx; color: #8a5517; border: 1rpx solid #e6c995; border-radius: 14rpx; background: #fff; font-size: 23rpx; font-weight: 750; }
 .inspection-hero { position: relative; height: 402rpx; margin: 0; overflow: hidden; border-radius: 0; background: #edf7ff; }
 .hero-background { position: absolute; inset: 0; width: 100%; height: 100%; }
-.inspection-hero::after { position: absolute; inset: 0; content: ""; background: linear-gradient(90deg, rgba(244,249,255,.25) 0%, rgba(244,249,255,.08) 43%, rgba(244,249,255,0) 70%); }
+.inspection-hero::after { position: absolute; inset: 0; z-index: 0; content: ""; pointer-events: none; background: linear-gradient(90deg, rgba(244,249,255,.25) 0%, rgba(244,249,255,.08) 43%, rgba(244,249,255,0) 70%); }
 .hero-car-edit { position: absolute; z-index: 2; right: -8rpx; bottom: 21rpx; display: flex; width: 370rpx; height: 218rpx; align-items: flex-end; justify-content: flex-end; }
-.hero-car-image { position: absolute; inset: 0; width: 100%; height: 100%; }
-.hero-car-edit > text { position: relative; z-index: 2; margin: 0 19rpx 3rpx 0; padding: 5rpx 10rpx; color: #4f6f8d; border: 1rpx solid rgba(143, 173, 203, .55); border-radius: 999rpx; background: rgba(255,255,255,.78); font-size: 16rpx; font-weight: 700; }
+.hero-car-image { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero-edit-chip {
+  position: relative;
+  z-index: 3;
+  display: inline-flex;
+  margin: 0 16rpx 8rpx 0;
+  padding: 10rpx 16rpx;
+  align-items: center;
+  gap: 6rpx;
+  color: #0f4f9e;
+  border: 1rpx solid rgba(23, 104, 207, .28);
+  border-radius: 999rpx;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(236, 246, 255, .92));
+  box-shadow: 0 8rpx 18rpx rgba(23, 104, 207, .16), 0 0 0 4rpx rgba(255, 255, 255, .35);
+  font-size: 22rpx;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.hero-edit-chip image { width: 24rpx; height: 24rpx; flex: none; opacity: .9; }
+.hero-edit-chip text { color: inherit; font-size: inherit; font-weight: inherit; line-height: 1; }
+.hero-car-edit-pressed .hero-edit-chip { transform: scale(.97); background: #e7f2ff; }
 .hero-car-edit.empty-car { right: -8rpx; bottom: 20rpx; width: 360rpx; height: 210rpx; }
 .hero-copy { position: relative; z-index: 1; display: flex; width: 59%; height: 100%; padding: 28rpx 0 22rpx 42rpx; flex-direction: column; align-items: flex-start; box-sizing: border-box; }
 .hero-plate,
@@ -64,9 +83,10 @@
 .hero-plate { color: #0d1b31; font-size: 44rpx; font-weight: 800; line-height: 1.1; letter-spacing: 1rpx; }
 .hero-plate text { color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: inherit; }
 .hero-plate .hero-plate-caret { width: 27rpx; height: 27rpx; margin-left: 6rpx; flex: none; opacity: .62; }
-.hero-model-button { max-width: 330rpx; margin-top: 5rpx; gap: 4rpx; overflow: hidden; color: #31506f; font-size: 22rpx; font-weight: 800; line-height: 1.3; }
+.hero-model-button { max-width: 330rpx; margin-top: 8rpx; padding: 6rpx 10rpx 6rpx 12rpx; gap: 6rpx; overflow: hidden; color: #184f8c; border: 1rpx solid rgba(23, 104, 207, .18); border-radius: 999rpx; background: rgba(255, 255, 255, .72); font-size: 22rpx; font-weight: 800; line-height: 1.3; box-shadow: 0 4rpx 12rpx rgba(23, 104, 207, .08); }
 .hero-model-button text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hero-model-button image { width: 22rpx; height: 22rpx; flex: none; opacity: .55; }
+.hero-model-hint { flex: none; padding: 2rpx 8rpx; color: #1768cf; border-radius: 999rpx; background: rgba(23, 104, 207, .1); font-size: 18rpx; font-weight: 800; }
+.hero-model-button image { width: 22rpx; height: 22rpx; flex: none; opacity: .7; }
 .hero-vehicle { max-width: 340rpx; margin-top: 2rpx; overflow: hidden; color: #70839a; font-size: 18rpx; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 .countdown-label { margin-top: 19rpx; color: #16253b; font-size: 27rpx; font-weight: 650; }
 .countdown { display: flex; margin-top: 2rpx; align-items: baseline; color: #ff7417; }

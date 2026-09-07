@@ -86,7 +86,28 @@ function appointmentAt(row: Row): Date {
   return Number.isFinite(parsed.getTime()) ? parsed : new Date(String(row.updated_at));
 }
 
-function annualMetadata(row: Row): Record<string, string | number> {
+function formatWechatAmount(fen: unknown): string {
+  const value = Number(fen);
+  if (!Number.isFinite(value) || value < 0) return "0.00";
+  return (value / 100).toFixed(2);
+}
+
+function formatWechatEventTime(value: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(value);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+function annualMetadata(row: Row, extra: Record<string, string | number> = {}): Record<string, string | number> {
   const reportConclusion = row.report_conclusion ?? row.result_conclusion;
   return {
     maskedPlate: maskedPlate(row.plate_number),
@@ -97,6 +118,14 @@ function annualMetadata(row: Row): Record<string, string | number> {
     remainingTime: "策略规定时间",
     pendingCount: 1,
     overdueCount: 1,
+    serviceAmount: formatWechatAmount(row.service_fee_fen),
+    serviceItem: "机动车年检",
+    warmTip: "请打开小程序查看详情",
+    taskSummary: "年检服务待办",
+    reviewStatus: "待处理",
+    reviewResult: "需补充",
+    eventTime: formatWechatEventTime(),
+    ...extra,
   };
 }
 
@@ -177,11 +206,25 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
   const desired: WorkflowTaskOpenInput[] = [];
 
   if (state === "pending_payment") {
-    desired.push(ownerTask(row, "annual.pending_payment"));
+    desired.push(ownerTask(row, "annual.pending_payment", {
+      metadata: annualMetadata(row, { warmTip: "请进入小程序完成支付" }),
+    }));
   } else if (state === "paid_pending_confirmation" || state === "pending_precheck") {
-    desired.push(stationTask(row, "annual.precheck.pending"));
+    desired.push(stationTask(row, "annual.precheck.pending", {
+      metadata: annualMetadata(row, {
+        taskSummary: "预约资料待预检",
+        warmTip: "请尽快在工作台处理",
+      }),
+    }));
   } else if (state === "precheck_action_required" || state === "precheck_rejected") {
-    desired.push(ownerTask(row, "annual.precheck.action_required", { firstReminderAt: now }));
+    desired.push(ownerTask(row, "annual.precheck.action_required", {
+      firstReminderAt: now,
+      metadata: annualMetadata(row, {
+        warmTip: "请打开订单按指引处理",
+        reviewStatus: "待处理",
+        reviewResult: "需补充",
+      }),
+    }));
   } else if (state === "confirmed") {
     if (serviceMode === "valet") {
       desired.push({
@@ -194,11 +237,13 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
     } else {
       desired.push(ownerTask(row, "annual.arrival.owner", {
         anchorAt: appointment,
+        metadata: annualMetadata(row, { warmTip: "请按预约时间到站验车" }),
       }));
     }
   } else if (state === "awaiting_arrival") {
     desired.push(ownerTask(row, "annual.arrival.owner", {
       anchorAt: appointment,
+      metadata: annualMetadata(row, { warmTip: "请按预约时间到站验车" }),
     }));
   } else if (state === "driver_arranged") {
     // A claimed one-time entry must stay closed. Ordinary same-state writes
@@ -229,12 +274,18 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
     desired.push(stationTask(row, "annual.inspection.report", { anchorAt: anchor }));
   } else if (state === "result_received") {
     if (String(row.report_status) === "published") {
-      desired.push(ownerTask(row, "annual.report.ready", { firstReminderAt: now }));
+      desired.push(ownerTask(row, "annual.report.ready", {
+        firstReminderAt: now,
+        metadata: annualMetadata(row, { warmTip: "点击查看完整报告" }),
+      }));
     }
     if (serviceMode === "valet") desired.push(driverTask(row, "annual.return.driver"));
   } else if (state === "returning") {
     if (String(row.report_status) === "published") {
-      desired.push(ownerTask(row, "annual.report.ready", { firstReminderAt: now }));
+      desired.push(ownerTask(row, "annual.report.ready", {
+        firstReminderAt: now,
+        metadata: annualMetadata(row, { warmTip: "点击查看完整报告" }),
+      }));
     }
     const driveMinutes = Math.max(1, Number(row.drive_minutes ?? 30));
     desired.push(driverTask(row, "annual.return.delivery", {
@@ -242,9 +293,15 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
     }));
   } else if (state === "completed") {
     if (String(row.report_status) === "published") {
-      desired.push(ownerTask(row, "annual.report.ready", { firstReminderAt: now }));
+      desired.push(ownerTask(row, "annual.report.ready", {
+        firstReminderAt: now,
+        metadata: annualMetadata(row, { warmTip: "点击查看完整报告" }),
+      }));
     }
-    desired.push(ownerTask(row, "annual.service.completed", { firstReminderAt: now }));
+    desired.push(ownerTask(row, "annual.service.completed", {
+      firstReminderAt: now,
+      metadata: annualMetadata(row, { warmTip: "可查看留证与报告" }),
+    }));
   } else if (state === "on_hold") {
     desired.push({
       nodeCode: "workflow.exception",

@@ -26,77 +26,7 @@
       <image class="repair-entry-caret" src="/assets/icons/caret-right.png"/>
     </button>
 
-    <view class="section-heading"><view><text>01</text><text>报告与车辆信息</text></view><text>平台履约记录</text></view>
-    <view class="document-card report-information">
-      <text class="information-title">报告信息</text>
-      <view class="information-row"><text>平台报告编号</text><text>{{reportNumberText}}</text></view>
-      <view class="information-row"><text>报告状态</text><text>{{reportStatusText}}</text></view>
-      <view class="information-row"><text>{{reportTimeLabel}}</text><text>{{publishedTime}}</text></view>
-      <view class="information-row"><text>业务订单号</text><text>{{booking.bookingNumber}}</text></view>
-      <text class="information-title vehicle-title">车辆与服务</text>
-      <view class="information-row"><text>车牌号码</text><text>{{plateText}}</text></view>
-      <view class="information-row"><text>车辆</text><text>{{vehicleText}}</text></view>
-      <view class="information-row"><text>服务方式</text><text>{{serviceModeText}}</text></view>
-      <view class="information-row"><text>检测站</text><text>{{stationText}}</text></view>
-      <view class="information-row"><text>预约时段</text><text>{{appointmentText}}</text></view>
-    </view>
-
-    <view class="section-heading"><view><text>02</text><text>年检结论</text></view><text>检测站回传</text></view>
-    <view class="annual-conclusion-card conclusion-{{conclusionTone}}">
-      <view class="annual-heading"><view><text>本次年检结论</text><text>{{conclusionText}}</text></view><text>{{markStatusText}}</text></view>
-      <text class="annual-narrative">{{annualNarrative}}</text>
-      <view wx:if="{{showFailureDetails}}" class="annual-failure-details">
-        <view><text>未通过项目类别</text><text>{{failureCategoryText}}</text></view>
-        <view><text>具体原因 / 检测说明</text><text>{{failureReasonText}}</text></view>
-        <view><text>整改与复检建议</text><text>{{retestAdviceText}}</text></view>
-      </view>
-      <view class="conclusion-boundary"><text>结论边界</text><text>本栏展示检测站回传的年检结果；下方“车辆体检记录”只描述交接时可见车况，两者不互相替代。</text></view>
-    </view>
-
-    <view class="section-heading"><view><text>03</text><text>车辆体检记录</text></view><text>{{observationText}}</text></view>
-    <view class="condition-report-card">
-      <view class="condition-heading"><image wx:if="{{faultViews.length}}" src="/assets/icons/warning-circle.png"/><image wx:else src="/assets/icons/check-circle.png"/><view><text>车辆状态文字结论</text><text>{{conditionTitle}}</text></view></view>
-      <text class="condition-narrative">{{conditionNarrative}}</text>
-      <view class="inspection-note"><text>检测说明</text><text>{{inspectionNoteText}}</text></view>
-      <view class="record-scope"><text>记录范围</text><text>固定方位现场照片、启动后仪表盘照片，以及检测站录入的车身部位和功能系统问题。</text></view>
-    </view>
-
-    <view class="section-heading"><view><text>04</text><text>故障明细与建议</text></view><text>{{faultViews.length}} 项记录</text></view>
-    <view wx:if="{{faultViews.length}}" class="generated-advice-note"><image src="/assets/icons/shield-check.png"/><text>处理建议由平台根据检测站录入的部位、类型和明显程度自动套入一般性模板，仅供后续检查参考，不构成维修诊断。</text></view>
-    <view wx:if="{{faultViews.length}}" class="written-fault-list">
-      <view wx:for="{{faultViews}}" wx:key="id" class="written-fault-item">
-        <view class="written-fault-head"><text>#{{item.number}}</text><view><text>{{item.regionLabel}}</text><text>{{item.viewLabel}}定位</text></view><text class="severity severity-{{item.severity}}">{{item.severityLabel}}</text></view>
-        <view class="fault-facts"><view><text>问题类型</text><text>{{item.typeLabel}}</text></view><view><text>部位</text><text>{{item.regionLabel}}</text></view><view><text>明显程度</text><text>{{item.severityLabel}}</text></view></view>
-        <view class="fault-written-block"><text>现场描述</text><text>{{item.descriptionText}}</text></view>
-        <view class="fault-advice"><image src="/assets/icons/shield-check.png"/><view><text>检查 / 处理建议</text><text>{{item.advice}}</text></view></view>
-        <view class="report-fault-photos">
-          <view class="report-fault-photo-head"><text>现场特写</text><text>{{item.photoCount}} 张</text></view>
-          <view wx:if="{{item.photoCount}}" class="report-fault-photo-grid">
-            <button wx:for="{{item.photos}}" wx:for-item="photo" wx:key="id" data-fault-id="{{item.id}}" data-url="{{photo.url}}" bindtap="previewFaultPhoto" disabled="{{!photo.url}}"><image wx:if="{{photo.url}}" src="{{photo.url}}" data-source-url="{{photo.sourceUrl}}" binderror="handlePrivateImageError" mode="aspectFill"/><view wx:else class="report-photo-failed"><image src="/assets/icons/warning-circle.png"/><text>安全读取失败</text></view><text>特写 {{photo.sequence || index + 1}}</text></button>
-          </view>
-          <view wx:else class="report-fault-photo-missing"><text>该故障暂未附现场特写</text><text>{{previewMode ? '回传前需补拍至少 1 张' : '历史记录未提供此附件'}}</text></view>
-        </view>
-        <button data-id="{{item.id}}" bindtap="selectFault">{{item.isSystemRegion ? '查看功能系统记录' : '在三视图中定位'}} #{{item.number}}</button>
-      </view>
-    </view>
-    <view wx:else class="zero-fault-report"><image src="/assets/icons/check-circle.png"/><view><text>故障记录 0 项</text><text>本次现场可见范围内未新增车身问题标记。该模板仅表达“未记录明显异常”，不代表对底盘、结构或机械系统作出无故障判断。</text></view></view>
-
-    <view class="section-heading"><view><text>05</text><text>法定检测材料</text></view><text>检测站出具材料留证</text></view>
-    <view class="boundary-note material-boundary"><image src="/assets/icons/shield-check.png"/><text>以下为检测站出具材料的图片留证。平台车辆体检报告不替代法定检测报告；历史报告缺少材料时只显示真实缺失状态，不补造附件。</text></view>
-    <view class="attachment-list result-material-list">
-      <button wx:for="{{resultMaterialAttachments}}" wx:key="kind" class="attachment-row attachment-{{item.statusTone}}" data-url="{{item.url}}" bindtap="previewResultMaterial" disabled="{{!item.url}}">
-        <text>{{item.number}}</text><view><text>{{item.label}}</text><text>{{item.kind === 'safety_inspection_report' ? '检测站如有出具则留存' : item.kind === 'emissions_inspection_report' ? '检测站如有出具则留存' : '仅年检通过时必传'}}</text></view><text>{{item.statusText}}</text><image wx:if="{{item.url}}" src="/assets/icons/caret-right.png"/>
-      </button>
-    </view>
-
-    <view class="section-heading"><view><text>06</text><text>平台车辆体检留证</text></view><text>{{sitePhotos.length}}/5 份可查看</text></view>
-    <view class="attachment-list">
-      <button wx:for="{{sitePhotoAttachments}}" wx:key="kind" class="attachment-row attachment-{{item.statusTone}}" data-url="{{item.url}}" bindtap="previewPhoto" disabled="{{!item.url}}">
-        <text>{{item.number}}</text><view><text>{{item.label}}</text><text>{{item.kind === 'dashboard_started' ? '车辆启动后的仪表状态' : '车辆交接时的固定方位照片'}}</text></view><text>{{item.statusText}}</text><image wx:if="{{item.url}}" src="/assets/icons/caret-right.png"/>
-      </button>
-    </view>
-
-    <view class="section-heading"><view><text>07</text><text>车辆问题定位</text></view><text>三视图与功能系统</text></view>
+    <view class="section-heading"><view><text>01</text><text>车辆问题定位</text></view><text>三视图与功能系统</text></view>
     <view class="diagnostic-panel readonly-diagnostic">
       <view class="diagnostic-head"><view><text>VEHICLE CONDITION REPORT</text><text>车辆问题数字定位</text></view><view class="scan-state"><text></text><text>报告已生成</text></view></view>
       <view class="view-tabs"><button wx:for="{{tabs}}" wx:key="id" class="{{item.selected ? 'selected' : ''}}" data-id="{{item.id}}" bindtap="selectView"><text>{{item.label}}</text><text wx:if="{{item.faultCount}}">{{item.faultCount}}</text></button></view>
@@ -126,6 +56,76 @@
       </button>
     </view>
     <view wx:else class="no-fault-card"><image src="/assets/icons/check-circle.png"/><view><text>三视图无故障定位点</text><text>本次车辆体检记录为“未发现明显异常”。</text></view></view>
+
+    <view class="section-heading"><view><text>02</text><text>故障明细与建议</text></view><text>{{faultViews.length}} 项记录</text></view>
+    <view wx:if="{{faultViews.length}}" class="generated-advice-note"><image src="/assets/icons/shield-check.png"/><text>处理建议由平台根据检测站录入的部位、类型和明显程度自动套入一般性模板，仅供后续检查参考，不构成维修诊断。</text></view>
+    <view wx:if="{{faultViews.length}}" class="written-fault-list">
+      <view wx:for="{{faultViews}}" wx:key="id" class="written-fault-item">
+        <view class="written-fault-head"><text>#{{item.number}}</text><view><text>{{item.regionLabel}}</text><text>{{item.viewLabel}}定位</text></view><text class="severity severity-{{item.severity}}">{{item.severityLabel}}</text></view>
+        <view class="fault-facts"><view><text>问题类型</text><text>{{item.typeLabel}}</text></view><view><text>部位</text><text>{{item.regionLabel}}</text></view><view><text>明显程度</text><text>{{item.severityLabel}}</text></view></view>
+        <view class="fault-written-block"><text>现场描述</text><text>{{item.descriptionText}}</text></view>
+        <view class="fault-advice"><image src="/assets/icons/shield-check.png"/><view><text>检查 / 处理建议</text><text>{{item.advice}}</text></view></view>
+        <view class="report-fault-photos">
+          <view class="report-fault-photo-head"><text>现场特写</text><text>{{item.photoCount}} 张</text></view>
+          <view wx:if="{{item.photoCount}}" class="report-fault-photo-grid">
+            <button wx:for="{{item.photos}}" wx:for-item="photo" wx:key="id" data-fault-id="{{item.id}}" data-url="{{photo.url}}" bindtap="previewFaultPhoto" disabled="{{!photo.url}}"><image wx:if="{{photo.url}}" src="{{photo.url}}" data-source-url="{{photo.sourceUrl}}" binderror="handlePrivateImageError" mode="aspectFill"/><view wx:else class="report-photo-failed"><image src="/assets/icons/warning-circle.png"/><text>安全读取失败</text></view><text>特写 {{photo.sequence || index + 1}}</text></button>
+          </view>
+          <view wx:else class="report-fault-photo-missing"><text>该故障暂未附现场特写</text><text>{{previewMode ? '回传前需补拍至少 1 张' : '历史记录未提供此附件'}}</text></view>
+        </view>
+        <button data-id="{{item.id}}" bindtap="selectFault">{{item.isSystemRegion ? '查看功能系统记录' : '在三视图中定位'}} #{{item.number}}</button>
+      </view>
+    </view>
+    <view wx:else class="zero-fault-report"><image src="/assets/icons/check-circle.png"/><view><text>故障记录 0 项</text><text>本次现场可见范围内未新增车身问题标记。该模板仅表达“未记录明显异常”，不代表对底盘、结构或机械系统作出无故障判断。</text></view></view>
+
+    <view class="section-heading"><view><text>03</text><text>年检结论</text></view><text>检测站回传</text></view>
+    <view class="annual-conclusion-card conclusion-{{conclusionTone}}">
+      <view class="annual-heading"><view><text>本次年检结论</text><text>{{conclusionText}}</text></view><text>{{markStatusText}}</text></view>
+      <text class="annual-narrative">{{annualNarrative}}</text>
+      <view wx:if="{{showFailureDetails}}" class="annual-failure-details">
+        <view><text>未通过项目类别</text><text>{{failureCategoryText}}</text></view>
+        <view><text>具体原因 / 检测说明</text><text>{{failureReasonText}}</text></view>
+        <view><text>整改与复检建议</text><text>{{retestAdviceText}}</text></view>
+      </view>
+      <view class="conclusion-boundary"><text>结论边界</text><text>本栏展示检测站回传的年检结果；下方“车辆体检记录”只描述交接时可见车况，两者不互相替代。</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>04</text><text>车辆体检记录</text></view><text>{{observationText}}</text></view>
+    <view class="condition-report-card">
+      <view class="condition-heading"><image wx:if="{{faultViews.length}}" src="/assets/icons/warning-circle.png"/><image wx:else src="/assets/icons/check-circle.png"/><view><text>车辆状态文字结论</text><text>{{conditionTitle}}</text></view></view>
+      <text class="condition-narrative">{{conditionNarrative}}</text>
+      <view class="inspection-note"><text>检测说明</text><text>{{inspectionNoteText}}</text></view>
+      <view class="record-scope"><text>记录范围</text><text>固定方位现场照片、启动后仪表盘照片，以及检测站录入的车身部位和功能系统问题。</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>05</text><text>报告与车辆信息</text></view><text>平台履约记录</text></view>
+    <view class="document-card report-information">
+      <text class="information-title">报告信息</text>
+      <view class="information-row"><text>平台报告编号</text><text>{{reportNumberText}}</text></view>
+      <view class="information-row"><text>报告状态</text><text>{{reportStatusText}}</text></view>
+      <view class="information-row"><text>{{reportTimeLabel}}</text><text>{{publishedTime}}</text></view>
+      <view class="information-row"><text>业务订单号</text><text>{{booking.bookingNumber}}</text></view>
+      <text class="information-title vehicle-title">车辆与服务</text>
+      <view class="information-row"><text>车牌号码</text><text>{{plateText}}</text></view>
+      <view class="information-row"><text>车辆</text><text>{{vehicleText}}</text></view>
+      <view class="information-row"><text>服务方式</text><text>{{serviceModeText}}</text></view>
+      <view class="information-row"><text>检测站</text><text>{{stationText}}</text></view>
+      <view class="information-row"><text>预约时段</text><text>{{appointmentText}}</text></view>
+    </view>
+
+    <view class="section-heading"><view><text>06</text><text>法定检测材料</text></view><text>检测站出具材料留证</text></view>
+    <view class="boundary-note material-boundary"><image src="/assets/icons/shield-check.png"/><text>以下为检测站出具材料的图片留证。平台车辆体检报告不替代法定检测报告；历史报告缺少材料时只显示真实缺失状态，不补造附件。</text></view>
+    <view class="attachment-list result-material-list">
+      <button wx:for="{{resultMaterialAttachments}}" wx:key="kind" class="attachment-row attachment-{{item.statusTone}}" data-url="{{item.url}}" bindtap="previewResultMaterial" disabled="{{!item.url}}">
+        <text>{{item.number}}</text><view><text>{{item.label}}</text><text>{{item.kind === 'annual_inspection_mark' ? '仅年检通过时必传' : '历史报告已归档材料'}}</text></view><text>{{item.statusText}}</text><image wx:if="{{item.url}}" src="/assets/icons/caret-right.png"/>
+      </button>
+    </view>
+
+    <view class="section-heading"><view><text>07</text><text>平台车辆体检留证</text></view><text>{{sitePhotos.length}}/5 份可查看</text></view>
+    <view class="attachment-list">
+      <button wx:for="{{sitePhotoAttachments}}" wx:key="kind" class="attachment-row attachment-{{item.statusTone}}" data-url="{{item.url}}" bindtap="previewPhoto" disabled="{{!item.url}}">
+        <text>{{item.number}}</text><view><text>{{item.label}}</text><text>{{item.kind === 'dashboard_started' ? '车辆启动后的仪表状态' : '车辆交接时的固定方位照片'}}</text></view><text>{{item.statusText}}</text><image wx:if="{{item.url}}" src="/assets/icons/caret-right.png"/>
+      </button>
+    </view>
 
     <view class="section-heading"><view><text>08</text><text>照片材料预览</text></view><text>按材料类型分组查看</text></view>
     <text class="photo-group-title">平台车辆体检留证 · 固定 5 张</text>

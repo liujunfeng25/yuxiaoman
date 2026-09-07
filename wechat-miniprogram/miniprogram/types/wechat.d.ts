@@ -93,14 +93,14 @@ declare const wx: {
     success?(result: { eventChannel: WechatMiniprogram.EventChannel }): void;
     fail?(error: { errMsg?: string }): void;
   }): void;
-  switchTab(options: { url: string }): void;
+  switchTab(options: { url: string; success?(): void; fail?(error: { errMsg?: string }): void }): void;
   redirectTo(options: { url: string }): void;
   navigateBack(options?: { delta?: number }): void;
   reLaunch(options: { url: string }): void;
   showToast(options: { title: string; icon?: "success" | "error" | "none" | "loading"; duration?: number }): void;
   hideKeyboard(options?: { success?(): void; fail?(error: { errMsg: string }): void }): void;
   hideToast(): void;
-  showModal(options: { title: string; content: string; confirmText?: string; cancelText?: string; confirmColor?: string; success(result: { confirm: boolean; cancel: boolean }): void }): void;
+  showModal(options: { title: string; content: string; showCancel?: boolean; confirmText?: string; cancelText?: string; confirmColor?: string; success?(result: { confirm: boolean; cancel: boolean }): void }): void;
   openSetting(options?: { success?(result: { authSetting: Record<string, boolean> }): void }): void;
   showActionSheet(options: { itemList: string[]; success(result: { tapIndex: number }): void; fail?(error: { errMsg?: string }): void }): void;
   setClipboardData(options: { data: string; success?(): void; fail?(error: { errMsg?: string }): void }): void;

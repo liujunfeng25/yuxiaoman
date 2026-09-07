@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PLATE_CATEGORIES } from "../miniprogram/utils/plate-categories";
+import { formatPlateNumber, plateSlotCount } from "../miniprogram/utils/plate-keyboard-layout";
 
-test("11 类车辆编辑往返保留稳定类别、自由号牌、独立动力与可编辑客车颜色", async () => {
+test("11 类车辆编辑往返保留稳定类别、分段号牌、独立动力与可编辑客车颜色", async () => {
   const globals = globalThis as any;
   let definition: any;
   globals.Page = (options: any) => { definition = options; };
@@ -26,6 +27,10 @@ test("11 类车辆编辑往返保留稳定类别、自由号牌、独立动力�
   api.updateVehicle = save;
   const page = () => ({ ...definition, data: structuredClone(definition.data), setData(patch: any) { Object.assign(this.data, patch); } });
   const choose = (instance: any, value: string) => instance.choosePowertrain({ currentTarget: { dataset: { value } } });
+  const setPlate = (instance: any, raw: string) => {
+    const value = formatPlateNumber(raw);
+    instance.onPlateKeyboardChange({ detail: { value, complete: true } });
+  };
   try {
     assert.equal(definition.data.plateCategories.length, 11);
     assert.deepEqual(definition.data.plateCategories.map((item: any) => item.label), [
@@ -36,12 +41,15 @@ test("11 类车辆编辑往返保留稳定类别、自由号牌、独立动力�
     for (const [index, category] of PLATE_CATEGORIES.entries()) {
       const form = page();
       form.categoryChange({ detail: { value: index } });
-      const plateNumber = index === 0
-        ? "京使1234"
-        : category.code === "yellow_trailer"
-          ? `津${index}临时挂`
-          : `津${index}A${index % 2 ? "D" : "F"}特别号`;
-      form.plateNumberInput({ detail: { value: plateNumber } });
+      assert.equal(form.data.slotCount, plateSlotCount(category.plateKind), category.label);
+      assert.equal(form.data.plateNumber, "");
+      assert.equal(form.data.plateComplete, false);
+      const plateNumber = category.code === "yellow_trailer"
+        ? formatPlateNumber(`津A${String(1000 + index).slice(-4)}挂`)
+        : plateSlotCount(category.plateKind) === 8
+          ? formatPlateNumber(`津AD${String(10000 + index).slice(-5)}`)
+          : formatPlateNumber(`津A${String(10000 + index).slice(-5)}`);
+      setPlate(form, plateNumber);
       assert.equal(form.data.plateComplete, true, category.label);
       choose(form, "phev");
       form.usageNatureInput({ detail: { value: "非营运" } });
@@ -64,27 +72,41 @@ test("11 类车辆编辑往返保留稳定类别、自由号牌、独立动力�
       await edit.onLoad({ id: vehicle.id });
       assert.equal(edit.data.plateCategory, category.code);
       assert.equal(edit.data.mode, category.plateKind);
+      assert.equal(edit.data.slotCount, plateSlotCount(category.plateKind));
       assert.equal(edit.data.plateNumber, vehicle.plateNumber);
       assert.equal(edit.data.powertrainType, "phev");
       assert.equal(edit.data.exteriorColor, vehicle.exteriorColor || "");
       choose(edit, "pure_electric");
-      edit.plateNumberInput({ detail: { value: `WJ${index}-D${index}F` } });
+      const nextPlate = plateSlotCount(edit.data.mode) === 8
+        ? formatPlateNumber(`津BF${String(20000 + index).slice(-5)}`)
+        : formatPlateNumber(`津B${String(20000 + index).slice(-5)}`);
+      setPlate(edit, nextPlate);
       await edit.submit();
       assert.equal(stored.get(vehicle.id).powertrainType, "pure_electric");
-      assert.equal(stored.get(vehicle.id).plateNumber, `WJ${index}-D${index}F`);
+      assert.equal(stored.get(vehicle.id).plateNumber, nextPlate);
     }
     const form = page();
-    form.plateNumberInput({ detail: { value: "津AIO2345" } });
+    setPlate(form, "津AIO2345");
     choose(form, "diesel");
     form.categoryChange({ detail: { value: 10 } });
-    assert.equal(form.data.plateNumber, "津AIO2345");
+    assert.equal(form.data.plateNumber, "");
+    assert.equal(form.data.plateComplete, false);
     assert.equal(form.data.powertrainType, "diesel");
-    form.plateNumberInput({ detail: { value: "" } });
+    assert.equal(form.data.slotCount, 8);
     await form.submit();
     assert.ok(notices.includes("请输入车牌号"));
-    form.plateNumberInput({ detail: { value: "津A<script>" } });
+    form.setData({ plateNumber: "津A<script>", plateComplete: true, plateCategoryConfirmed: true });
     await form.submit();
     assert.ok(notices.includes("请只填写实际号牌中的文字、字母、数字或分隔符"));
+    const missingPowertrain = page();
+    missingPowertrain.categoryChange({ detail: { value: 0 } });
+    missingPowertrain.onPlateKeyboardChange({ detail: { value: formatPlateNumber("津A12345"), complete: true } });
+    missingPowertrain.usageNatureInput({ detail: { value: "非营运" } });
+    missingPowertrain.vehicleTypeInput({ detail: { value: "小型普通客车" } });
+    missingPowertrain.setData({ powertrainType: "unknown", powertrainTouched: false });
+    await missingPowertrain.submit();
+    assert.ok(notices.includes("请选择动力类型"));
+    assert.equal(missingPowertrain.data.saving, false);
   } finally {
     Object.assign(api, originals);
     delete globals.Page; delete globals.wx;

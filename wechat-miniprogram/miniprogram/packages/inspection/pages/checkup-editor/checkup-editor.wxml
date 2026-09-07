@@ -140,21 +140,7 @@
 
     <view class="section-heading"><view><text>04</text><text>法定检测材料</text></view><text>与平台车辆体检留证分开</text></view>
     <view class="conclusion-card legal-material-card">
-      <view class="legal-material-boundary"><image src="/assets/icons/shield-check.png"/><text>请按检测站实际出具材料留证。平台车辆体检报告用于履约记录，不替代机动车安全技术检验报告、排放检验报告或交管官方记录。</text></view>
-
-      <view class="mark-upload legal-material-item">
-        <view class="mark-heading"><view><text>机动车安全技术检验报告</text><text>检测站如有出具，可作为补充材料上传</text></view><text>{{safetyReportMedia ? '已上传' : '选填'}}</text></view>
-        <button wx:if="{{safetyReportMedia}}" class="mark-preview" data-url="{{safetyReportMedia.url}}" bindtap="previewPhoto"><image src="{{safetyReportMedia.url}}" mode="aspectFill"/><text>点击查看原图</text></button>
-        <button wx:else class="mark-empty" data-kind="safety_inspection_report" bindtap="choosePhoto" disabled="{{safetyReportUploading || saving || submitting}}"><image src="/assets/icons/camera.png"/><text>{{safetyReportUploading ? '正在上传…' : '拍摄或从相册选择检验报告'}}</text></button>
-        <view wx:if="{{safetyReportMedia}}" class="mark-controls"><button data-kind="safety_inspection_report" bindtap="choosePhoto" disabled="{{safetyReportUploading || saving || submitting}}">重拍/替换</button><button data-id="{{safetyReportMedia.id}}" catchtap="deletePhoto" disabled="{{safetyReportUploading || saving || submitting}}">删除</button></view>
-      </view>
-
-      <view class="mark-upload legal-material-item optional-material">
-        <view class="mark-heading"><view><text>排放检验报告</text><text>检测站如有出具，请一并上传</text></view><text>{{emissionsReportMedia ? '已上传' : '选填'}}</text></view>
-        <button wx:if="{{emissionsReportMedia}}" class="mark-preview" data-url="{{emissionsReportMedia.url}}" bindtap="previewPhoto"><image src="{{emissionsReportMedia.url}}" mode="aspectFill"/><text>点击查看原图</text></button>
-        <button wx:else class="mark-empty" data-kind="emissions_inspection_report" bindtap="choosePhoto" disabled="{{emissionsReportUploading || saving || submitting}}"><image src="/assets/icons/camera.png"/><text>{{emissionsReportUploading ? '正在上传…' : '拍摄或从相册选择排放检验报告'}}</text></button>
-        <view wx:if="{{emissionsReportMedia}}" class="mark-controls"><button data-kind="emissions_inspection_report" bindtap="choosePhoto" disabled="{{emissionsReportUploading || saving || submitting}}">重拍/替换</button><button data-id="{{emissionsReportMedia.id}}" catchtap="deletePhoto" disabled="{{emissionsReportUploading || saving || submitting}}">删除</button></view>
-      </view>
+      <view class="legal-material-boundary"><image src="/assets/icons/shield-check.png"/><text>请按检测站实际出具材料留证。平台车辆体检报告用于履约记录，不替代交管官方检验记录。</text></view>
 
       <view wx:if="{{conclusion === 'passed'}}" class="mark-upload legal-material-item">
         <view class="mark-heading"><view><text>检验合格标志/电子凭证留证</text><text>仅通过结果必须上传纸质标志或电子凭证截图</text></view><text>{{markMedia ? '已上传' : '必传'}}</text></view>
@@ -165,14 +151,14 @@
       <view wx:else class="mark-not-issued"><image src="/assets/icons/shield-check.png"/><text>{{conclusion ? '未通过结果不生成检验合格标志/电子凭证留证。' : '选择结论后显示检验合格凭证要求。'}}</text></view>
     </view>
 
-    <view class="submit-guide"><image src="/assets/icons/shield-check.png"/><view><text>提交前自动检查</text><text>5 张固定现场照片、车辆状态确认和年检结论；每条故障至少 1 张特写。安全与排放检验报告均为选填，通过时必须上传检验合格标志/电子凭证留证。</text></view></view>
+    <view class="submit-guide"><image src="/assets/icons/shield-check.png"/><view><text>提交前自动检查</text><text>5 张固定现场照片、车辆状态确认和年检结论；每条故障至少 1 张特写。通过时必须上传检验合格标志/电子凭证留证。</text></view></view>
   </block>
 
   <view wx:elif="{{loadError}}" class="editor-load-error"><image src="/assets/icons/warning-circle.png"/><text>暂时无法填写检测结果</text><text>{{loadError}}</text><view class="editor-error-actions"><button wx:if="{{id}}" bindtap="retryLoad" disabled="{{loading}}">重新加载</button><button bindtap="goTasks">返回检测任务</button></view></view>
 
   <view wx:if="{{booking && !faultEditorOpen && !previewOpen}}" class="sticky-actions">
-    <button class="save-button" bindtap="saveDraft" loading="{{saving}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0 ? '材料处理中' : '保存草稿'}}</button>
-    <button class="submit-button" bindtap="submitReport" loading="{{submitting}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || safetyReportUploading || emissionsReportUploading || markUploading || faultPhotoBusyCount > 0 ? '等待材料完成' : '预览并回传结果'}}</button>
+    <button class="save-button" bindtap="saveDraft" loading="{{saving}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || markUploading || faultPhotoBusyCount > 0 ? '材料处理中' : '保存草稿'}}</button>
+    <button class="submit-button" bindtap="submitReport" loading="{{submitting}}" disabled="{{saving || submitting || fixedPhotoUploadingCount > 0 || markUploading || faultPhotoBusyCount > 0}}">{{fixedPhotoUploadingCount > 0 || markUploading || faultPhotoBusyCount > 0 ? '等待材料完成' : '预览并回传结果'}}</button>
   </view>
 
   <view wx:if="{{faultEditorOpen}}" class="sheet-layer">

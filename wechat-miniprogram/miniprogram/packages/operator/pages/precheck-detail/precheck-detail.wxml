@@ -13,18 +13,31 @@
   <view wx:if="{{showReject}}" class="sheet-layer">
     <view class="sheet-mask" bindtap="closeReject" catchtouchmove="noop"></view>
     <view class="reject-sheet" catchtap="noop">
-      <view class="sheet-head"><view><text>标注问题与后续处理</text><text>按问题推荐后续动作，车主自主选择</text></view><button bindtap="closeReject">关闭</button></view>
-      <scroll-view scroll-y class="sheet-scroll">
-        <text class="field-label">问题类型（至少一项）</text>
-        <view class="reason-grid"><button wx:for="{{reasons}}" wx:key="code" class="{{item.selected ? 'selected' : ''}}" data-code="{{item.code}}" bindtap="toggleReason"><view class="reason-title"><text>{{item.label}}</text><text>{{item.selected ? "已选" : "选择"}}</text></view><text class="reason-effect">{{item.effect}}</text></button></view>
-        <text class="field-label">存在问题的照片（可多选）</text>
-        <view class="photo-tags"><button wx:for="{{photos}}" wx:key="kind" class="{{item.selected ? 'selected' : ''}}" data-kind="{{item.kind}}" bindtap="togglePhoto">{{item.label}}</button></view>
-        <text class="field-label">具体说明（5–300 字）</text>
-        <textarea maxlength="300" value="{{reasonText}}" bindinput="reasonInput" placeholder="{{vehiclePhotosRequired ? '请写明发现了什么、位置或现象，以及车主需要补充的材料。普通划痕不应直接作为退回依据。' : '请写明行驶证或预约信息中发现的问题，以及车主需要补充或核对的材料。'}}"/>
-        <text class="count">{{reasonText.length}} / 300</text>
-        <view class="refund-warning"><text>发送后的订单状态</text><text>保留订单与已付款 {{paymentLabel}} · 释放原时段 · 等待车主处理或主动申请退款</text></view>
-      </scroll-view>
-      <button class="confirm-reject" bindtap="submitReject" loading="{{deciding}}" disabled="{{deciding}}">发送问题处理清单</button>
+      <block wx:if="{{!rejectConfirming}}">
+        <view class="sheet-head"><view><text>标注问题与后续处理</text><text>按问题推荐后续动作，车主自主选择</text></view><button bindtap="closeReject">关闭</button></view>
+        <scroll-view scroll-y class="sheet-scroll">
+          <text class="field-label">问题类型（至少一项）</text>
+          <view class="reason-grid"><button wx:for="{{reasons}}" wx:key="code" class="{{item.selected ? 'selected' : ''}}" data-code="{{item.code}}" bindtap="toggleReason"><view class="reason-title"><text>{{item.label}}</text><text>{{item.selected ? "已选" : "选择"}}</text></view><text class="reason-effect">{{item.effect}}</text></button></view>
+          <text class="field-label">{{photoPickHint}}</text>
+          <view class="photo-tags"><button wx:for="{{photos}}" wx:key="kind" class="{{item.selected ? 'selected' : ''}}" data-kind="{{item.kind}}" bindtap="togglePhoto">{{item.label}}</button></view>
+          <text class="field-label">具体说明（5–300 字）</text>
+          <textarea maxlength="300" value="{{reasonText}}" bindinput="reasonInput" placeholder="{{vehiclePhotosRequired ? '请写明发现了什么、位置或现象，以及车主需要补充的材料。普通划痕不应直接作为退回依据。' : '请写明行驶证或预约信息中发现的问题，以及车主需要补充或核对的材料。'}}"/>
+          <text class="count">{{reasonText.length}} / 300</text>
+          <view class="refund-warning"><text>发送后的订单状态</text><text>保留订单与已付款 {{paymentLabel}} · 释放原时段 · 等待车主处理或主动申请退款</text></view>
+        </scroll-view>
+        <button class="confirm-reject" catchtap="submitReject" loading="{{deciding}}" disabled="{{deciding}}">发送问题处理清单</button>
+      </block>
+      <block wx:else>
+        <view class="sheet-head"><view><text>确认发送问题处理清单</text><text>将发送给车主，并释放原时段</text></view><button bindtap="closeReject" disabled="{{deciding}}">关闭</button></view>
+        <view class="confirm-panel">
+          <text>订单与已付款 {{paymentLabel}} 保留，原时段释放。</text>
+          <text>车主可补充资料、选择洗车或维修后重新提交；是否退款由车主主动决定。</text>
+        </view>
+        <view class="confirm-actions">
+          <button class="back-edit" catchtap="backToRejectForm" disabled="{{deciding}}">返回修改</button>
+          <button class="confirm-reject" catchtap="submitReject" loading="{{deciding}}" disabled="{{deciding}}">确认发送给车主</button>
+        </view>
+      </block>
     </view>
   </view>
 </view>

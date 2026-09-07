@@ -279,7 +279,17 @@ type Booking = {
   precheckSlotReleased?: boolean;
   precheck?: {
     resolutionNote?: string | null;
-    history?: Array<{ version: number; reasonText: string; reviewerName: string; reviewedAt: string }>;
+    history?: Array<{
+      version: number;
+      reasonText?: string;
+      reviewerName?: string;
+      reviewedAt?: string;
+      reasonCodes?: string[];
+      issuePhotoKinds?: string[];
+      mediaIds?: string[];
+      issueMedia?: Media[];
+    }>;
+    priorIssueMedia?: Media[];
     status: "pending" | "approved" | "rejected";
     submittedAt: string;
     reviewedAt: string | null;
@@ -314,7 +324,7 @@ type Booking = {
   createdAt?: string;
   updatedAt?: string;
   station?: Station;
-  vehicle?: { plateNumber: string; vehicleType: string; seats: number; powertrainType?: PowertrainType; brand?: VehicleCatalogIdentity | null; model?: VehicleCatalogIdentity | null };
+  vehicle?: { plateNumber: string; vehicleType: string; seats: number; powertrainType?: PowertrainType; washVehicleCategory?: "sedan" | "suv" | "mpv" | "suv_mpv" | null; brand?: VehicleCatalogIdentity | null; model?: VehicleCatalogIdentity | null };
   pickupAddress?: {
     title: string;
     address: string;
@@ -767,7 +777,17 @@ const precheckPhotoLabels: Record<string, string> = {
   dashboard_started: "启动后仪表盘",
 };
 
-function PrecheckAuditPanel({ booking, onRetryRefund, retrying = false }: { booking: Booking; onRetryRefund?: () => void; retrying?: boolean }) {
+function PrecheckAuditPanel({
+  booking,
+  onRetryRefund,
+  retrying = false,
+  onPreview,
+}: {
+  booking: Booking;
+  onRetryRefund?: () => void;
+  retrying?: boolean;
+  onPreview?: (label: string, items: Media[], index: number, trigger: HTMLButtonElement) => void;
+}) {
   const precheck = booking.precheck;
   if (!precheck) return null;
   const fulfillmentStatus = bookingFulfillment(booking);
@@ -787,6 +807,10 @@ function PrecheckAuditPanel({ booking, onRetryRefund, retrying = false }: { book
           : supervision.firstReminderAt
             ? `首次提醒 ${shanghaiTime(supervision.firstReminderAt)}`
             : "已创建站内待办";
+  const historyWithIssueMedia = (precheck.history || []).filter((entry) => (entry.issueMedia || []).length > 0);
+  const priorIssueMedia = (precheck.priorIssueMedia || []).length
+    ? precheck.priorIssueMedia || []
+    : historyWithIssueMedia.flatMap((entry) => entry.issueMedia || []);
   return <section className={`detail-section precheck-audit-panel ${precheck.status}`} aria-label="检测站预约资料预审">
     <header><div><small>预约资料审核</small><h3>检测站预约资料预审</h3></div><span className={`status-pill status-${fulfillmentStatus}`}>{statusText}</span></header>
     {fulfillmentStatus === "precheck_action_required" ? <p className="journey-data-warning">订单与已付款保留，原时段已释放。车主处理后选择本站时段重新提交；退款只能由车主主动申请。车损与故障灯进入维修报价，脏污进入洗车预约。</p> : null}
@@ -796,11 +820,55 @@ function PrecheckAuditPanel({ booking, onRetryRefund, retrying = false }: { book
       {supervision ? <div><dt>策略与投递</dt><dd>第 {supervision.policyVersion} 版 · {supervision.externalDeliveryStatus ? `外发：${deliveryStatusLabels[supervision.externalDeliveryStatus] || "状态待核对"}` : supervision.inAppCreatedAt ? "站内消息已生成" : "待触发提醒"}</dd></div> : null}
       {precheck.reviewerName ? <div><dt>审核人员</dt><dd>{precheck.reviewerName} · {shanghaiTime(precheck.reviewedAt) || "时间待记录"}</dd></div> : null}
       {precheck.reasonCodes.length ? <div><dt>问题类型</dt><dd>{precheck.reasonCodes.map((code) => precheckReasonLabels[code] || "其他待核对问题").join("、")}</dd></div> : null}
-      {precheck.issuePhotoKinds.length ? <div><dt>涉及照片</dt><dd>{precheck.issuePhotoKinds.map((kind) => precheckPhotoLabels[kind] || "其他资料照片").join("、")}</dd></div> : null}
+      {precheck.issuePhotoKinds.length ? <div className={priorIssueMedia.length ? "wide" : undefined}><dt>涉及照片</dt><dd>{precheck.issuePhotoKinds.map((kind) => precheckPhotoLabels[kind] || "其他资料照片").join("、")}</dd>
+        {priorIssueMedia.length ? <div className="media-gallery precheck-inline-issue-media">{priorIssueMedia.map((item, index) => {
+          const label = precheckPhotoLabels[item.kind] || mediaLabels[item.kind] || "问题照片";
+          return <figure key={`prior-${item.id}`}>
+            <button type="button" className="media-preview-trigger" aria-label={`查看更新前${label}大图`} title="点击查看大图" onClick={(event) => onPreview?.(label, priorIssueMedia, index, event.currentTarget)}>
+              <AuthenticatedEvidenceImage url={item.url} alt={`更新前 · ${label}`} />
+              <span><MagnifyingGlass />查看大图</span>
+            </button>
+            <figcaption>更新前 · {label}</figcaption>
+          </figure>;
+        })}</div> : null}
+      </div> : null}
       {precheck.reasonText ? <div className="wide"><dt>具体说明</dt><dd>{precheck.reasonText}</dd></div> : null}
       {precheck.resolutionNote ? <div className="wide"><dt>车主处理说明</dt><dd>{precheck.resolutionNote}</dd></div> : null}
       {precheck.status === "rejected" ? <div><dt>退款状态</dt><dd>{refundText} · ¥{money(precheck.refundAmountFen)}</dd></div> : null}
     </dl>
+    {historyWithIssueMedia.length > 1 ? <div className="precheck-issue-archive" aria-label="预检问题照片留档">
+      <div className="precheck-issue-archive-head"><strong>多轮预检问题照片留档</strong><small>按审核轮次保留车主更新前的问题照片</small></div>
+      {historyWithIssueMedia.map((entry) => {
+        const items = entry.issueMedia || [];
+        return <div key={`precheck-history-${entry.version}-${entry.reviewedAt || ""}`} className="precheck-issue-round">
+          <p>
+            第 {entry.version} 轮
+            {entry.reviewerName ? ` · ${entry.reviewerName}` : ""}
+            {entry.reviewedAt ? ` · ${shanghaiTime(entry.reviewedAt) || "时间待记录"}` : ""}
+            {(entry.issuePhotoKinds || []).length ? ` · ${(entry.issuePhotoKinds || []).map((kind) => precheckPhotoLabels[kind] || kind).join("、")}` : ""}
+          </p>
+          {entry.reasonText ? <small className="precheck-issue-reason">{entry.reasonText}</small> : null}
+          <div className="media-gallery">
+            {items.map((item, index) => {
+              const label = precheckPhotoLabels[item.kind] || mediaLabels[item.kind] || "问题照片";
+              return <figure key={item.id}>
+                <button
+                  type="button"
+                  className="media-preview-trigger"
+                  aria-label={`查看更新前${label}大图`}
+                  title="点击查看大图"
+                  onClick={(event) => onPreview?.(label, items, index, event.currentTarget)}
+                >
+                  <AuthenticatedEvidenceImage url={item.url} alt={`更新前 · ${label}`} />
+                  <span><MagnifyingGlass />查看大图</span>
+                </button>
+                <figcaption>更新前 · {label}</figcaption>
+              </figure>;
+            })}
+          </div>
+        </div>;
+      })}
+    </div> : null}
     {precheck.refundStatus === "refund_failed" ? <div className="precheck-refund-failed"><p className="journey-data-warning"><WarningCircle weight="fill" />退款失败，需要平台管理员核对支付通道后重试；订单不会恢复履约。</p><button type="button" disabled={retrying} onClick={onRetryRefund}><ArrowCounterClockwise />{retrying ? "重试中…" : "重试全额退款"}</button></div> : null}
   </section>;
 }
@@ -821,7 +889,7 @@ function groupedDriverVerificationCode(value: string) {
   return `${value.slice(0, 3)} ${value.slice(3)}`;
 }
 
-function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking; refresh: () => void; onError: (message: string) => void }) {
+function DriverAssignmentPanel({ booking, refresh }: { booking: Booking; refresh: () => void }) {
   const assignment = booking.driverAssignment ?? null;
   const assignmentActive = Boolean(assignment && ["assigned", "bound", "in_progress"].includes(assignment.status));
   const initialReceptionistName = assignment?.receptionistName || assignment?.driverName || "";
@@ -831,36 +899,49 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
   const [latestVerificationCode, setLatestVerificationCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [panelError, setPanelError] = useState("");
+  const panelErrorRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
     setReceptionistName(assignment?.receptionistName || assignment?.driverName || "");
     setReceptionistPhone(assignment?.receptionistPhone || assignment?.driverPhone || "");
     setLatestVerificationCode(driverVerificationCode(assignment?.verificationCode));
+    setPanelError("");
   }, [booking.id, assignment?.id, assignment?.receptionistName, assignment?.receptionistPhone, assignment?.driverName, assignment?.driverPhone, assignment?.verificationCode]);
+
+  useEffect(() => {
+    if (!panelError) return;
+    panelErrorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [panelError]);
 
   const generate = async () => {
     const normalizedName = receptionistName.trim();
     const normalizedPhone = receptionistPhone.replace(/\s+/g, "");
     if (normalizedName.length < 2) {
-      onError("请填写至少两个字的接待人员姓名");
+      setMessage("");
+      setPanelError("请填写至少两个字的接待人员姓名");
       return;
     }
     if (!/^1\d{10}$/.test(normalizedPhone)) {
-      onError("请填写有效的11位接待人员手机号");
+      setMessage("");
+      setPanelError("请填写有效的11位接待人员手机号");
       return;
     }
     setBusy(true);
     setMessage("");
+    setPanelError("");
     try {
+      const payload = { receptionistName: normalizedName, receptionistPhone: normalizedPhone };
       const result = await api<DriverAssignmentMutation>(`/admin/bookings/${booking.id}/driver-assignment`, {
         method: "POST",
-        body: JSON.stringify({ receptionistName: normalizedName, receptionistPhone: normalizedPhone }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
       setLatestVerificationCode(driverVerificationCode(result.assignment.verificationCode));
       setMessage(assignmentActive ? "取车任务验证码已重新生成，旧验证码已失效" : "接待人已安排，取车任务验证码已生成（可发群抢单）");
       refresh();
     } catch (error) {
-      onError(operatorErrorMessage(error, "接待人安排失败，请稍后重试"));
+      setPanelError(operatorErrorMessage(error, "接待人安排失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -870,13 +951,14 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     if (!assignment || !assignmentActive) return;
     setBusy(true);
     setMessage("");
+    setPanelError("");
     try {
       await api(`/admin/bookings/${booking.id}/driver-assignment`, { method: "DELETE" });
       setLatestVerificationCode(null);
       setMessage("取车任务验证码已失效，订单已恢复为等待安排接待人");
       refresh();
     } catch (error) {
-      onError(operatorErrorMessage(error, "接待人安排撤销失败，请稍后重试"));
+      setPanelError(operatorErrorMessage(error, "接待人安排撤销失败，请稍后重试"));
     } finally {
       setBusy(false);
     }
@@ -886,9 +968,11 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
+      setPanelError("");
       setMessage("6位取车任务验证码已复制");
     } catch {
-      onError("浏览器未允许复制，请手动记录6位验证码");
+      setMessage("");
+      setPanelError("浏览器未允许复制，请手动记录6位验证码");
     }
   };
 
@@ -949,6 +1033,7 @@ function DriverAssignmentPanel({ booking, refresh, onError }: { booking: Booking
       {assignmentActive ? <button type="button" className="revoke" disabled={busy || !assignmentEditable} onClick={() => void revoke()}><Trash />使当前验证码失效</button> : null}
     </div>
     {!assignmentEditable && !taskEnded ? <p className="assignment-security-note">车辆已进入现场履约，接待人安排和验证码绑定已锁定，后台不能中途换人或撤销。</p> : null}
+    {panelError ? <p className="assignment-error" role="alert" ref={panelErrorRef}><WarningCircle weight="fill" />{panelError}</p> : null}
     {message ? <p className="assignment-success" role="status"><CheckCircle weight="fill" />{message}</p> : null}
     <p className="assignment-boundary"><ShieldCheck />生成验证码会自动推进到“任务已安排”；验证码首次领取后绑定代驾微信，取车、到站和送回必须由对应端完成留证，后台不能代替推进。</p>
   </section>;
@@ -1456,9 +1541,12 @@ function BookingDrawer({ booking, close, refresh, onError }: { booking: Booking;
     <div className="drawer-scroll">
       <section className="drawer-status"><span className={`status-pill status-${status}`}>{statusLabels[status]}</span><strong>{booking.appointmentDate} · {booking.startTime}–{booking.endTime}</strong><small>{booking.station?.name} · {booking.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站"}</small></section>
       <BookingJourney booking={booking} />
-      <PrecheckAuditPanel booking={booking} onRetryRefund={() => void retryPrecheckRefund()} retrying={saving} />
+      <PrecheckAuditPanel booking={booking} onRetryRefund={() => void retryPrecheckRefund()} retrying={saving} onPreview={(label, items, index, trigger) => {
+        previewTriggerRef.current = trigger;
+        setPreview({ context: "预检问题照片留档", label, items, index });
+      }} />
       <ServiceFulfillmentSnapshot booking={booking} />
-      {booking.serviceMode === "valet" ? <DriverAssignmentPanel booking={booking} refresh={refresh} onError={onError} /> : null}
+      {booking.serviceMode === "valet" ? <DriverAssignmentPanel booking={booking} refresh={refresh} /> : null}
       {booking.serviceMode === "valet" ? <FulfillmentEvidencePanel booking={booking} onPreview={(stageLabel, photos, index, trigger) => {
         previewTriggerRef.current = trigger;
         setPreview({ context: `履约留证 · ${stageLabel}`, label: `${stageLabel}${evidencePhotoLabels[photos[index].kind]}`, items: photos, index });

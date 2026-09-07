@@ -48,9 +48,26 @@ Page<Data>({
     error: "",
   },
 
-  onLoad(query) { this.fromPrecheck = query.fromPrecheck === "1"; void this.load(); },
+  onLoad(query) {
+    this.fromPrecheck = query.fromPrecheck === "1";
+    void this.bootstrap();
+  },
   onPullDownRefresh() { void this.load(true); },
   onUnload() { this.loadSequence = Number(this.loadSequence || 0) + 1; },
+
+  async bootstrap() {
+    const draft = getWashDraft() || {};
+    const serviceMode: ServiceMode = draft.serviceMode === "valet" ? "valet" : "self_drive";
+    const origin = this.currentOrigin(serviceMode);
+    // 自驾进入页时自动定位，与检测站列表一致；失败仍展示推荐顺序门店。
+    if (serviceMode === "self_drive" && !origin && !this.initialLocationAttempted) {
+      this.initialLocationAttempted = true;
+      await this.locate();
+      if (this.data.originLat === null) await this.load();
+      return;
+    }
+    await this.load();
+  },
 
   currentOrigin(serviceMode: ServiceMode, explicitOrigin?: Origin): Origin | null {
     const draft = getWashDraft() || {};

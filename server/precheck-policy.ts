@@ -1,5 +1,5 @@
 export const precheckGuidance = [
-  { code: "license_unclear", label: "行驶证模糊或缺页", action: "materials", effect: "补拍清晰的行驶证资料，重新提交本站审核；不会推荐维修。" },
+  { code: "license_unclear", label: "行驶证模糊或缺页", action: "materials", effect: "请标注模糊或缺页的行驶证正页/副页；车主补拍清晰资料后重新提交本站审核；不会推荐维修。" },
   { code: "vehicle_photos_incomplete", label: "车辆照片不完整或不清晰", action: "materials", effect: "补充对应照片，重新提交本站审核；不会推荐维修。" },
   { code: "vehicle_information_mismatch", label: "车牌或车辆信息不一致", action: "materials", effect: "核对车辆与照片；涉及车辆身份或计价信息变更时，由车主退款后重新预约。" },
   { code: "booking_information_mismatch", label: "预约车型、动力或用途不一致", action: "materials", effect: "核对预约资料；需要更换车型或计价条件时，由车主退款后重新预约。" },
@@ -21,3 +21,23 @@ export const bookingPrecheckMediaKinds = [
   "license_back",
   ...precheckVehiclePhotoKinds,
 ] as const;
+
+/** Returns a user-facing error when selected reasons lack required issue photos. */
+export function precheckIssuePhotoRequirementError(reasonCodes: readonly string[], issuePhotoKinds: readonly string[]): string | null {
+  if (reasonCodes.includes("dashboard_warning") && !issuePhotoKinds.includes("dashboard_started")) {
+    return "故障灯问题请标注启动后仪表盘照片";
+  }
+  if (reasonCodes.some((code) => code === "body_dirty" || code === "body_damage")
+    && !issuePhotoKinds.some((kind) => kind.startsWith("vehicle_"))) {
+    return "脏污或车损问题请标注对应车身照片";
+  }
+  if (reasonCodes.includes("license_unclear")
+    && !issuePhotoKinds.some((kind) => kind === "license_front" || kind === "license_back")) {
+    return "行驶证模糊或缺页请标注对应的行驶证照片";
+  }
+  if (reasonCodes.includes("vehicle_photos_incomplete")
+    && !issuePhotoKinds.some((kind) => kind.startsWith("vehicle_") || kind === "dashboard_started")) {
+    return "车辆照片不完整或不清晰请标注对应车辆照片";
+  }
+  return null;
+}

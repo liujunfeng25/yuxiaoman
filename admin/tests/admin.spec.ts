@@ -858,7 +858,7 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   await expect(report.getByLabel("报告备注")).toContainText("不生成检测机构签章或监管系统凭证");
   await expect(report.getByRole("button", { name: "打印报告" })).toBeVisible();
   await expect(report.locator(".checkup-fault-list > button")).toHaveCount(4);
-  await expect(report.locator(".checkup-diagram-note")).toHaveText("通用车身示意，不代表实车车型；故障以位置文字和现场照片为准");
+  await expect(report.locator(".checkup-diagram-note")).toHaveText("轿车 · 通用车身示意（不代表实车外观）；故障以位置文字和现场照片为准");
   await expect(report.getByRole("list", { name: "车辆故障明细列表" }).getByRole("listitem")).toHaveCount(4);
   await expect(report.locator(".checkup-fault-photo-grid figure")).toHaveCount(7);
 
@@ -878,7 +878,7 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   await expect(report.getByRole("status")).toContainText("故障 #2");
   const rightQuarterHotspot = report.getByRole("button", { name: "右后翼子板，故障 #2，共2条车况记录" });
   await expect(rightQuarterHotspot.locator("b")).toHaveText("2");
-  await expect(rightQuarterHotspot).toHaveAttribute("style", /left: 26%; top: 48%/);
+  await expect(rightQuarterHotspot).toHaveAttribute("style", /left: 11%; top: 54%/);
   const rightQuarterEvidence = report.getByLabel("故障 #2 影像证据");
   await expect(rightQuarterEvidence).toContainText("2 张特写");
   await rightQuarterEvidence.getByRole("button", { name: "查看故障 #2 右后翼子板特写 1" }).click();

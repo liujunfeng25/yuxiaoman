@@ -55,8 +55,11 @@ type EvidenceAudience = "owner" | "admin" | "operator" | "driver";
 
 const evidenceKindSchema = z.enum(valetEvidenceKinds);
 const assignmentSchema = z.object({
-  receptionistName: z.string().trim().min(2).max(40),
-  receptionistPhone: z.string().trim().regex(/^1\d{10}$/u, "请输入有效的 11 位手机号"),
+  receptionistName: z.string({ error: "请填写接待人员姓名" }).trim().min(2, "接待人员姓名至少两个字").max(40, "接待人员姓名过长"),
+  receptionistPhone: z.preprocess(
+    (value) => typeof value === "string" ? value.replace(/\s+/g, "") : value,
+    z.string({ error: "请填写接待人员手机号" }).regex(/^1\d{10}$/u, "请输入有效的 11 位手机号"),
+  ),
 });
 const taskExchangeSchema = z.object({
   taskCode: z.string().trim().min(20).max(240).optional(),
@@ -287,10 +290,16 @@ function isEvidencePolicyBooking(row: Row): boolean {
 }
 
 function parseInput<T>(schema: z.ZodType<T>, value: unknown, problem: ProblemFactory): T {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw problem(400, "VALIDATION_ERROR", "提交内容为空或格式不正确，请刷新页面后重试");
+  }
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    const fields = Object.fromEntries(parsed.error.issues.map((issue) => [issue.path.join("."), issue.message]));
-    throw problem(400, "VALIDATION_ERROR", "请检查提交内容", fields);
+    const fields = Object.fromEntries(
+      parsed.error.issues.map((issue) => [issue.path.join(".") || "_", issue.message]),
+    );
+    const firstFieldMessage = Object.values(fields).find((message) => Boolean(message?.trim()));
+    throw problem(400, "VALIDATION_ERROR", firstFieldMessage || "请检查提交内容", fields);
   }
   return parsed.data;
 }
@@ -1314,6 +1323,20 @@ export async function registerValetHandoffRoutes(
   await mkdir(evidenceUploadDir, { recursive: true });
 
   app.post<{ Params: { id: string } }>("/api/admin/bookings/:id/driver-assignment", async (request, reply) => {
+    if (process.env.YUXIAOMAN_DEBUG_DRIVER_ASSIGNMENT === "1") {
+      request.log?.info?.({
+        contentType: request.headers["content-type"],
+        bodyType: request.body === null ? "null" : Array.isArray(request.body) ? "array" : typeof request.body,
+        bodyKeys: request.body && typeof request.body === "object" && !Array.isArray(request.body)
+          ? Object.keys(request.body as object)
+          : [],
+      }, "driver-assignment debug");
+      // eslint-disable-next-line no-console
+      console.error("[driver-assignment-debug]", {
+        contentType: request.headers["content-type"],
+        body: request.body,
+      });
+    }
     const input = parseInput(assignmentSchema, request.body, options.problem);
     const principal = backofficeForRequest(request);
     const now = new Date().toISOString();

@@ -37,6 +37,11 @@ function isLocationPermissionError(message: string): boolean {
     || normalized.includes("requiredprivateinfos");
 }
 
+/** Matches server stationOriginQuerySchema Tianjin demo bounds. */
+function isWithinServiceArea(latitude: number, longitude: number): boolean {
+  return latitude >= 38.4 && latitude <= 40.3 && longitude >= 116.6 && longitude <= 118.2;
+}
+
 function promptLocationPermission(fallback: string) {
   wx.showModal({
     title: "需要位置权限",
@@ -76,7 +81,14 @@ Page<Data>({
   },
   currentDraft(): BookingDraft { return getBookingDraft() || { serviceMode: this.data.mode }; },
   async loadStations() {
-    const draft = this.currentDraft(); const origin = draft.origin;
+    const draft = this.currentDraft();
+    let origin = draft.origin;
+    // 开发者工具默认常是北京坐标（如 116.39），会触发服务端 INVALID_ORIGIN。
+    if (origin && !isWithinServiceArea(origin.latitude, origin.longitude)) {
+      patchBookingDraft({ origin: undefined });
+      origin = undefined;
+      wx.showToast({ title: "当前位置不在天津服务范围", icon: "none" });
+    }
     const canSelectStation = this.data.mode === "self_drive" || Boolean(draft.pickupAddress?.locationProof);
     this.setData({
       loading: true,
@@ -101,6 +113,9 @@ Page<Data>({
     this.setData({ locating: true });
     try {
       const location = await getLocation();
+      if (!isWithinServiceArea(location.latitude, location.longitude)) {
+        throw new Error("当前位置不在天津服务范围，请在开发者工具把模拟定位改到天津后再试");
+      }
       if (this.data.mode === "valet") {
         const pickupAddress = await api.resolveLocation(location);
         if (!pickupAddress.locationProof) throw new Error("地址校验凭证缺失，请重新选择");
@@ -113,7 +128,10 @@ Page<Data>({
       if (isLocationPermissionError(message)) {
         promptLocationPermission(this.data.mode === "valet" ? "未确认取车地址，请搜索或地图选点" : "未获取定位，可稍后重试");
       } else {
-        wx.showToast({ title: this.data.mode === "valet" ? "未确认取车地址，请搜索或地图选点" : "未获取定位，可稍后重试", icon: "none" });
+        wx.showToast({
+          title: message || (this.data.mode === "valet" ? "未确认取车地址，请搜索或地图选点" : "未获取定位，可稍后重试"),
+          icon: "none",
+        });
       }
     } finally {
       this.setData({ locating: false });

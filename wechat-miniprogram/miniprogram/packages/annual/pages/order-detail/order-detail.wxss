@@ -514,6 +514,31 @@
   font-weight: 800;
 }
 .precheck-owner-card { margin-top: 20rpx; padding: 22rpx; border: 1rpx solid #cfe2f5; border-radius: 21rpx; background: #f2f8ff; }
+.precheck-owner-card.top-alert { margin-top: 18rpx; }
+.precheck-owner-card.urgent {
+  position: relative;
+  margin-top: 18rpx;
+  padding-top: 28rpx;
+  border: 2rpx solid #e2a14a;
+  background: linear-gradient(180deg, #fff7eb 0%, #fff1df 100%);
+  box-shadow: 0 12rpx 28rpx rgba(176, 110, 28, 0.14);
+}
+.precheck-urgent-badge {
+  position: absolute;
+  top: -2rpx;
+  right: 22rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 0 0 14rpx 14rpx;
+  color: #fff;
+  background: #d97706;
+  font-size: 18rpx;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.precheck-owner-card.urgent .precheck-owner-head>view text:first-child { color: #9a4d08; font-size: 30rpx; }
+.precheck-owner-card.urgent .precheck-owner-head>view text:last-child { color: #8a5a28; font-size: 22rpx; font-weight: 650; }
+.precheck-owner-card.urgent .precheck-owner-note { color: #7a5530; border-top-color: #efd2a8; font-size: 20rpx; }
+.precheck-urgent-button { color: #fff !important; border-color: #c2410c !important; background: #ea580c !important; }
 .precheck-owner-card.rejected { border-color: #efcac7; background: #fff5f4; }
 .precheck-owner-card.approved { border-color: #bfe4d5; background: #f0fbf7; }
 .precheck-owner-card.approved .precheck-owner-head>view text:first-child { color: #167555; }

@@ -454,9 +454,11 @@ test("旧版不安全默认值通过新发布版本迁移且不篡改历史节�
     `).all();
     assert.deepEqual(policyRows.map((row) => [row.id, Number(row.version), Number(row.is_current)]), [
       ["annual-workflow-v1", 1, 0],
-      ["annual-workflow-v2-secure-defaults", 2, 1],
+      ["annual-workflow-v2-secure-defaults", 2, 0],
+      ["annual-workflow-v3-wechat-notify", 3, 1],
     ]);
     assert.equal(policyRows[1].source_policy_set_id, "annual-workflow-v1");
+    assert.equal(policyRows[2].source_policy_set_id, "annual-workflow-v2-secure-defaults");
 
     const legacyAfter = await database.prepare<Record<string, unknown>>(`
       SELECT first_reminder_minutes, deadline_minutes, escalation_minutes,
@@ -476,6 +478,13 @@ test("旧版不安全默认值通过新发布版本迁移且不篡改历史节�
     assert.equal(Number(upgraded?.escalation_minutes), 30);
     assert.equal(upgraded?.enabled_channels_json, '["in_app"]');
     assert.equal(upgraded?.fallback_order_json, '[]');
+    const wechatEnabled = await database.prepare<Record<string, unknown>>(`
+      SELECT enabled_channels_json
+      FROM workflow_policy_nodes
+      WHERE policy_set_id = 'annual-workflow-v3-wechat-notify'
+        AND node_code = 'annual.arrival.owner'
+    `).get();
+    assert.equal(wechatEnabled?.enabled_channels_json, '["in_app","wechat"]');
     const release = await database.prepare<Record<string, unknown>>(`
       SELECT MIN(action) AS action, MIN(version) AS version, COUNT(*) AS count FROM workflow_release_events
       WHERE resource_id = 'annual-workflow-v2-secure-defaults'
@@ -1649,6 +1658,14 @@ test("车主微信订阅只暴露当前策略已启用模板且授权次数与 A
   registerWorkflowRoutes(app, database, { allowBackofficeTestFallback: true });
   await app.ready();
   try {
+    await database.prepare(`
+      UPDATE workflow_policy_nodes SET enabled_channels_json = '["in_app"]'
+      WHERE assignee_role IN ('owner', 'station', 'repair_shop')
+        AND policy_set_id IN (
+          SELECT id FROM workflow_policy_sets
+          WHERE state = 'published' AND is_current = 1
+        )
+    `).run();
     await database.prepare(`
       UPDATE workflow_policy_nodes SET enabled_channels_json = '["in_app","wechat"]'
       WHERE node_code IN ('annual.report.ready', 'repair.quote.owner_action', 'annual.precheck.pending')

@@ -1595,6 +1595,21 @@ test("预检退回保留款项并释放号源，只有车主申请才全额模�
     });
     assert.equal(invalid.statusCode, 400, invalid.body);
 
+    const missingLicensePhoto = await app.inject({
+      method: "POST",
+      url: `/api/operator/prechecks/${booking.id}/reject`,
+      payload: {
+        idempotencyKey: "precheck-reject-missing-license-photo-0001",
+        expectedVersion,
+        reasonCodes: ["license_unclear"],
+        reasonText: "行驶证副页反光严重，关键信息无法核验",
+        issuePhotoKinds: [],
+      },
+    });
+    assert.equal(missingLicensePhoto.statusCode, 400, missingLicensePhoto.body);
+    assert.equal(missingLicensePhoto.json<Json>().error.code, "PRECHECK_ISSUE_PHOTO_REQUIRED");
+    assert.match(missingLicensePhoto.json<Json>().error.message, /行驶证/);
+
     const rejectionPayload = {
       idempotencyKey: "precheck-reject-valid-0001",
       expectedVersion,

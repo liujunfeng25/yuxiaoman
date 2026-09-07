@@ -71,23 +71,17 @@ export const SITE_PHOTO_SLOTS: ReadonlyArray<Omit<CheckupPhotoSlot, "media" | "u
 
 export const LEGAL_MATERIAL_SLOTS: ReadonlyArray<Omit<CheckupPhotoSlot, "media" | "uploading">> = [
   {
-    kind: "safety_inspection_report",
-    label: "机动车安全技术检验报告",
-    hint: "拍摄检测站出具的报告或检测结果单",
-    required: false,
-  },
-  {
-    kind: "emissions_inspection_report",
-    label: "排放检验报告",
-    hint: "如检测站出具，请一并留证",
-    required: false,
-  },
-  {
     kind: "annual_inspection_mark",
     label: "检验合格标志/电子凭证留证",
     hint: "仅年检通过时上传纸质标志或电子凭证截图",
     required: true,
   },
+];
+
+/** Historical optional legal materials — still readable if already archived, no longer collected. */
+export const LEGACY_OPTIONAL_LEGAL_MATERIAL_SLOTS: ReadonlyArray<{ kind: CheckupMediaKind; label: string }> = [
+  { kind: "safety_inspection_report", label: "机动车安全技术检验报告" },
+  { kind: "emissions_inspection_report", label: "排放检验报告" },
 ];
 
 export const ANNUAL_FAILURE_CATEGORIES = [
@@ -282,22 +276,19 @@ export function checkupVehicleBodyType(vehicle?: Vehicle | null): CheckupVehicle
 }
 
 export function checkupVehicleDiagram(vehicle?: Vehicle | null): CheckupVehicleDiagram {
-  const exactModelImage = vehicle?.visual?.kind === "presentation_cutout" && vehicle.visual.imageUrl
-    ? vehicle.visual.imageUrl
-    : "";
   const bodyType = checkupVehicleBodyType(vehicle);
   const registeredLabel = [vehicle?.brand?.name, vehicle?.model?.name].filter(Boolean).join(" ")
     || vehicle?.vehicleType
     || "已登记车辆";
-  const fallbackLeft = bodyType === "mpv" ? MPV_SIDE_IMAGE : bodyType === "suv" ? SUV_SIDE_IMAGE : SEDAN_SIDE_IMAGE;
+  const sideImage = bodyType === "mpv" ? MPV_SIDE_IMAGE : bodyType === "suv" ? SUV_SIDE_IMAGE : SEDAN_SIDE_IMAGE;
   const topImage = bodyType === "mpv" ? MPV_TOP_IMAGE : bodyType === "suv" ? SUV_TOP_IMAGE : SEDAN_TOP_IMAGE;
-  const sideImage = exactModelImage || fallbackLeft;
   const bodyTypeLabel = bodyType === "mpv" ? "MPV" : bodyType === "suv" ? "SUV" : "轿车";
   return {
     bodyType,
     vehicleLabel: registeredLabel,
-    sourceLabel: exactModelImage ? `${bodyTypeLabel} · 车主所选车型参考图` : `${bodyTypeLabel} · 按登记车身类型匹配`,
-    regions: checkupRegionsForVehicle(bodyType, Boolean(exactModelImage)),
+    // 定位图始终用校准过的三视图示意模板；车主所选车型展示图是 3/4 展示角，不适合作为左右侧定位底图。
+    sourceLabel: `${bodyTypeLabel} · 通用车身示意（不代表实车外观）`,
+    regions: checkupRegionsForVehicle(bodyType, false),
     views: [
       { id: "top", label: "俯视", imagePath: topImage, mirrored: false },
       { id: "left", label: "左侧", imagePath: sideImage, mirrored: false },
@@ -569,6 +560,7 @@ export function reportPreviewUrls(report: VehicleCheckupReport | null | undefine
   const kinds: CheckupMediaKind[] = [
     ...SITE_PHOTO_SLOTS.map((item) => item.kind),
     ...LEGAL_MATERIAL_SLOTS.map((item) => item.kind),
+    ...LEGACY_OPTIONAL_LEGAL_MATERIAL_SLOTS.map((item) => item.kind),
   ];
   return kinds.map((kind) => reportMedia(report, kind)?.url || "").filter(Boolean);
 }

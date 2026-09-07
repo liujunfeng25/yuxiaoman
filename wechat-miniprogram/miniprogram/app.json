@@ -167,6 +167,12 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
+  "preloadRule": {
+    "pages/home/home": {
+      "network": "all",
+      "packages": ["vehicleProfile", "annualInspection"]
+    }
+  },
   "requiredPrivateInfos": [
     "getLocation",
     "chooseLocation"

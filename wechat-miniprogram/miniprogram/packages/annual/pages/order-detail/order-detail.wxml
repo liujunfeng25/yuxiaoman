@@ -22,6 +22,36 @@
       </view>
     </view>
 
+    <view wx:if="{{booking.precheck && booking.status === 'precheck_action_required'}}" class="precheck-owner-card pending urgent">
+      <view class="precheck-urgent-badge">需要你处理</view>
+      <view class="precheck-owner-head">
+        <image src="/assets/icons/warning-circle.png"/>
+        <view>
+          <text>预检发现问题，等待你处理</text>
+          <text>{{booking.precheck.reasonText || '检测站已标注问题，请查看处理方式'}}</text>
+        </view>
+      </view>
+      <text class="precheck-owner-note">订单和已付款保留，原时段已释放。请尽快补充资料、选择洗车或维修后再次提交审核；也可以主动申请退款。</text>
+      <button class="pay-button precheck-urgent-button" bindtap="openPrecheckActions">查看问题与处理方式</button>
+    </view>
+    <view wx:if="{{booking.precheck && booking.status === 'pending_precheck'}}" class="precheck-owner-card pending top-alert">
+      <view class="precheck-owner-head"><image src="/assets/icons/clock.png"/><view><text>等待检测站照片预审</text><text>检测站正在核对行驶证、车辆四角和启动后仪表盘共 7 张资料。</text></view></view>
+      <view class="precheck-owner-meta"><text>提交时间</text><text>{{booking.precheck.submittedAt}}</text></view>
+      <text class="precheck-owner-note">{{precheckSupervisionNote}}</text>
+    </view>
+    <view wx:if="{{booking.precheck && booking.precheck.status === 'approved'}}" class="precheck-owner-card approved top-alert">
+      <view class="precheck-owner-head"><image src="/assets/icons/shield-check.png"/><view><text>检测站预审已通过</text><text>检测站已核对 7 张预约资料并接单，订单已进入后续履约阶段。</text></view></view>
+      <view class="precheck-owner-meta"><text>审核时间</text><text>{{precheckReviewedAt}}</text></view>
+    </view>
+    <view wx:if="{{booking.precheck && booking.status === 'precheck_rejected'}}" class="precheck-owner-card rejected top-alert">
+      <view class="precheck-owner-head"><image src="/assets/icons/warning-circle.png"/><view><text>检测站预审未通过</text><text>{{booking.precheck.reasonText}}</text></view></view>
+      <view class="precheck-owner-meta"><text>问题类型</text><text>{{precheckReasonText || '检测站已填写具体说明'}}</text></view>
+      <view wx:if="{{precheckIssueText}}" class="precheck-owner-meta"><text>涉及照片</text><text>{{precheckIssueText}}</text></view>
+      <view class="precheck-owner-meta"><text>审核时间</text><text>{{precheckReviewedAt}}</text></view>
+      <view class="precheck-refund-status"><text>{{booking.refundStatus === 'refunded' ? '模拟退款已完成' : booking.refundStatus === 'refund_failed' ? '退款异常，平台处理中' : '退款处理中'}}</text><text>¥{{fmt.money(booking.precheck.refundAmountFen)}}</text></view>
+      <button bindtap="rebook">重新预约</button>
+    </view>
+
     <view class="order-number">
       <image src="/assets/icons/receipt.png" mode="aspectFit" />
       <text>订单号</text>
@@ -119,25 +149,6 @@
         <text>{{booking.pickupAddress.title}}</text>
         <text>{{booking.pickupAddress.address}} {{booking.pickupAddress.detail}}</text>
       </view>
-    </view>
-
-    <view wx:if="{{booking.precheck && booking.status === 'precheck_action_required'}}" class="precheck-owner-card pending"><view class="precheck-owner-head"><image src="/assets/icons/warning-circle.png"/><view><text>预检发现问题，等待你处理</text><text>{{booking.precheck.reasonText}}</text></view></view><text class="precheck-owner-note">订单和已付款保留，原时段已释放。你可以补充资料、选择洗车或维修，处理后再次审核，也可以主动申请退款。</text><button class="pay-button" bindtap="openPrecheckActions">查看问题与处理方式</button></view>
-    <view wx:if="{{booking.precheck && booking.status === 'pending_precheck'}}" class="precheck-owner-card pending">
-      <view class="precheck-owner-head"><image src="/assets/icons/clock.png"/><view><text>等待检测站照片预审</text><text>检测站正在核对行驶证、车辆四角和启动后仪表盘共 7 张资料。</text></view></view>
-      <view class="precheck-owner-meta"><text>提交时间</text><text>{{booking.precheck.submittedAt}}</text></view>
-      <text class="precheck-owner-note">{{precheckSupervisionNote}}</text>
-    </view>
-    <view wx:if="{{booking.precheck && booking.precheck.status === 'approved'}}" class="precheck-owner-card approved">
-      <view class="precheck-owner-head"><image src="/assets/icons/shield-check.png"/><view><text>检测站预审已通过</text><text>检测站已核对 7 张预约资料并接单，订单已进入后续履约阶段。</text></view></view>
-      <view class="precheck-owner-meta"><text>审核时间</text><text>{{precheckReviewedAt}}</text></view>
-    </view>
-    <view wx:if="{{booking.precheck && booking.status === 'precheck_rejected'}}" class="precheck-owner-card rejected">
-      <view class="precheck-owner-head"><image src="/assets/icons/warning-circle.png"/><view><text>检测站预审未通过</text><text>{{booking.precheck.reasonText}}</text></view></view>
-      <view class="precheck-owner-meta"><text>问题类型</text><text>{{precheckReasonText || '检测站已填写具体说明'}}</text></view>
-      <view wx:if="{{precheckIssueText}}" class="precheck-owner-meta"><text>涉及照片</text><text>{{precheckIssueText}}</text></view>
-      <view class="precheck-owner-meta"><text>审核时间</text><text>{{precheckReviewedAt}}</text></view>
-      <view class="precheck-refund-status"><text>{{booking.refundStatus === 'refunded' ? '模拟退款已完成' : booking.refundStatus === 'refund_failed' ? '退款异常，平台处理中' : '退款处理中'}}</text><text>¥{{fmt.money(booking.precheck.refundAmountFen)}}</text></view>
-      <button bindtap="rebook">重新预约</button>
     </view>
 
     <view class="section-title">

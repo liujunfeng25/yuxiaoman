@@ -37,13 +37,16 @@
     <view wx:if="{{loadError}}" class="home-inline-error"><text>{{loadError}}，当前显示上次成功同步的信息。</text><button bindtap="retryLoad" disabled="{{loading}}">刷新</button></view>
     <view wx:if="{{hero}}" class="inspection-hero hero-{{hero.tone}}">
       <image class="hero-background" src="../../assets/brand/hero-tianjin-background.jpg" mode="aspectFill"/>
-      <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" class="hero-car-edit" bindtap="editCurrentVehicle">
+      <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" class="hero-car-edit" hover-class="hero-car-edit-pressed" hover-stay-time="120" catchtap="editCurrentVehicle">
         <image wx:if="{{hero.vehicleImage}}" class="hero-car-image" src="{{hero.vehicleImage}}" mode="aspectFit" webp="{{true}}" binderror="vehicleImageError"/>
-        <text>编辑车型</text>
+        <view class="hero-edit-chip" catchtap="editCurrentVehicle">
+          <image src="../../assets/icons/car-profile.png" mode="aspectFit"/>
+          <text>编辑车辆</text>
+        </view>
       </view>
       <view class="hero-copy">
         <view role="button" aria-label="切换车辆 {{hero.plate}}" hover-class="tap-pressed" hover-stay-time="120" class="hero-plate" data-url="/packages/vehicle/pages/vehicles/vehicles" bindtap="go"><text>{{hero.plate}}</text><image class="hero-plate-caret" src="../../assets/icons/caret-right.png"/></view>
-        <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" hover-class="tap-pressed" hover-stay-time="120" class="hero-model-button" bindtap="editCurrentVehicle"><text>{{hero.vehicleCopy}}</text><image src="../../assets/icons/caret-right.png"/></view>
+        <view role="button" aria-label="编辑当前车辆 {{hero.vehicleCopy}}" hover-class="tap-pressed" hover-stay-time="120" class="hero-model-button" bindtap="editCurrentVehicle"><text>{{hero.vehicleCopy}}</text><text class="hero-model-hint">改车型</text><image src="../../assets/icons/caret-right.png"/></view>
         <text class="hero-vehicle">{{hero.vehicleDetail}}</text>
         <text class="countdown-label">{{hero.countdownLabel}}</text>
         <view class="countdown"><text>{{hero.countdownValue}}</text><text>{{hero.countdownUnit}}</text></view>

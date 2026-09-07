@@ -328,6 +328,8 @@ td small { margin-top: 4px; color: #8a98a6; font-size: 9px; }
 .driver-assignment-actions button:disabled { cursor: not-allowed; opacity: .55; }
 .assignment-success { display: flex; align-items: center; gap: 5px; margin: 9px 0 0; color: #237957; font-size: 8px; font-weight: 750; }
 .assignment-success svg { width: 14px; height: 14px; }
+.assignment-error { display: flex; align-items: flex-start; gap: 5px; margin: 9px 0 0; padding: 8px 10px; border: 1px solid #f0c4be; border-radius: 8px; color: #9b3428; background: #fff1ef; font-size: 8px; font-weight: 750; line-height: 1.45; }
+.assignment-error svg { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px; }
 .assignment-boundary, .protected-transition-note, .evidence-role-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; color: #597a91; background: #edf6fc; font-size: 8px; line-height: 1.55; }
 .assignment-boundary svg, .protected-transition-note svg, .evidence-role-note svg { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px; color: #277caf; }
 .fulfillment-evidence > header > span { color: #237857; background: #e9f7f0; }
@@ -2348,6 +2350,13 @@ td small { margin-top: 4px; color: #8a98a6; font-size: 9px; }
 .precheck-audit-panel dl > div.wide { grid-column: 1 / -1; }
 .precheck-audit-panel dt { color: #738297; font-size: 12px; }
 .precheck-audit-panel dd { margin: 5px 0 0; color: #293d54; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.precheck-issue-archive { margin-top: 16px; padding: 14px; border: 1px solid #efcfcc; border-radius: 14px; background: #fff; }
+.precheck-issue-archive-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.precheck-issue-archive-head strong { color: #8a3b35; font-size: 14px; }
+.precheck-issue-archive-head small { color: #8d6c68; font-size: 12px; line-height: 1.45; }
+.precheck-issue-round + .precheck-issue-round { margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0e0de; }
+.precheck-issue-round > p { margin: 0 0 8px; color: #5a3f3c; font-size: 13px; font-weight: 650; }
+.precheck-inline-issue-media { margin-top: 10px; }
 .precheck-refund-failed { display: flex; margin-top: 12px; align-items: center; justify-content: space-between; gap: 12px; }
 .precheck-refund-failed .journey-data-warning { flex: 1; margin: 0; }
 .precheck-refund-failed button { display: inline-flex; min-height: 38px; flex: 0 0 auto; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid #d6a24b; border-radius: 9px; color: #87520e; background: #fff7e8; font-weight: 800; }

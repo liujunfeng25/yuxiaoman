@@ -99,6 +99,7 @@ import {
   bookingPrecheckMediaKinds,
   precheckAction,
   precheckGuidance,
+  precheckIssuePhotoRequirementError,
 } from "./precheck-policy.js";
 import { registerCustomerCenterRoutes } from "./customer-center.js";
 import {
@@ -971,6 +972,20 @@ function jsonArray(value: unknown): string[] {
   } catch {
     return [];
   }
+}
+
+function jsonRecords(value: unknown): Array<Record<string, unknown>> {
+  const parsed = (() => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") return [];
+    try {
+      return JSON.parse(String(value ?? "[]"));
+    } catch {
+      return [];
+    }
+  })();
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
 }
 
 function jsonObject(value: unknown): Record<string, unknown> | null {
@@ -2512,6 +2527,83 @@ function mediaFromRow(row: Row, audience: "owner" | "operator" | "admin" = "owne
       ? `/api/admin/bookings/${bookingId}/media/${id}`
       : `/api/media/${id}`,
     createdAt: String(row.created_at),
+    isCurrent: Number(row.is_current ?? 1) === 1,
+  };
+}
+
+async function enrichAdminPrecheckHistoryMedia(
+  database: AppDatabase,
+  bookingId: string,
+  precheck: ReturnType<typeof precheckFromRow>,
+  audience: "owner" | "operator" | "admin",
+) {
+  if (!precheck || audience !== "admin") return precheck;
+  const history = Array.isArray(precheck.history) ? precheck.history : [];
+  const asStringList = (value: unknown) => (Array.isArray(value) ? value.map(String) : jsonArray(value));
+  const mediaIdSet = new Set<string>();
+  const issueKindSet = new Set<string>(asStringList(precheck.issuePhotoKinds));
+  for (const entry of history) {
+    for (const mediaId of asStringList((entry as { mediaIds?: unknown }).mediaIds)) mediaIdSet.add(mediaId);
+    for (const kind of asStringList((entry as { issuePhotoKinds?: unknown }).issuePhotoKinds)) issueKindSet.add(kind);
+  }
+  const mediaById = new Map<string, ReturnType<typeof mediaFromRow>>();
+  if (mediaIdSet.size) {
+    const mediaRows = await database.prepare<Row>(`
+      SELECT * FROM booking_media
+      WHERE booking_id = ? AND id = ANY(?)
+    `).all(bookingId, [...mediaIdSet]);
+    for (const row of mediaRows) mediaById.set(String(row.id), mediaFromRow(row, "admin"));
+  }
+  // 兜底：历史未带齐 mediaIds 时，用已替换下来的非当前照片按问题类型回填。
+  const supersededRows = issueKindSet.size
+    ? await database.prepare<Row>(`
+        SELECT * FROM booking_media
+        WHERE booking_id = ? AND is_current = 0 AND kind = ANY(?)
+        ORDER BY created_at DESC, id DESC
+      `).all(bookingId, [...issueKindSet])
+    : [];
+  const supersededByKind = new Map<string, ReturnType<typeof mediaFromRow>>();
+  for (const row of supersededRows) {
+    const kind = String(row.kind);
+    if (!supersededByKind.has(kind)) supersededByKind.set(kind, mediaFromRow(row, "admin"));
+  }
+  const enrichedHistory = history.map((entry) => {
+    const record = entry as {
+      mediaIds?: unknown;
+      issuePhotoKinds?: unknown;
+      [key: string]: unknown;
+    };
+    const mediaIds = asStringList(record.mediaIds);
+    const issueKinds = asStringList(record.issuePhotoKinds);
+    const issueKindFilter = new Set(issueKinds);
+    let issueMedia = mediaIds
+      .map((mediaId) => mediaById.get(mediaId))
+      .filter((item): item is ReturnType<typeof mediaFromRow> => Boolean(item))
+      .filter((item) => !issueKindFilter.size || issueKindFilter.has(item.kind));
+    if (!issueMedia.length && issueKindFilter.size) {
+      issueMedia = [...issueKindFilter]
+        .map((kind) => supersededByKind.get(kind))
+        .filter((item): item is ReturnType<typeof mediaFromRow> => Boolean(item));
+    }
+    return { ...record, issueMedia };
+  });
+  const priorIssueMedia = (() => {
+    const seen = new Set<string>();
+    const items: ReturnType<typeof mediaFromRow>[] = [];
+    for (const entry of enrichedHistory) {
+      for (const item of entry.issueMedia || []) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        items.push(item);
+      }
+    }
+    if (items.length) return items;
+    return [...supersededByKind.values()];
+  })();
+  return {
+    ...precheck,
+    history: enrichedHistory,
+    priorIssueMedia,
   };
 }
 
@@ -2860,7 +2952,7 @@ function precheckFromRow(row: Row | undefined, workflowTask: Row | undefined) {
     reasonText: row.reason_text == null ? null : String(row.reason_text),
     issuePhotoKinds: jsonArray(row.issue_photo_kinds_json),
     guidance: precheckGuidance,
-    history: jsonArray(row.history_json),
+    history: jsonRecords(row.history_json),
     resolutionNote: row.resolution_note == null ? null : String(row.resolution_note),
     refundStatus: String(row.refund_status ?? "not_requested"),
     refundAmountFen: Number(row.refund_amount_fen ?? 0),
@@ -3115,7 +3207,12 @@ async function bookingDetailFromRow(
     vehicleCheckupReport:
       !includeInternal && vehicleCheckupReport?.status !== "published" ? null : vehicleCheckupReport,
     media: mediaRows.map((mediaRow) => mediaFromRow(mediaRow, reportAudience)),
-    precheck: precheckFromRow(precheckRow, precheckWorkflowTask),
+    precheck: await enrichAdminPrecheckHistoryMedia(
+      database,
+      id,
+      precheckFromRow(precheckRow, precheckWorkflowTask),
+      reportAudience,
+    ),
     precheckServices: precheckRow ? [
       ...(await database.prepare<Row>("SELECT id, request_no, status FROM repair_requests WHERE source_booking_id = ? AND source_type = 'precheck' ORDER BY created_at DESC").all(id))
         .map((item) => ({ id: String(item.id), type: "repair", label: "维修报价", number: String(item.request_no), status: String(item.status) })),
@@ -5816,11 +5913,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       }
       const media = await tx.prepare<Row>("SELECT id, kind FROM booking_media WHERE booking_id = ? AND is_current = 1").all(request.params.id);
       const actualKinds = new Set(media.map((item) => String(item.kind)));
-      if (body.reasonCodes.includes("dashboard_warning") && !body.issuePhotoKinds.includes("dashboard_started")) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "故障灯问题请标注启动后仪表盘照片");
-      if (body.reasonCodes.some((code) => ["body_dirty", "body_damage"].includes(code)) && !body.issuePhotoKinds.some((kind) => kind.startsWith("vehicle_"))) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "脏污或车损问题请标注对应车身照片");
+      const issuePhotoError = precheckIssuePhotoRequirementError(body.reasonCodes, body.issuePhotoKinds);
+      if (issuePhotoError) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", issuePhotoError);
       if (body.issuePhotoKinds.some((kind) => !actualKinds.has(kind)) && body.reasonCodes.some((code) => precheckAction(code) !== "materials")) throw new ApiProblem(400, "PRECHECK_ISSUE_PHOTO_REQUIRED", "服务问题必须有实际照片依据");
       const now = currentTime().toISOString();
-      const history = [...jsonArray(precheck.history_json), {
+      const history = [...jsonRecords(precheck.history_json), {
         version: Number(precheck.version), reasonCodes: body.reasonCodes, reasonText: body.reasonText,
         issuePhotoKinds: body.issuePhotoKinds, mediaIds: media.map((item) => String(item.id)),
         reviewerName: principal.account.displayName, reviewedAt: now,
