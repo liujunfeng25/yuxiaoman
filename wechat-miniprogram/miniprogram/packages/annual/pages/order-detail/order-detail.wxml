@@ -48,7 +48,7 @@
       <view class="precheck-owner-meta"><text>问题类型</text><text>{{precheckReasonText || '检测站已填写具体说明'}}</text></view>
       <view wx:if="{{precheckIssueText}}" class="precheck-owner-meta"><text>涉及照片</text><text>{{precheckIssueText}}</text></view>
       <view class="precheck-owner-meta"><text>审核时间</text><text>{{precheckReviewedAt}}</text></view>
-      <view class="precheck-refund-status"><text>{{booking.refundStatus === 'refunded' ? '模拟退款已完成' : booking.refundStatus === 'refund_failed' ? '退款异常，平台处理中' : '退款处理中'}}</text><text>¥{{fmt.money(booking.precheck.refundAmountFen)}}</text></view>
+      <view class="precheck-refund-status"><text>{{booking.refundStatus === 'refunded' ? '退款已完成' : booking.refundStatus === 'refund_failed' ? '退款异常，平台处理中' : '退款处理中'}}</text><text>¥{{fmt.money(booking.precheck.refundAmountFen)}}</text></view>
       <button bindtap="rebook">重新预约</button>
     </view>
 

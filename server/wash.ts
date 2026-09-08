@@ -2424,22 +2424,22 @@ async function registerWashRoutesAsync(
     const currentUserId = await requireCurrentUser(request, database);
     const body = parseBody(paymentSchema, request.body, reply);
     if (!body) return;
-    const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
+    const { isMockPaymentAllowed, isWechatPayConfigured } = await import("./wechat-pay.js");
+    const mockAllowed = isMockPaymentAllowed();
     if (body.provider === "mock" && !mockAllowed) {
-      throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
+      throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付，请使用微信支付");
+    }
+    if (body.provider === "wechat" && !isWechatPayConfigured()) {
+      throw problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
     }
     if (body.provider === "wechat") {
       const {
-        isWechatPayConfigured,
         loadConfig,
         createJsapiPrepay,
         buildMiniProgramPayParams,
         scaleWechatChargeAmountFen,
         wechatAmountDivisor,
       } = await import("./wechat-pay.js");
-      if (!isWechatPayConfigured()) {
-        throw problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
-      }
       const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
       if (!appId) throw problem(503, "WECHAT_APP_ID_MISSING", "未配置小程序 AppID");
       const identity = await database.prepare<Row>(`

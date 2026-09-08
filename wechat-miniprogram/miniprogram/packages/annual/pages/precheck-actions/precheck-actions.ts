@@ -144,7 +144,7 @@ Page({
   refund() {
     const booking = this.data.booking;
     if (!booking || !this.data.canAct || this.data.busy || this.data.uploadingKind) return;
-    wx.showModal({ title: "申请退款并结束年检订单", content: `本次年检订单全额模拟退款 ¥${this.data.amount}。单独下单的洗车、维修服务不受影响，须到对应订单处理。`, confirmText: "确认退款", confirmColor: "#bf4941", success: async ({ confirm }) => {
+    wx.showModal({ title: "申请退款并结束年检订单", content: `本次年检订单将全额退款 ¥${this.data.amount}（微信支付原路退回）。单独下单的洗车、维修服务不受影响，须到对应订单处理。`, confirmText: "确认退款", confirmColor: "#bf4941", success: async ({ confirm }) => {
       if (!confirm || this.data.busy) return;
       this.setData({ busy: true });
       try { await api.cancelBooking(booking.id); wx.redirectTo({ url: `/packages/annual/pages/order-detail/order-detail?id=${encodeURIComponent(booking.id)}` }); }

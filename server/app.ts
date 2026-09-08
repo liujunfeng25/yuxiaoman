@@ -78,6 +78,7 @@ import {
   channelRefundFen,
   createDomesticRefund,
   createJsapiPrepay,
+  isMockPaymentAllowed,
   isWechatPayConfigured,
   loadConfig as loadWechatPayConfig,
   recommendedPaymentProvider,
@@ -3986,7 +3987,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.get("/api/health", healthHandler);
   app.get("/api/payments/provider", async () => {
     const wechatConfigured = isWechatPayConfigured();
-    const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
+    const mockAllowed = isMockPaymentAllowed();
     return {
       data: {
         provider: recommendedPaymentProvider(),
@@ -5309,9 +5310,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const userId = await requireCurrentUser(request, database);
     const body = parseBody(paymentSchema, request.body, reply);
     if (!body) return;
-    const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
+    const mockAllowed = isMockPaymentAllowed();
     if (body.provider === "mock" && !mockAllowed) {
-      throw new ApiProblem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
+      throw new ApiProblem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付，请使用微信支付");
+    }
+    if (body.provider === "wechat" && !isWechatPayConfigured()) {
+      throw new ApiProblem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
     }
     if (body.provider === "wechat" && !isWechatPayConfigured()) {
       throw new ApiProblem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
@@ -6022,6 +6026,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           const adjusted = await bookingFinancials(tx, request.params.id);
           const refundable = Math.max(0, Math.min(-priceDifferenceFen, adjusted.paidFen - adjusted.refundedFen - adjusted.chargedFen));
           if (refundable > 0) {
+            await refundWechatBookingPayments(tx, {
+              bookingId: request.params.id,
+              ledgerPaidFen: Math.max(0, adjusted.paidFen - adjusted.refundedFen),
+              ledgerRefundFen: refundable,
+              reason: "改期差价退款",
+            });
             await tx.prepare(`
               INSERT INTO booking_ledger_entries (
                 id, booking_id, kind, amount_fen, description, actor_type,
@@ -7564,6 +7574,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       const expectedRefundFen = Number(precheck.refund_amount_fen ?? 0);
       const remainingRefundFen = Math.max(0, expectedRefundFen - financials.refundedFen);
       if (remainingRefundFen > 0) {
+        await refundWechatBookingPayments(tx, {
+          bookingId: request.params.id,
+          ledgerPaidFen: Math.max(0, financials.paidFen - financials.refundedFen),
+          ledgerRefundFen: remainingRefundFen,
+          reason: "预审退款重试",
+        });
         await tx.prepare(`
           INSERT INTO booking_ledger_entries (
             id, booking_id, kind, amount_fen, description, actor_type,
@@ -7726,6 +7742,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           if (financials.refundedFen + amountFen > financials.paidFen) {
             throw new ApiProblem(409, "REFUND_EXCEEDS_PAYMENT", "退款金额不能超过已支付金额");
           }
+          await refundWechatBookingPayments(tx, {
+            bookingId: request.params.id,
+            ledgerPaidFen: Math.max(0, financials.paidFen - financials.refundedFen),
+            ledgerRefundFen: amountFen,
+            reason: reason || "后台退款",
+          });
         }
         await tx.prepare(`
           INSERT INTO booking_ledger_entries (

@@ -1685,8 +1685,13 @@ export const api = {
     const providerInfo = await api.paymentProvider().catch(() => ({
       provider: "mock" as const,
       wechatConfigured: false,
-      mockAllowed: true,
+      mockAllowed: false,
     }));
+    if (!providerInfo.wechatConfigured) {
+      if (!providerInfo.mockAllowed) {
+        throw new Error("微信支付未配置，当前环境不允许模拟支付");
+      }
+    }
     const provider = providerInfo.wechatConfigured ? "wechat" : "mock";
     const payload = await request<{
       booking: Booking;
@@ -1806,8 +1811,13 @@ export const api = {
     const providerInfo = await api.paymentProvider().catch(() => ({
       provider: "mock" as const,
       wechatConfigured: false,
-      mockAllowed: true,
+      mockAllowed: false,
     }));
+    if (!providerInfo.wechatConfigured) {
+      if (!providerInfo.mockAllowed) {
+        throw new Error("微信支付未配置，当前环境不允许模拟支付");
+      }
+    }
     const provider = providerInfo.wechatConfigured ? "wechat" : "mock";
     const payload = await requestEnvelope<{
       order: WashOrderPayload;

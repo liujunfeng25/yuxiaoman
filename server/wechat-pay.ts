@@ -153,6 +153,19 @@ export function recommendedPaymentProvider(): "wechat" | "mock" {
 }
 
 /**
+ * Mock/demo payment is only for local/test without WeChat credentials.
+ * Once WeChat Pay is configured, or the process is marked production, mock is disabled.
+ */
+export function isMockPaymentAllowed(): boolean {
+  if (isWechatPayConfigured()) return false;
+  if (process.env.ALLOW_MOCK_PAYMENT === "false") return false;
+  if (process.env.NODE_ENV === "production" || process.env.YUXIAOMAN_ENV === "production") {
+    return process.env.ALLOW_MOCK_PAYMENT === "true";
+  }
+  return process.env.ALLOW_MOCK_PAYMENT !== "false";
+}
+
+/**
  * Test/prod tuning: charge WeChat `listAmountFen / divisor`, rounded to fen (分).
  * Set WECHAT_PAY_AMOUNT_DIVISOR=1000 to charge 0.1% of list price (min 1 分 when list > 0).
  * Divisor <= 1 disables scaling.

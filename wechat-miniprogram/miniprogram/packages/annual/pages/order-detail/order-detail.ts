@@ -675,7 +675,7 @@ Page<Data>({
     if (!booking || this.data.cancelling || this.data.paying || this.data.requoting) return;
     wx.showModal({
       title: booking.paymentStatus === "paid" ? "申请退款并取消预约" : "取消预约",
-      content: booking.paymentStatus === "paid" ? "由你主动取消本次年检，按订单规则办理模拟退款并释放号源。洗车及维修独立订单不受影响。" : "取消后将释放该时段号源。",
+      content: booking.paymentStatus === "paid" ? "由你主动取消本次年检，已支付金额将按微信支付原路退回并释放号源。洗车及维修独立订单不受影响。" : "取消后将释放该时段号源。",
       confirmColor: "#d84646",
       success: async ({ confirm }) => {
         if (!confirm) return;

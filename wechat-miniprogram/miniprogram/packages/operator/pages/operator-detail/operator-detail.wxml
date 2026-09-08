@@ -17,7 +17,7 @@
 
     <view class="service-card">
       <view class="service-heading"><view class="service-icon"><image src="/assets/icons/map-pin.png"/></view><view><text>预约方式</text><text>{{booking.serviceModeLabel}}</text></view><text>¥{{fmt.money(booking.serviceFeeFen)}}</text></view>
-      <view class="mock-payment-note"><image src="/assets/icons/shield-check.png"/><text>本地 mock 支付金额；不拉起真实 SDK，金额参与后台应收、已收与统计。</text></view>
+      <view class="mock-payment-note"><image src="/assets/icons/shield-check.png"/><text>订单金额以后台应收、已收与退款记录为准。</text></view>
       <view wx:if="{{booking.pickupAddress}}" class="service-location"><text>{{booking.pickupAddress.title}}{{booking.pickupAddress.detail ? ' · ' + booking.pickupAddress.detail : ''}}</text><text>{{booking.pickupAddress.address}}</text><text wx:if="{{booking.pickupAddress.note}}">备注：{{booking.pickupAddress.note}}</text></view>
       <view wx:else class="service-location"><text>{{booking.station ? booking.station.name : '预约检测站'}}</text><text>{{booking.station ? booking.station.address : '车主按预约时段自驾到站'}}</text></view>
       <view wx:if="{{booking.serviceMode === 'valet' && booking.driverAssignment && (booking.driverAssignment.pickupDriverPhone || booking.driverAssignment.returnDriverPhone)}}" class="valet-driver-contacts">

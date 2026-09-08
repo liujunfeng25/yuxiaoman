@@ -14,7 +14,12 @@ export function configureMiniApiEnvironment(environment = process.env) {
   environment.YUXIAOMAN_ALLOW_DIRECT_BACKOFFICE_PASSWORD ??= "true";
   environment.ALLOW_DEMO_RESET ??= "true";
   environment.ALLOW_DEMO_WORKFLOW ??= "true";
-  environment.ALLOW_MOCK_PAYMENT ??= "true";
+  const isProd = environment.NODE_ENV === "production" || environment.YUXIAOMAN_ENV === "production";
+  if (isProd) {
+    environment.ALLOW_MOCK_PAYMENT = "false";
+  } else {
+    environment.ALLOW_MOCK_PAYMENT ??= "true";
+  }
 
   return { host: MINI_API_HOST, port: Number(MINI_API_PORT) };
 }
