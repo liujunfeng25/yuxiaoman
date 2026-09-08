@@ -9,6 +9,24 @@ const photoDefinitions: Array<{ kind: MediaKind; label: string }> = [
   { kind: "vehicle_rear_left", label: "车辆左后" }, { kind: "vehicle_rear_right", label: "车辆右后" },
   { kind: "dashboard_started", label: "启动后仪表盘" },
 ];
+
+const licenseKinds: MediaKind[] = ["license_front", "license_back"];
+const bodyKinds: MediaKind[] = ["vehicle_front_left", "vehicle_front_right", "vehicle_rear_left", "vehicle_rear_right"];
+const vehicleReviewKinds: MediaKind[] = [...bodyKinds, "dashboard_started"];
+const allKinds: MediaKind[] = photoDefinitions.map((item) => item.kind);
+
+const reasonPhotoConfig: Record<string, { kinds: MediaKind[]; hint: string; required: boolean }> = {
+  license_unclear: { kinds: licenseKinds, hint: "请标注模糊或缺页的行驶证照片（可多选）", required: true },
+  vehicle_photos_incomplete: { kinds: vehicleReviewKinds, hint: "请标注不完整或不清晰的车辆/仪表盘照片", required: true },
+  vehicle_information_mismatch: { kinds: [...licenseKinds, ...bodyKinds], hint: "建议标注用于核对车辆身份的照片（可选）", required: false },
+  booking_information_mismatch: { kinds: [...licenseKinds, ...bodyKinds], hint: "建议标注与预约信息不符的照片（可选）", required: false },
+  materials_cannot_be_verified: { kinds: allKinds, hint: "可标注无法核对的资料照片（可选）", required: false },
+  body_dirty: { kinds: bodyKinds, hint: "请标注脏污对应的车身照片", required: true },
+  body_damage: { kinds: bodyKinds, hint: "请标注车损对应的车身照片", required: true },
+  dashboard_warning: { kinds: ["dashboard_started"], hint: "请标注启动后仪表盘照片", required: true },
+  other: { kinds: allKinds, hint: "可标注相关问题照片（可选）", required: false },
+};
+
 const reasonDefinitions = [
   { code: "license_unclear", label: "行驶证模糊或缺页" },
   { code: "vehicle_photos_incomplete", label: "车辆照片不完整或不清晰" },
@@ -20,15 +38,74 @@ const reasonDefinitions = [
   { code: "dashboard_warning", label: "仪表盘故障灯，需维修核对" },
   { code: "other", label: "其他" },
 ];
+
+type PhotoOption = { kind: MediaKind; label: string; selected: boolean; shared: boolean };
+type ReasonView = {
+  code: string;
+  label: string;
+  selected: boolean;
+  effect: string;
+  action: string;
+  photoHint: string;
+  photoRequired: boolean;
+  photoOptions: PhotoOption[];
+};
 type PhotoView = BookingMedia & { label: string; selected: boolean };
+type ReasonPhotoMap = Record<string, string[]>;
+
+function photoLabel(kind: string): string {
+  return photoDefinitions.find((item) => item.kind === kind)?.label || kind;
+}
+
+function unionPhotoKinds(map: ReasonPhotoMap): string[] {
+  const kinds = new Set<string>();
+  for (const list of Object.values(map)) {
+    for (const kind of list) kinds.add(kind);
+  }
+  return [...kinds];
+}
+
+function buildReasons(
+  guidance: Array<{ code: string; label: string; effect: string; action: string }>,
+  selectedCodes: Set<string>,
+  reasonPhotoMap: ReasonPhotoMap,
+): ReasonView[] {
+  const ownedBy = new Map<string, string[]>();
+  for (const [code, kinds] of Object.entries(reasonPhotoMap)) {
+    for (const kind of kinds) {
+      const list = ownedBy.get(kind) || [];
+      list.push(code);
+      ownedBy.set(kind, list);
+    }
+  }
+  return guidance.map((item) => {
+    const config = reasonPhotoConfig[item.code] || { kinds: allKinds, hint: "可标注相关问题照片（可选）", required: false };
+    const selectedKinds = new Set(reasonPhotoMap[item.code] || []);
+    return {
+      ...item,
+      selected: selectedCodes.has(item.code),
+      photoHint: config.hint,
+      photoRequired: config.required,
+      photoOptions: config.kinds.map((kind) => {
+        const owners = ownedBy.get(kind) || [];
+        return {
+          kind,
+          label: photoLabel(kind),
+          selected: selectedKinds.has(kind),
+          shared: owners.some((code) => code !== item.code),
+        };
+      }),
+    };
+  });
+}
 
 Page({
   data: {
     id: "", booking: null as Booking | null, photos: [] as PhotoView[], loading: true, loadError: "", deciding: false,
     submittedLabel: "", serviceModeLabel: "", appointmentLabel: "", paymentLabel: "", showReject: false,
     requiredPhotoCount: 0, photoCount: 0, requiredPhotoDescription: "", vehiclePhotosRequired: true,
-    reasons: reasonDefinitions.map((item) => ({ ...item, selected: false, effect: "", action: "materials" })), reasonText: "", selectedPhotoKinds: [] as string[],
-    photoPickHint: "存在问题的照片（可多选；行驶证问题须标注正页或副页）",
+    reasons: [] as ReasonView[], reasonText: "", selectedPhotoKinds: [] as string[], selectedPhotoSummary: "",
+    reasonPhotoMap: {} as ReasonPhotoMap,
     approveIdempotencyKey: "", rejectIdempotencyKey: "", rejectConfirming: false,
   },
   onLoad(query) {
@@ -40,25 +117,53 @@ Page({
     });
     if (ensureOperatorPageAccess(`/packages/operator/pages/precheck-detail/precheck-detail?id=${encodeURIComponent(id)}`)) void this.load();
   },
+  syncRejectSelection(reasonPhotoMap: ReasonPhotoMap, reasonsSelected?: Set<string>) {
+    const guidance = (this.data.booking?.precheck?.guidance
+      || reasonDefinitions.map((item) => ({ ...item, action: "materials", effect: "补充资料后重新审核" })))
+      .map((item) => ({ code: item.code, label: item.label, effect: item.effect, action: item.action }));
+    const selectedCodes = reasonsSelected
+      || new Set(this.data.reasons.filter((item) => item.selected).map((item) => item.code));
+    const selectedPhotoKinds = unionPhotoKinds(reasonPhotoMap);
+    const selected = new Set(selectedPhotoKinds);
+    this.setData({
+      reasonPhotoMap,
+      selectedPhotoKinds,
+      selectedPhotoSummary: selectedPhotoKinds.length
+        ? selectedPhotoKinds.map((kind) => photoLabel(kind)).join("、")
+        : "尚未标注问题照片",
+      reasons: buildReasons(guidance, selectedCodes, reasonPhotoMap),
+      photos: this.data.photos.map((item) => ({ ...item, selected: selected.has(item.kind) })),
+    });
+  },
   async load() {
     if (!this.data.id) return;
     this.setData({ loading: true, loadError: "" });
     try {
       const booking = await api.operatorPrecheck(this.data.id);
       const byKind = new Map((booking.media || []).map((item) => [item.kind, item]));
-      const requiredKinds = new Set(photoDefinitions.map((item) => item.kind));
-      const selected = new Set(this.data.selectedPhotoKinds.filter((kind) => requiredKinds.has(kind as MediaKind)));
+      const selectedCodes = new Set(this.data.reasons.filter((item) => item.selected).map((item) => item.code));
+      const reasonPhotoMap: ReasonPhotoMap = { ...this.data.reasonPhotoMap };
+      for (const code of Object.keys(reasonPhotoMap)) {
+        if (!selectedCodes.has(code)) delete reasonPhotoMap[code];
+      }
+      const selectedPhotoKinds = unionPhotoKinds(reasonPhotoMap);
+      const selected = new Set(selectedPhotoKinds);
       const photos = photoDefinitions.map((definition) => ({
         ...(byKind.get(definition.kind) || { id: definition.kind, kind: definition.kind, url: "", mimeType: "", sizeBytes: 0, width: 0, height: 0, createdAt: "" }),
         label: definition.label,
         selected: selected.has(definition.kind),
       }));
-      const guidance = booking.precheck?.guidance || reasonDefinitions.map((item) => ({ ...item, action: "materials" as const, effect: "补充资料后重新审核" }));
-      const reasons = guidance.map((item) => ({ ...item, selected: this.data.reasons.some((old) => old.code === item.code && old.selected) }));
+      const guidance = (booking.precheck?.guidance || reasonDefinitions.map((item) => ({ ...item, action: "materials" as const, effect: "补充资料后重新审核" })))
+        .map((item) => ({ code: item.code, label: item.label, effect: item.effect, action: item.action }));
       this.setData({
-        booking, photos, selectedPhotoKinds: [...selected],
-        reasons,
-        photoPickHint: this.photoPickHintFor(reasons),
+        booking,
+        photos,
+        reasonPhotoMap,
+        selectedPhotoKinds,
+        selectedPhotoSummary: selectedPhotoKinds.length
+          ? selectedPhotoKinds.map((kind) => photoLabel(kind)).join("、")
+          : "尚未标注问题照片",
+        reasons: buildReasons(guidance, selectedCodes, reasonPhotoMap),
         submittedLabel: formatShanghaiDateTime(booking.precheck?.submittedAt),
         serviceModeLabel: booking.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站",
         appointmentLabel: `${booking.appointmentDate} ${booking.startTime}–${booking.endTime}`,
@@ -97,23 +202,27 @@ Page({
   backToRejectForm() { if (!this.data.deciding) this.setData({ rejectConfirming: false }); },
   toggleReason(event) {
     const code = String(event.currentTarget.dataset.code);
-    const reasons = this.data.reasons.map((item) => item.code === code ? { ...item, selected: !item.selected } : item);
-    this.setData({ reasons, photoPickHint: this.photoPickHintFor(reasons) });
+    const selectedCodes = new Set(this.data.reasons.filter((item) => item.selected).map((item) => item.code));
+    const reasonPhotoMap: ReasonPhotoMap = { ...this.data.reasonPhotoMap };
+    if (selectedCodes.has(code)) {
+      selectedCodes.delete(code);
+      delete reasonPhotoMap[code];
+    } else {
+      selectedCodes.add(code);
+      if (!reasonPhotoMap[code]) reasonPhotoMap[code] = [];
+    }
+    this.syncRejectSelection(reasonPhotoMap, selectedCodes);
   },
   togglePhoto(event) {
-    const kind = String(event.currentTarget.dataset.kind);
-    const selected = new Set(this.data.selectedPhotoKinds);
-    selected.has(kind) ? selected.delete(kind) : selected.add(kind);
-    const selectedPhotoKinds = [...selected];
-    this.setData({ selectedPhotoKinds, photos: this.data.photos.map((item) => ({ ...item, selected: selected.has(item.kind) })) });
-  },
-  photoPickHintFor(reasons: Array<{ code: string; selected: boolean }>) {
-    const selected = reasons.filter((item) => item.selected).map((item) => item.code);
-    if (selected.includes("license_unclear")) return "存在问题的照片（行驶证问题必须标注正页或副页，便于车主补拍高亮）";
-    if (selected.includes("vehicle_photos_incomplete")) return "存在问题的照片（车辆照片问题必须标注对应车身/仪表盘）";
-    if (selected.includes("dashboard_warning")) return "存在问题的照片（故障灯必须标注启动后仪表盘）";
-    if (selected.some((code) => code === "body_dirty" || code === "body_damage")) return "存在问题的照片（脏污/车损必须标注对应车身照片）";
-    return "存在问题的照片（可多选；资料类问题建议标注对应照片，车主端才会高亮补拍）";
+    const code = String(event.currentTarget.dataset.code || "");
+    const kind = String(event.currentTarget.dataset.kind || "");
+    if (!code || !kind) return;
+    const reasonPhotoMap: ReasonPhotoMap = { ...this.data.reasonPhotoMap };
+    const current = new Set(reasonPhotoMap[code] || []);
+    if (current.has(kind)) current.delete(kind);
+    else current.add(kind);
+    reasonPhotoMap[code] = [...current];
+    this.syncRejectSelection(reasonPhotoMap);
   },
   rejectIssuePhotoError(reasonCodes: string[], issuePhotoKinds: string[]) {
     if (reasonCodes.includes("dashboard_warning") && !issuePhotoKinds.includes("dashboard_started")) {
@@ -159,7 +268,6 @@ Page({
       wx.showToast({ title: photoError, icon: "none" });
       return;
     }
-    // 真机调试下 wx.showModal 可能失败；改用弹层内二次确认。
     if (!this.data.rejectConfirming) {
       this.setData({ rejectConfirming: true });
       return;

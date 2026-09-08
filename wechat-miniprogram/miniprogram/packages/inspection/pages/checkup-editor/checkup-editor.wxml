@@ -138,7 +138,7 @@
       <view class="summary-field"><text>结果说明（选填）</text><textarea value="{{summary}}" maxlength="200" placeholder="例如：检测项目完成，车辆问题已记录在体检报告中" bindinput="inputSummary" disabled="{{saving || submitting}}" /></view>
     </view>
 
-    <view class="section-heading"><view><text>04</text><text>法定检测材料</text></view><text>与平台车辆体检留证分开</text></view>
+    <view class="section-heading"><view><text>04</text><text>检测证明材料</text></view><text>与平台车辆体检留证分开</text></view>
     <view class="conclusion-card legal-material-card">
       <view class="legal-material-boundary"><image src="/assets/icons/shield-check.png"/><text>请按检测站实际出具材料留证。平台车辆体检报告用于履约记录，不替代交管官方检验记录。</text></view>
 

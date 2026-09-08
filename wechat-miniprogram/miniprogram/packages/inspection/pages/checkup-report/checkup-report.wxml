@@ -17,7 +17,7 @@
       <view><text>{{faultViews.length}}</text><text>车辆问题</text></view>
       <view><text>{{faultPhotoCount}}</text><text>故障特写</text></view>
       <view><text>{{sitePhotos.length}}/5</text><text>平台体检留证</text></view>
-      <view class="mark-summary"><text>{{legalMaterialStatusText}}</text><text>法定检测材料</text></view>
+      <view class="mark-summary"><text>{{legalMaterialStatusText}}</text><text>检测证明材料</text></view>
     </view>
 
     <button wx:if="{{repairAvailable}}" class="repair-quote-entry repair-{{repairCtaTone}}" bindtap="openRepairQuote" aria-label="{{repairCtaText}}，{{repairCtaHint}}">
@@ -112,7 +112,7 @@
       <view class="information-row"><text>预约时段</text><text>{{appointmentText}}</text></view>
     </view>
 
-    <view class="section-heading"><view><text>06</text><text>法定检测材料</text></view><text>检测站出具材料留证</text></view>
+    <view class="section-heading"><view><text>06</text><text>检测证明材料</text></view><text>检测站出具材料留证</text></view>
     <view class="boundary-note material-boundary"><image src="/assets/icons/shield-check.png"/><text>以下为检测站出具材料的图片留证。平台车辆体检报告不替代法定检测报告；历史报告缺少材料时只显示真实缺失状态，不补造附件。</text></view>
     <view class="attachment-list result-material-list">
       <button wx:for="{{resultMaterialAttachments}}" wx:key="kind" class="attachment-row attachment-{{item.statusTone}}" data-url="{{item.url}}" bindtap="previewResultMaterial" disabled="{{!item.url}}">
@@ -133,11 +133,11 @@
       <button wx:for="{{sitePhotos}}" wx:key="kind" class="report-photo" data-url="{{item.url}}" bindtap="previewPhoto" disabled="{{!item.url}}"><image wx:if="{{item.url}}" src="{{item.url}}" data-source-url="{{item.media.sourceUrl}}" binderror="handlePrivateImageError" mode="aspectFill"/><view wx:else class="report-photo-failed"><image src="/assets/icons/warning-circle.png"/><text>安全读取失败</text></view><view><text>{{item.label}}</text><text>{{item.url ? '查看原图' : '请重新安全读取'}}</text></view></button>
     </view>
     <view wx:else class="legacy-empty"><image src="/assets/icons/camera.png"/><text>该历史结果没有车辆体检照片</text></view>
-    <text class="photo-group-title result-material-title">法定检测材料 · 独立于平台体检留证</text>
+    <text class="photo-group-title result-material-title">检测证明材料 · 独立于平台体检留证</text>
     <view wx:if="{{resultMaterials.length}}" class="report-photo-grid result-material-grid">
       <button wx:for="{{resultMaterials}}" wx:key="kind" class="report-photo" data-url="{{item.url}}" bindtap="previewResultMaterial" disabled="{{!item.url}}"><image wx:if="{{item.url}}" src="{{item.url}}" data-source-url="{{item.media.sourceUrl}}" binderror="handlePrivateImageError" mode="aspectFill"/><view wx:else class="report-photo-failed"><image src="/assets/icons/warning-circle.png"/><text>安全读取失败</text></view><view><text>{{item.label}}</text><text>{{item.url ? '查看原图' : '请重新安全读取'}}</text></view></button>
     </view>
-    <view wx:else class="legacy-empty compact"><image src="/assets/icons/file-arrow-up.png"/><text>该历史报告未采集法定检测材料，不补造附件</text></view>
+    <view wx:else class="legacy-empty compact"><image src="/assets/icons/file-arrow-up.png"/><text>该历史报告未采集检测证明材料，不补造附件</text></view>
 
     <view class="report-footnote"><text>记录留存</text><text>资料保留至：{{report.retainUntil || '按平台规则保留'}}</text><text>如对年检结论有疑问，请联系检测站；如需查询官方状态，请使用交管官方渠道。</text></view>
   </block>

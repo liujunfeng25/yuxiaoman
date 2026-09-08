@@ -61,9 +61,9 @@
             <view><text>{{item.faultText}}</text><text>车身问题</text></view>
             <view><text>{{item.faultPhotoText}}</text><text>故障特写</text></view>
           </view>
-          <view class="report-card-material"><text>法定检测材料</text><text>{{item.legalMaterialText}}</text><text>{{item.markText}}</text></view>
+          <view class="report-card-material"><text>检测证明材料</text><text>{{item.legalMaterialText}}</text><text>{{item.markText}}</text></view>
           <view class="report-card-foot"><text>平台车辆体检报告不替代法定检测报告</text><view><text>查看完整报告</text><image src="/assets/icons/caret-right.png"/></view></view>
-          <view wx:if="{{item.isLegacyV1}}" class="legacy-note"><text>历史版报告</text><text>旧版未采集的故障特写或法定检测材料会明确标记，不补造附件。</text></view>
+          <view wx:if="{{item.isLegacyV1}}" class="legacy-note"><text>历史版报告</text><text>旧版未采集的故障特写或检测证明材料会明确标记，不补造附件。</text></view>
         </button>
       </view>
 

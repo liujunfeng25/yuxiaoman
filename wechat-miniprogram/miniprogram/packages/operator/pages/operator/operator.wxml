@@ -45,18 +45,18 @@
     </button>
 
     <view class="task-heading">
-      <view><text>履约任务</text><text>按所选日期和预约时段依次处理</text></view>
+      <view><text>履约任务</text><text>默认看待处理；异常与场内任务优先靠前</text></view>
       <button bindtap="load" loading="{{loading}}" disabled="{{loading}}"><image src="/assets/icons/recycle.png"/><text>{{loading ? '刷新中' : '刷新'}}</text></button>
     </view>
 
     <scroll-view scroll-x class="filter-scroll" enhanced show-scrollbar="{{false}}">
       <view class="filter-row">
-        <button wx:for="{{filters}}" wx:key="*this" data-filter="{{item}}" bindtap="filter" disabled="{{loading}}" class="{{filter === item ? 'active' : ''}}">{{item === 'all' ? '全部' : fmt.statusLabel(item)}}</button>
+        <button wx:for="{{filters}}" wx:key="id" data-filter="{{item.id}}" bindtap="filter" disabled="{{loading}}" class="{{filter === item.id ? 'active' : ''}}">{{item.label}}</button>
       </view>
     </scroll-view>
 
     <view wx:if="{{visibleBookings.length}}" class="task-list">
-      <view role="button" aria-label="查看{{item.plateNumber}}任务" wx:for="{{visibleBookings}}" wx:key="id" data-id="{{item.id}}" bindtap="open" class="task-row {{index === 0 ? 'next' : ''}}">
+      <view role="button" aria-label="查看{{item.plateNumber}}任务" wx:for="{{visibleBookings}}" wx:key="id" data-id="{{item.id}}" bindtap="open" class="task-row {{index === 0 ? 'next' : ''}} {{item.status === 'completed' || item.status === 'cancelled' || item.status === 'no_show' ? 'done' : ''}}">
         <view class="task-time"><text>{{item.startTime}}</text><text>至 {{item.endTime}}</text><text>{{item.dateLabel}}</text></view>
         <view class="task-main"><text>{{item.plateNumber}}</text><text>{{item.vehicleTypeLabel}}</text><text>{{item.contactLabel}}</text></view>
         <view class="task-status status-{{item.status}}"><text>{{fmt.statusLabel(item.status)}}</text><text>{{item.statusHint}}</text></view>
@@ -66,7 +66,14 @@
       <view class="list-note"><image src="/assets/icons/clock.png"/><text>任务时间为预约时段，请合理安排叫号与检测流程。</text></view>
     </view>
 
-    <view wx:else class="empty operator-empty"><image src="/assets/icons/receipt.png"/><text>当前筛选暂无任务</text><text>切换筛选条件或刷新工作台</text></view>
+    <view wx:else class="empty operator-empty">
+      <image src="/assets/icons/receipt.png"/>
+      <text wx:if="{{filter === 'active'}}">今日待处理已完成</text>
+      <text wx:elif="{{filter === 'completed'}}">今日暂无已完成任务</text>
+      <text wx:else>当前筛选暂无任务</text>
+      <text wx:if="{{filter === 'active'}}">可切换到「已完成」或「全部」回看</text>
+      <text wx:else>切换筛选条件或刷新工作台</text>
+    </view>
     </block>
   </block>
 </view>

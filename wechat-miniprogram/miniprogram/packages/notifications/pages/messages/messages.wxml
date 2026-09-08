@@ -14,7 +14,7 @@
   <view wx:if="{{wechatSubscriptionAvailable}}" class="wechat-reminder-card">
     <view class="wechat-reminder-copy">
       <text>开启微信提醒</text>
-      <text>报告生成、预约处理等重要节点可通过微信服务通知提醒。授权仅在你点击后发起。</text>
+      <text>报告生成、预约处理等重要节点可通过微信服务通知提醒。也可在支付时授权预检结果与验车报告提醒；此处用于补开或续订。</text>
       <text wx:if="{{wechatSubscriptionStatus}}" class="wechat-reminder-status">{{wechatSubscriptionStatus}}</text>
     </view>
     <button bindtap="enableWechatReminders" loading="{{wechatSubscribing}}" disabled="{{wechatSubscribing}}" aria-label="开启微信履约提醒">{{wechatSubscribing ? '正在授权…' : '立即开启'}}</button>

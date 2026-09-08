@@ -115,7 +115,11 @@ export function storeSubsidyConsultationReceipt(receipt: SubsidyConsultationRece
 }
 
 export function getOperatorFilter(): string {
-  return wx.getStorageSync<string>(keys.operatorFilter) || "all";
+  const stored = wx.getStorageSync<string>(keys.operatorFilter) || "";
+  const allowed = new Set(["active", "in_station", "awaiting", "completed", "all"]);
+  if (allowed.has(stored)) return stored;
+  // 旧版细状态筛选统一回到「待处理」，避免默认落在「全部」。
+  return "active";
 }
 
 export function storeOperatorFilter(filter: string): void {

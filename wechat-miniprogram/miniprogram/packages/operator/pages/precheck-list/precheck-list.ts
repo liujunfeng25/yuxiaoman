@@ -9,37 +9,57 @@ const selfDrivePhotoKinds: ReadonlySet<MediaKind> = new Set([
   "vehicle_rear_left", "vehicle_rear_right", "dashboard_started",
 ]);
 
+type SupervisionLine = { label: string; value: string };
+
 type PrecheckItem = Booking & {
   plateNumber: string;
   serviceModeLabel: string;
-  appointmentLabel: string;
+  appointmentDateLabel: string;
+  appointmentTimeLabel: string;
+  appointmentReleased: boolean;
   submittedLabel: string;
   photoCount: number;
   requiredPhotoCount: number;
   photoProgressPercent: number;
   slaLabel: string;
   slaTone: string;
-  supervisionDetail: string;
+  supervisionTitle: string;
+  supervisionLines: SupervisionLine[];
 };
 
-function supervisionDetail(precheck: NonNullable<Booking["precheck"]>): string {
-  const supervision = precheck.supervision;
-  if (!supervision) return "历史订单未启用督办";
+function shortDateTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const full = formatShanghaiDateTime(value);
+  // 2026-09-08 08:29:05 -> 09-08 08:29
+  const match = full.match(/^\d{4}-(\d{2}-\d{2}) (\d{2}:\d{2})(?::\d{2})?$/u);
+  return match ? `${match[1]} ${match[2]}` : full;
+}
 
-  const parts = [`第 ${supervision.policyVersion} 版规则`];
+function supervisionView(precheck: NonNullable<Booking["precheck"]>): Pick<PrecheckItem, "supervisionTitle" | "supervisionLines"> {
+  const supervision = precheck.supervision;
+  if (!supervision) {
+    return { supervisionTitle: "未启用督办", supervisionLines: [] };
+  }
   if (supervision.status !== "open") {
-    parts.push("督办已关闭");
-  } else {
-    if (supervision.firstReminderAt) parts.push(`首次提醒 ${formatShanghaiDateTime(supervision.firstReminderAt)}`);
-    if (supervision.dueAt) parts.push(`截止 ${formatShanghaiDateTime(supervision.dueAt)}`);
-    if (supervision.escalateAt) parts.push(`升级 ${formatShanghaiDateTime(supervision.escalateAt)}`);
+    return {
+      supervisionTitle: `第 ${supervision.policyVersion} 版 · 已关闭`,
+      supervisionLines: [],
+    };
   }
-  if (supervision.reminderCount > 0) {
-    parts.push(`已提醒 ${supervision.reminderCount} 次${supervision.lastRemindedAt ? `，最近 ${formatShanghaiDateTime(supervision.lastRemindedAt)}` : ""}`);
-  } else {
-    parts.push("尚未提醒");
-  }
-  return parts.join(" · ");
+  const lines: SupervisionLine[] = [];
+  if (supervision.dueAt) lines.push({ label: "处理截止", value: shortDateTime(supervision.dueAt) });
+  if (supervision.firstReminderAt) lines.push({ label: "首次提醒", value: shortDateTime(supervision.firstReminderAt) });
+  if (supervision.escalateAt) lines.push({ label: "升级时间", value: shortDateTime(supervision.escalateAt) });
+  lines.push({
+    label: "提醒状态",
+    value: supervision.reminderCount > 0
+      ? `已提醒 ${supervision.reminderCount} 次${supervision.lastRemindedAt ? ` · ${shortDateTime(supervision.lastRemindedAt)}` : ""}`
+      : "尚未提醒",
+  });
+  return {
+    supervisionTitle: `第 ${supervision.policyVersion} 版规则`,
+    supervisionLines: lines,
+  };
 }
 
 function view(item: Booking): PrecheckItem {
@@ -59,18 +79,21 @@ function view(item: Booking): PrecheckItem {
           : supervision.dueAt
             ? workflowDueLabel(supervision.dueAt, "normal")
             : "处理中";
+  const released = Boolean(item.precheckSlotReleased);
   return {
     ...item,
     plateNumber: item.vehicle?.plateNumber || "车牌待核验",
     serviceModeLabel: item.serviceMode === "valet" ? "代驾往返取送" : "车主自驾到站",
-    appointmentLabel: item.precheckSlotReleased ? "原时段已释放，待车主重新选择" : `${item.appointmentDate} ${item.startTime}–${item.endTime}`,
+    appointmentDateLabel: released ? "原时段已释放" : item.appointmentDate,
+    appointmentTimeLabel: released ? "待车主重新选择" : `${item.startTime}–${item.endTime}`,
+    appointmentReleased: released,
     submittedLabel: formatShanghaiDateTime(precheck.submittedAt),
     photoCount,
     requiredPhotoCount,
     photoProgressPercent: Math.round(photoCount / requiredPhotoCount * 100),
     slaLabel: item.status === "precheck_action_required" ? "待车主处理" : item.status === "cancelled" ? "已取消" : precheck.status === "approved" ? "已通过" : supervisionLabel,
     slaTone: precheck.overdue ? "overdue" : precheck.reminderDue ? "reminder" : "normal",
-    supervisionDetail: supervisionDetail(precheck),
+    ...supervisionView(precheck),
   };
 }
 

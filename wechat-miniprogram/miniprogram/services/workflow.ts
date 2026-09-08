@@ -121,8 +121,9 @@ export const ownerWorkflowApi = {
     return this.summary();
   },
 
-  async wechatSubscriptionTemplateIds(): Promise<string[]> {
-    const payload = await ownerRequest<unknown>("/workflow/wechat-subscription-templates");
+  async wechatSubscriptionTemplateIds(purpose: "message_center" | "post_payment" = "message_center"): Promise<string[]> {
+    const query = purpose === "message_center" ? "" : `?purpose=${encodeURIComponent(purpose)}`;
+    const payload = await ownerRequest<unknown>(`/workflow/wechat-subscription-templates${query}`);
     if (!payload || typeof payload !== "object") return [];
     const templateIds = (payload as { templateIds?: unknown }).templateIds;
     if (!Array.isArray(templateIds)) return [];
@@ -176,7 +177,18 @@ export function requestOwnerWorkflowSubscriptions(
           }))
           .catch(reject);
       },
-      fail: (error) => reject(new Error(error.errMsg || "微信提醒授权未完成")),
+      fail: (error) => {
+        const raw = error.errMsg || "微信提醒授权未完成";
+        if (/No template data return|template id exist|20001/i.test(raw)) {
+          reject(new Error("微信提醒模板配置异常，请稍后再试或联系客服"));
+          return;
+        }
+        if (/main switch|20004/i.test(raw)) {
+          reject(new Error("请先在微信设置中打开接收订阅消息"));
+          return;
+        }
+        reject(new Error(raw));
+      },
     });
   });
 }

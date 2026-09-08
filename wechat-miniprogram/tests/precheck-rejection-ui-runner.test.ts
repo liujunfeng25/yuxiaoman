@@ -42,7 +42,7 @@ test("预检退回 QA 固定核验七张预约资料并只替换检测站标注�
 
 test("检测站真实点击退回会选择脏污、车损、故障灯及两张对应照片，并点击原生确认框", () => {
   assert.match(source, /\['body_dirty', 'body_damage', 'dashboard_warning'\]/u);
-  assert.match(source, /elementByAttribute\(precheck, '\.reason-grid button', 'data-code', code/u);
+  assert.match(source, /elementByAttribute\(precheck, '\.reason-grid \.reason-toggle', 'data-code', code/u);
   assert.match(source, /elementByAttribute\(precheck, '\.photo-tags button', 'data-kind', kind/u);
   assert.match(source, /await button\.tap\(\)/u);
   assert.match(source, /\.reject-sheet textarea/u);

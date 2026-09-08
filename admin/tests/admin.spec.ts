@@ -840,7 +840,7 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   await expect(report).toContainText("YXM-CHK-20260822-TEST0001");
   await expect(report.locator(".checkup-conclusion")).toHaveText("年检通过");
   const materialSummary = report.getByLabel("报告材料摘要");
-  await expect(materialSummary).toContainText("法定检测材料安全报告已归档");
+  await expect(materialSummary).toContainText("检测证明材料安全报告已归档");
   await expect(materialSummary).toContainText("平台车辆体检留证5 / 5");
   await expect(materialSummary).toContainText("故障证据4 / 4 项完整");
   await expect(materialSummary).toContainText("共 7 张故障特写");
@@ -908,8 +908,8 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   await expect(sitePhotoSection.getByRole("heading", { name: "平台车辆体检留证" })).toBeVisible();
   await expect(sitePhotoSection).toContainText("5 / 5 · 固定 5 张");
   await expect(sitePhotoSection.locator(".checkup-media-grid figure")).toHaveCount(5);
-  const resultMaterialSection = report.getByRole("region", { name: "法定检测材料", exact: true });
-  await expect(resultMaterialSection.getByRole("heading", { name: "法定检测材料" })).toBeVisible();
+  const resultMaterialSection = report.getByRole("region", { name: "检测证明材料", exact: true });
+  await expect(resultMaterialSection.getByRole("heading", { name: "检测证明材料" })).toBeVisible();
   await expect(resultMaterialSection).toContainText("3 件 · 安全报告已归档");
   await expect(resultMaterialSection).toContainText("法定材料 01 · 机动车安全技术检验报告");
   await expect(resultMaterialSection).toContainText("法定材料 03 · 检验合格标志/电子凭证留证");
@@ -990,7 +990,7 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   await page.getByRole("button", { name: "查看津A·V1001预约详情" }).click();
   const legacyDrawer = page.getByLabel("预约与账务详情");
   const legacyReport = legacyDrawer.getByLabel("车辆体检报告");
-  await expect(legacyReport.getByRole("alert", { name: "法定检测材料缺失提示" })).toContainText(/历史报告未采集法定检测材料[\s\S]*不补造材料/);
+  await expect(legacyReport.getByRole("alert", { name: "检测证明材料缺失提示" })).toContainText(/历史报告未采集检测证明材料[\s\S]*不补造材料/);
   await expect(legacyReport.getByLabel("报告材料摘要")).toContainText("故障证据0 / 4 项完整");
   await expect(legacyReport.getByRole("alert", { name: "报告材料完整性提示" })).toContainText(/历史报告未采集故障特写[\s\S]*旧版报告有 4 项故障未关联特写照片[\s\S]*不补造影像/);
   await expect(legacyReport.getByRole("alert", { name: "历史年检结果待重新录入" })).toContainText(/正式年检结果尚未确认[\s\S]*不会自动算作未通过/);
@@ -1007,7 +1007,7 @@ test("预约详情展示车辆体检报告并联动车况定位与现场影像�
   const failedSitePhotos = failedReport.getByLabel("平台车辆体检留证");
   await expect(failedSitePhotos).toContainText("5 / 5 · 固定 5 张");
   await expect(failedSitePhotos.locator(".checkup-media-grid figure")).toHaveCount(5);
-  const failedResultMaterials = failedReport.getByRole("region", { name: "法定检测材料", exact: true });
+  const failedResultMaterials = failedReport.getByRole("region", { name: "检测证明材料", exact: true });
   await expect(failedResultMaterials).toContainText("未通过 · 不适用");
   await expect(failedResultMaterials).toContainText("机动车安全技术检验报告");
   await expect(failedResultMaterials.locator(".checkup-media-grid figure")).toHaveCount(2);

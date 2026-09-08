@@ -140,7 +140,7 @@ export function reportCard(item: VehicleCheckupReportSummary): ReportCardView {
     item.hasSafetyInspectionReport ? "安全检验报告已附" : "",
     item.hasEmissionsInspectionReport ? "排放报告已附" : "",
   ].filter(Boolean).join(" · ")
-    || (item.schemaVersion === "vehicle-checkup-v1" ? "历史报告未采集法定检测材料" : "以合格凭证留证为准");
+    || (item.schemaVersion === "vehicle-checkup-v1" ? "历史报告未采集检测证明材料" : "以合格凭证留证为准");
   return {
     ...item,
     publishedText: dateTimeText(item.publishedAt),

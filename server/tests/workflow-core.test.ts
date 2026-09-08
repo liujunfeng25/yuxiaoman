@@ -1699,6 +1699,40 @@ test("车主微信订阅只暴露当前策略已启用模板且授权次数与 A
     assert.equal(templates.statusCode, 200, templates.body);
     assert.deepEqual(templates.json<Record<string, any>>().data.templateIds, ["wx-owner-report", "wx-owner-repair"]);
 
+    await database.prepare(`
+      UPDATE workflow_policy_nodes SET enabled_channels_json = '["in_app","wechat"]'
+      WHERE node_code IN ('annual.precheck.action_required', 'annual.arrival.owner')
+        AND policy_set_id IN (
+          SELECT id FROM workflow_policy_sets
+          WHERE state = 'published' AND is_current = 1
+        )
+    `).run();
+    for (const [stableCode, providerTemplateId] of [
+      ["annual.precheck.action_required.owner", "wx-owner-precheck"],
+      ["annual.arrival.reminder.owner", "wx-owner-arrival"],
+    ] as const) {
+      await database.prepare(`
+        UPDATE notification_templates
+        SET provider_template_id = ?, provider_snapshot_json = ?, filing_status = 'configured'
+        WHERE stable_code = ? AND channel = 'wechat'
+          AND state = 'published' AND is_current = 1
+      `).run(
+        providerTemplateId,
+        JSON.stringify({ fieldMappings: [{ field: "thing1", variable: "maskedPlate" }] }),
+        stableCode,
+      );
+    }
+    const postPayment = await app.inject({
+      method: "GET",
+      url: "/api/workflow/wechat-subscription-templates?purpose=post_payment",
+    });
+    assert.equal(postPayment.statusCode, 200, postPayment.body);
+    assert.deepEqual(postPayment.json<Record<string, any>>().data.templateIds, [
+      "wx-owner-precheck",
+      "wx-owner-report",
+      "wx-owner-arrival",
+    ]);
+
     const accepted = await app.inject({
       method: "POST",
       url: "/api/workflow/wechat-subscriptions",

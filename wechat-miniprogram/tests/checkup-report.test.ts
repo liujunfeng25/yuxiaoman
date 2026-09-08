@@ -622,7 +622,7 @@ test("每条故障生成克制且与类型程度相关的处理建议", () => {
 
 test("只读页面包含完整文字报告结构且不伪造官方报告要素", () => {
   const source = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.wxml", import.meta.url), "utf8");
-  const headings = ["车辆问题定位", "故障明细与建议", "年检结论", "车辆体检记录", "报告与车辆信息", "法定检测材料", "平台车辆体检留证", "照片材料预览"];
+  const headings = ["车辆问题定位", "故障明细与建议", "年检结论", "车辆体检记录", "报告与车辆信息", "检测证明材料", "平台车辆体检留证", "照片材料预览"];
   for (const heading of headings) {
     assert.match(source, new RegExp(heading));
   }
@@ -696,7 +696,7 @@ test("检测端三视图、结论与固定操作按钮在窄屏保持完整等�
   assert.doesNotMatch(markup, /\{\{safetyReportMedia \? '已上传' : '待上传'\}\}/);
 });
 
-test("车主报告把法定检测材料与平台车辆体检留证分组且关键触控区不少于88rpx", () => {
+test("车主报告把检测证明材料与平台车辆体检留证分组且关键触控区不少于88rpx", () => {
   const script = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.ts", import.meta.url), "utf8");
   const markup = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-report/checkup-report.wxml", import.meta.url), "utf8");
   const editorStyle = readFileSync(new URL("../miniprogram/packages/inspection/pages/checkup-editor/checkup-editor.wxss", import.meta.url), "utf8");
@@ -705,7 +705,7 @@ test("车主报告把法定检测材料与平台车辆体检留证分组且关�
   assert.match(markup, /\{\{sitePhotos\.length\}\}\/5/);
   assert.doesNotMatch(markup, /\{\{photos\.length\}\}/);
   assert.match(markup, /平台车辆体检报告不替代法定检测报告/);
-  assert.match(markup, /历史报告未采集法定检测材料，不补造附件/);
+  assert.match(markup, /历史报告未采集检测证明材料，不补造附件/);
   assert.match(markup, /仅年检通过时必传/);
   assert.match(markup, /class="mark-summary"/);
   for (const selector of ["view-tabs button", "failure-category-options button", "fault-closeup-actions button"]) {
@@ -719,7 +719,7 @@ test("车主报告把法定检测材料与平台车辆体检留证分组且关�
   assert.match(reportStyle, /\.summary-grid \.mark-summary text:first-child\s*\{[^}]*white-space:\s*normal/);
 });
 
-test("订单详情同时概览法定检测材料与平台车辆体检留证且诚实提示历史缺失", () => {
+test("订单详情同时概览检测证明材料与平台车辆体检留证且诚实提示历史缺失", () => {
   const script = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.ts", import.meta.url), "utf8");
   const markup = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.wxml", import.meta.url), "utf8");
   assert.match(script, /reportMedia\(report, "annual_inspection_mark"\)/);
@@ -728,7 +728,7 @@ test("订单详情同时概览法定检测材料与平台车辆体检留证且�
   assert.doesNotMatch(script, /安全检验报告选填 · 未提供/);
   assert.doesNotMatch(script, /排放报告选填 · 未提供/);
   assert.match(script, /missing:\s*passed && !mark/);
-  assert.match(markup, /法定检测材料/);
+  assert.match(markup, /检测证明材料/);
   assert.match(markup, /平台车辆体检留证/);
   assert.match(markup, /平台车辆体检报告不替代法定检测报告/);
 });
@@ -850,7 +850,7 @@ test("报告卡完整展示固定照片、故障证据和历史 v1 诚实提示"
   assert.equal(legacy.isLegacyV1, true);
   assert.equal(legacy.fixedPhotoText, "0/5");
   assert.equal(legacy.markText, "历史报告未提供检验合格凭证留证");
-  assert.equal(legacy.legalMaterialText, "历史报告未采集法定检测材料");
+  assert.equal(legacy.legalMaterialText, "历史报告未采集检测证明材料");
   assert.equal(reportCard(reportSummary({ conclusion: "failed", hasAnnualMark: false })).markText, "未通过，不形成检验合格凭证留证");
   const historical = reportCard(reportSummary({ conclusion: null, conclusionStatus: "legacy_requires_reentry", hasAnnualMark: false }));
   assert.equal(historical.conclusionText, "历史结果待重新录入");

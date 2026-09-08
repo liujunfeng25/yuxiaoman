@@ -161,6 +161,43 @@ function wechatPage(actionCode: string, params: Json): string | undefined {
   return routes[actionCode];
 }
 
+/** Normalize values to WeChat subscribe-message field type rules before send. */
+export function formatWechatSubscribeFieldValue(field: string, raw: unknown): string | null {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  if (field.startsWith("character_string")) {
+    // Strip masks first. Many category keywords (报告编号/主单号) only accept digits
+    // even though the generic character_string type also allows letters.
+    const cleaned = value.replace(/[^0-9A-Za-z\-_.]/g, "");
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length >= 4) return digits.slice(-32);
+    const alnum = cleaned.replace(/[^0-9A-Za-z]/g, "").slice(0, 32);
+    return alnum || null;
+  }
+  if (field.startsWith("phrase")) {
+    const cleaned = value.replace(/[^\u4e00-\u9fff]/g, "").slice(0, 5);
+    return cleaned || null;
+  }
+  if (field.startsWith("thing")) return value.slice(0, 20);
+  if (field.startsWith("time") || field.startsWith("date")) {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/u.exec(value);
+    if (iso) {
+      const clock = iso[4] ? ` ${iso[4]}:${iso[5]}${iso[6] ? `:${iso[6]}` : ""}` : "";
+      return `${iso[1]}年${iso[2]}月${iso[3]}日${clock}`;
+    }
+    return value.slice(0, 32);
+  }
+  if (field.startsWith("amount")) {
+    const compact = value.replace(/\s/g, "");
+    if (/^￥?\d+(\.\d+)?元?$/u.test(compact)) {
+      const number = compact.replace(/[￥元]/g, "");
+      return `￥${number}`.slice(0, 16);
+    }
+    return compact.slice(0, 16);
+  }
+  return value.slice(0, 32);
+}
+
 export async function sendWechatSubscriptionMessage(input: WorkflowDeliveryMessage): Promise<WorkflowDeliveryResult> {
   if (!workflowIntegrationStatus().wechat.configured || !input.providerTemplateId) {
     return { outcome: "permanent_failure", providerCode: "WECHAT_NOT_CONFIGURED", message: "微信订阅消息尚未配置" };
@@ -173,8 +210,9 @@ export async function sendWechatSubscriptionMessage(input: WorkflowDeliveryMessa
     if (typeof mapping.field !== "string" || !/^[A-Za-z]+\d+$/u.test(mapping.field)
       || typeof mapping.variable !== "string") continue;
     const raw = input.variables?.[mapping.variable as keyof WorkflowTemplateVariables];
-    if (raw == null) continue;
-    data[mapping.field] = { value: String(raw).slice(0, 20) };
+    const formatted = formatWechatSubscribeFieldValue(mapping.field, raw);
+    if (!formatted) continue;
+    data[mapping.field] = { value: formatted };
   }
   if (Object.keys(data).length === 0) {
     return { outcome: "permanent_failure", providerCode: "WECHAT_FIELD_MAPPING_INVALID", message: "微信模板字段映射不可用" };
@@ -795,12 +833,19 @@ async function deliverClaimedOutbox(
     // A subscription use is consumed before the network call. Ambiguous
     // network failures are deliberately not refunded: retrying with the same
     // grant can duplicate a message that WeChat may already have accepted.
-    if (attemptStart.wechatUseReserved && attemptStart.wechatAuthorizationId
-      && result.providerCode === "43101") {
-      await transaction.prepare(`
-        UPDATE wechat_subscription_authorizations
-        SET authorization_state = 'rejected', remaining_uses = 0, updated_at = ? WHERE id = ?
-      `).run(now.toISOString(), attemptStart.wechatAuthorizationId);
+    // Content-validation rejects (47003) never accept the message, so refund.
+    if (attemptStart.wechatUseReserved && attemptStart.wechatAuthorizationId) {
+      if (result.providerCode === "43101") {
+        await transaction.prepare(`
+          UPDATE wechat_subscription_authorizations
+          SET authorization_state = 'rejected', remaining_uses = 0, updated_at = ? WHERE id = ?
+        `).run(now.toISOString(), attemptStart.wechatAuthorizationId);
+      } else if (result.providerCode === "47003") {
+        await transaction.prepare(`
+          UPDATE wechat_subscription_authorizations
+          SET remaining_uses = remaining_uses + 1, updated_at = ? WHERE id = ?
+        `).run(now.toISOString(), attemptStart.wechatAuthorizationId);
+      }
     }
     if (result.outcome === "accepted") {
       const changed = await transaction.prepare(`

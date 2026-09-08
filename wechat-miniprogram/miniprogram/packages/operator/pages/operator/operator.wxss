@@ -65,6 +65,8 @@
 .task-row { position: relative; display: grid; width: 100%; min-height: 204rpx; padding: 22rpx 20rpx; grid-template-columns: 104rpx minmax(0, 1fr) 26rpx; grid-template-rows: auto auto auto; align-items: start; gap: 9rpx 14rpx; text-align: left; background: #fff; box-sizing: border-box; }
 .task-row + .task-row { border-top: 1rpx solid #e8edf2; }
 .task-row.next { border-left: 6rpx solid #1475e6; padding-left: 14rpx; }
+.task-row.done { opacity: .72; }
+.task-row.done .task-main text:first-child { color: #5f7388; }
 .task-time { display: flex; min-height: 132rpx; padding-right: 13rpx; grid-row: 1 / 4; justify-content: flex-start; border-right: 1rpx solid #e3e8ef; flex-direction: column; }
 .task-time text:first-child { color: #1768cf; font-size: 22rpx; font-weight: 800; line-height: 1.25; white-space: nowrap; }
 .task-time text:nth-child(2) { margin-top: 2rpx; color: #1768cf; font-size: 18rpx; font-weight: 700; white-space: nowrap; }

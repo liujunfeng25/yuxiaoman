@@ -35,16 +35,11 @@
 
     <view wx:if="{{booking.status === 'on_hold'}}" class="hold-alert"><image src="/assets/icons/warning-circle.png"/><view><text>异常处理中：任务已挂起</text><text>车辆信息不一致，请完成现场复核后恢复任务。</text></view></view>
 
-    <view class="process-card">
-      <view class="card-heading"><text>服务流程</text><text>当前：{{fmt.statusLabel(booking.status)}}</text></view>
-      <view class="process-steps">
-        <view wx:for="{{processSteps}}" wx:key="key" class="process-step {{item.state}}">
-          <text class="step-number">{{index + 1}}</text>
-          <view class="step-icon"><image src="{{item.iconPath}}"/></view>
-          <text class="step-label">{{item.label}}</text>
-          <text class="step-state">{{item.stateLabel}}</text>
-        </view>
-      </view>
+    <view wx:if="{{taskCard}}" class="task-card" aria-label="本步任务 {{taskCard.title}}">
+      <text class="task-card-eyebrow">本步任务 · {{taskCard.stepIndex}} / {{taskCard.stepTotal}}</text>
+      <text class="task-card-title">{{taskCard.title}}</text>
+      <text class="task-card-instruction">{{taskCard.instruction}}</text>
+      <text class="task-card-next">{{taskCard.nextLabel}}</text>
     </view>
 
     <view wx:if="{{arrivalEvidence && (booking.status === 'picked_up' || booking.status === 'checked_in' || booking.status === 'inspecting' || booking.status === 'result_received' || booking.status === 'returning' || booking.status === 'completed')}}" class="arrival-evidence-card">
@@ -92,13 +87,17 @@
 
     <view class="detail-actions">
       <view wx:if="{{booking.status === 'inspecting'}}" class="result-action-note"><image src="/assets/icons/shield-check.png"/><view><text>先完成车辆体检报告</text><text>补齐 5 张现场照片，标记车身问题并填写年检结论后，统一回传给车主。</text></view></view>
-      <button class="primary-action" data-action="resolve-hold" bindtap="action" wx:if="{{booking.status === 'on_hold'}}" loading="{{actingAction === 'resolve-hold'}}" disabled="{{acting}}">异常已处理，恢复核验</button>
-      <button class="primary-action" data-action="accept" bindtap="action" wx:if="{{booking.status === 'confirmed' && booking.serviceMode !== 'valet'}}" loading="{{actingAction === 'accept'}}" disabled="{{acting}}">接单并等待到站</button>
-      <view wx:if="{{booking.status === 'confirmed' && booking.serviceMode === 'valet'}}" class="complete-copy"><image src="/assets/icons/clock.png"/><text>支付已确认，等待后台安排司机并发送任务入口。</text></view>
-      <button class="primary-action" data-action="check-in" bindtap="action" wx:if="{{booking.status === 'awaiting_arrival' || (booking.status === 'picked_up' && booking.evidencePolicyVersion !== 'valet-handoff-v1')}}" loading="{{actingAction === 'check-in'}}" disabled="{{acting}}">确认到车并完成核验</button>
-      <button class="primary-action" data-action="handoff" bindtap="action" wx:if="{{booking.status === 'checked_in'}}" loading="{{actingAction === 'handoff'}}" disabled="{{acting}}">确认交接检测</button>
-      <button class="primary-action" bindtap="openCheckupEditor" wx:if="{{booking.status === 'inspecting'}}" disabled="{{acting}}">填写体检报告并回传</button>
-      <button class="primary-action" data-action="complete" bindtap="action" wx:if="{{booking.status === 'result_received' && booking.fulfillmentStatus === 'legacy'}}" loading="{{actingAction === 'complete'}}" disabled="{{acting}}">完成历史遗留服务</button>
+      <button class="primary-action" data-action="resolve-hold" bindtap="action" wx:if="{{booking.status === 'on_hold'}}" loading="{{actingAction === 'resolve-hold'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <button class="primary-action" data-action="accept" bindtap="action" wx:if="{{booking.status === 'confirmed' && booking.serviceMode !== 'valet'}}" loading="{{actingAction === 'accept'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <view wx:if="{{booking.status === 'confirmed' && booking.serviceMode === 'valet'}}" class="complete-copy"><image src="/assets/icons/clock.png"/><text>{{taskCard.primaryHint}}</text></view>
+      <button class="primary-action" data-action="check-in" bindtap="action" wx:if="{{booking.status === 'awaiting_arrival' || (booking.status === 'picked_up' && booking.evidencePolicyVersion !== 'valet-handoff-v1')}}" loading="{{actingAction === 'check-in'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <button class="primary-action" data-action="handoff" bindtap="action" wx:if="{{booking.status === 'checked_in'}}" loading="{{actingAction === 'handoff'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <button class="primary-action" bindtap="openCheckupEditor" wx:if="{{booking.status === 'inspecting'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <button class="primary-action" data-action="complete" bindtap="action" wx:if="{{booking.status === 'result_received' && booking.fulfillmentStatus === 'legacy'}}" loading="{{actingAction === 'complete'}}" disabled="{{acting}}">{{taskCard.primaryLabel}}</button>
+      <text
+        wx:if="{{taskCard.primaryHint && !(booking.status === 'confirmed' && booking.serviceMode === 'valet') && (taskCard.primaryLabel || booking.status === 'driver_arranged' || (booking.status === 'picked_up' && booking.evidencePolicyVersion === 'valet-handoff-v1'))}}"
+        class="primary-hint"
+      >{{taskCard.primaryHint}}</text>
       <view wx:if="{{booking.status === 'returning' && booking.serviceMode === 'valet'}}" class="complete-copy"><image src="/assets/icons/clock.png"/><text>车辆送回中，最终送达与留证由本单司机完成。</text></view>
       <button class="hold-button" data-action="hold" bindtap="action" wx:if="{{booking.status === 'awaiting_arrival' || booking.status === 'picked_up' || booking.status === 'checked_in' || booking.status === 'inspecting'}}" loading="{{actingAction === 'hold'}}" disabled="{{acting}}">车辆信息不一致，挂起复核</button>
       <view wx:if="{{booking.status === 'completed'}}" class="complete-copy"><image src="/assets/icons/check-circle.png"/><text>{{booking.serviceMode === 'self_drive' ? '报告发布后服务已自动完成，结果已同步给车主。' : '该任务已完成，结果已同步给车主。'}}</text></view>

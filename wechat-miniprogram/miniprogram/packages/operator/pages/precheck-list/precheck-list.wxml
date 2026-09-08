@@ -2,21 +2,68 @@
   <view class="precheck-hero">
     <text>预约资料</text>
     <text>预约资料预审</text>
-    <text>跨预约日期集中处理；每笔订单按实际生效的督办规则展示提醒与截止时间。</text>
+    <text>按预约日期集中处理；卡片只展示关键时间与督办节点，详情进单后再核对。</text>
   </view>
-  <view class="precheck-tabs"><button class="{{filter === 'pending' ? 'selected' : ''}}" data-status="pending" bindtap="changeFilter">待审核</button><button class="{{filter === 'rejected' ? 'selected' : ''}}" data-status="rejected" bindtap="changeFilter">待车主处理</button><button class="{{filter === 'all' ? 'selected' : ''}}" data-status="all" bindtap="changeFilter">全部记录</button></view>
+  <view class="precheck-tabs">
+    <button class="{{filter === 'pending' ? 'selected' : ''}}" data-status="pending" bindtap="changeFilter">待审核</button>
+    <button class="{{filter === 'rejected' ? 'selected' : ''}}" data-status="rejected" bindtap="changeFilter">待车主处理</button>
+    <button class="{{filter === 'all' ? 'selected' : ''}}" data-status="all" bindtap="changeFilter">全部记录</button>
+  </view>
   <view wx:if="{{loading}}" class="state-card">正在同步待预审订单…</view>
   <view wx:elif="{{loadError && !items.length}}" class="state-card error"><text>{{loadError}}</text><button bindtap="retry">重新加载</button></view>
   <view wx:else class="precheck-list">
     <view wx:if="{{loadError}}" class="inline-error">{{loadError}}，当前展示上次同步结果。</view>
     <button wx:for="{{items}}" wx:key="id" class="precheck-card" data-id="{{item.id}}" bindtap="open">
-      <view class="card-head"><view><text>{{item.plateNumber}}</text><text>{{item.serviceModeLabel}}</text></view><text class="sla {{item.slaTone}}">{{item.slaLabel}}</text></view>
-      <view class="card-row"><text>预约时间</text><text>{{item.appointmentLabel}}</text></view>
-      <view class="card-row"><text>支付提交</text><text>{{item.submittedLabel}}</text></view>
-      <view class="card-row"><text>督办进度</text><text>{{item.supervisionDetail}}</text></view>
-      <view class="photo-progress"><view><text>预审照片</text><text>{{item.photoCount}} / {{item.requiredPhotoCount}}</text></view><view><view style="width: {{item.photoProgressPercent}}%"></view></view></view>
-      <view class="card-action"><text>核对资料并处理</text><image src="/assets/icons/caret-right.png" mode="aspectFit"/></view>
+      <view class="card-head">
+        <view class="plate-block">
+          <text class="plate">{{item.plateNumber}}</text>
+          <text class="mode">{{item.serviceModeLabel}}</text>
+        </view>
+        <text class="sla {{item.slaTone}}">{{item.slaLabel}}</text>
+      </view>
+
+      <view class="meta-grid">
+        <view class="meta-item {{item.appointmentReleased ? 'released' : ''}}">
+          <text class="meta-label">预约时间</text>
+          <text class="meta-value">{{item.appointmentDateLabel}}</text>
+          <text class="meta-sub">{{item.appointmentTimeLabel}}</text>
+        </view>
+        <view class="meta-item">
+          <text class="meta-label">支付提交</text>
+          <text class="meta-value">{{item.submittedLabel}}</text>
+        </view>
+      </view>
+
+      <view class="supervision-block">
+        <view class="supervision-head">
+          <text class="meta-label">督办进度</text>
+          <text class="supervision-title">{{item.supervisionTitle}}</text>
+        </view>
+        <view wx:if="{{item.supervisionLines.length}}" class="supervision-lines">
+          <view wx:for="{{item.supervisionLines}}" wx:for-item="line" wx:key="label" class="supervision-line">
+            <text>{{line.label}}</text>
+            <text>{{line.value}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="photo-progress">
+        <view class="photo-progress-head">
+          <text>预审照片</text>
+          <text>{{item.photoCount}} / {{item.requiredPhotoCount}}</text>
+        </view>
+        <view class="photo-progress-track"><view style="width: {{item.photoProgressPercent}}%"></view></view>
+      </view>
+
+      <view class="card-action">
+        <text>核对资料并处理</text>
+        <image src="/assets/icons/caret-right.png" mode="aspectFit"/>
+      </view>
     </button>
-    <view wx:if="{{!items.length}}" class="state-card empty"><image src="/assets/icons/check-circle.png"/><text>暂无符合条件的订单</text><text>新支付或车主重新提交的订单会进入待审核列表</text></view>
+    <view wx:if="{{!items.length}}" class="state-card empty">
+      <image src="/assets/icons/check-circle.png"/>
+      <text>暂无符合条件的订单</text>
+      <text>新支付或车主重新提交的订单会进入待审核列表</text>
+    </view>
   </view>
 </view>

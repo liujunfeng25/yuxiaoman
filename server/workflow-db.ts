@@ -99,7 +99,8 @@ export const OFFICIAL_WECHAT_TEMPLATE_BINDINGS: Readonly<Record<string, {
     ],
   },
   "annual.precheck.action_required.owner": {
-    providerTemplateId: "5cIV444lkpQ4CEyakK6Y4OGJJAQZc6CHbsMPvAKuag84",
+    // Verified against MP gettemplate for AppID wxc2bcae6b519337e0 (I/l lookalikes).
+    providerTemplateId: "5clV444IkpQ4CEyaK6Y4OGJJAQZc6CHbsMPvAKuag84",
     contentSnapshot: "素材审核通知",
     fieldMappings: [
       { field: "phrase4", variable: "reviewStatus" },
@@ -110,7 +111,7 @@ export const OFFICIAL_WECHAT_TEMPLATE_BINDINGS: Readonly<Record<string, {
     ],
   },
   "annual.arrival.reminder.owner": {
-    providerTemplateId: "uMToVS4KO3GzecV8e3K6YBlmJJtjRPL31iPIfklHtfU",
+    providerTemplateId: "uMToVS4KO3GzecV8e3K6YBImJJtjRPL31iPlFklHtfU",
     contentSnapshot: "预约提醒",
     fieldMappings: [
       { field: "thing21", variable: "stationName" },
@@ -121,7 +122,7 @@ export const OFFICIAL_WECHAT_TEMPLATE_BINDINGS: Readonly<Record<string, {
     ],
   },
   "annual.report.ready.owner": {
-    providerTemplateId: "JZ1PWcyFls-lt7VMnt9FEhcti0lnffMkRcDjx_B2pcc",
+    providerTemplateId: "JZ1PWcyFls-lt7VMnt9FEhcti0InffMkRcDjx_B2pcc",
     contentSnapshot: "检测报告完成通知",
     fieldMappings: [
       { field: "phrase4", variable: "reportConclusion" },
@@ -167,7 +168,7 @@ export const DEFAULT_WORKFLOW_TEMPLATES: readonly DefaultTemplate[] = [
   { code: "annual.payment.pending.owner", name: "车主年检待支付提醒", nodeCode: "annual.pending_payment", title: "待完成年检订单支付", body: "{{maskedPlate}} 的年检订单尚未支付，请进入订单完成支付；支付成功后将自动进入资料预检。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode", "serviceAmount", "warmTip"] },
   { code: "annual.precheck.pending.station", name: "检测站预检待办", nodeCode: "annual.precheck.pending", title: "有预约资料待预检", body: "当前有 {{pendingCount}} 笔预约资料待预检，请在 {{remainingTime}} 内处理。", actionCode: "operator.precheck.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode", "taskSummary", "eventTime"] },
   { code: "annual.precheck.action_required.owner", name: "车主预检处理提醒", nodeCode: "annual.precheck.action_required", title: "年检资料需要处理", body: "{{maskedPlate}} 的预检需要补充资料或处理问题，请进入订单查看。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "maskedBusinessCode", "reviewStatus", "reviewResult", "warmTip", "eventTime"] },
-  { code: "annual.arrival.reminder.owner", name: "车主到站提醒", nodeCode: "annual.arrival.owner", title: "请按预约时间到站", body: "{{maskedPlate}} 已预约 {{appointmentTime}} 到 {{stationName}} 验车。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "maskedBusinessCode", "warmTip"] },
+  { code: "annual.arrival.reminder.owner", name: "车主检测开始提醒", nodeCode: "annual.arrival.owner", title: "车辆已开始检测", body: "{{maskedPlate}} 已在 {{stationName}} 开始检测（预约 {{appointmentTime}}）。", actionCode: "annual.order.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "maskedBusinessCode", "warmTip"] },
   { code: "annual.driver.assignment.platform", name: "平台安排代驾司机待办", nodeCode: "annual.driver.assign", title: "代驾订单待安排司机", body: "当前有 {{pendingCount}} 笔代驾验车订单等待安排司机，请在 {{remainingTime}} 内处理。", actionCode: "workflow.task.detail", allowedVariables: ["pendingCount", "remainingTime", "maskedBusinessCode"] },
   { code: "annual.driver.assigned", name: "代驾司机任务", nodeCode: "annual.driver.claim", title: "您有新的代驾验车任务", body: "任务 {{maskedBusinessCode}} 已安排，验证码 {{verificationCode}}，请及时进入代驾端领取。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "appointmentTime", "stationName", "remainingTime", "maskedBusinessCode", "verificationCode"] },
   { code: "annual.pickup.evidence.driver", name: "司机取车留证待办", nodeCode: "annual.pickup.driver", title: "请完成取车留证", body: "{{maskedPlate}} 的代驾任务已领取，请在 {{remainingTime}} 内完成四角和启动后仪表盘共 5 张取车照片并提交。", actionCode: "driver.task.detail", allowedVariables: ["maskedPlate", "remainingTime", "maskedBusinessCode"] },

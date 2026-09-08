@@ -2,6 +2,7 @@ import { api } from "../../../../services/api";
 import { ensureOperatorPageAccess } from "../../../../services/operator-session";
 import type { Booking, BookingEvent, BookingMedia, ValetEvidenceMedia, ValetEvidenceMediaKind, ValetEvidencePackage } from "../../../../types";
 import { formatShanghaiDateTime } from "../../../../utils/format";
+import { buildOperatorTaskCard, type OperatorTaskCard } from "../../../../utils/operator-task-card";
 
 type MediaView = BookingMedia & { label: string };
 type BookingView = Booking & {
@@ -17,14 +18,13 @@ type BookingView = Booking & {
   navigationLabel: string;
   inspectionResultLabel: string;
 };
-type ProcessStep = { key: string; label: string; stateLabel: string; state: "done" | "active" | "pending"; iconPath: string };
 type VerificationRow = { key: string; label: string; copy: string; passed: boolean; iconPath: string };
 type ArrivalEvidenceSlot = { kind: ValetEvidenceMediaKind; label: string; hint: string; photo: ValetEvidenceMedia | null };
 type ArrivalEvidenceView = Omit<ValetEvidencePackage, "photos"> & { slots: ArrivalEvidenceSlot[]; uploadedCount: number; completed: boolean };
 type Data = {
   id: string;
   booking: BookingView | null;
-  processSteps: ProcessStep[];
+  taskCard: OperatorTaskCard | null;
   verificationRows: VerificationRow[];
   mediaUrls: string[];
   loading: boolean;
@@ -82,34 +82,6 @@ function inspectionResultLabel(booking: Booking): string {
   return "";
 }
 
-function currentStepIndex(status: Booking["status"]): number {
-  if (["driver_arranged", "picked_up", "awaiting_arrival", "on_hold"].includes(status)) return 1;
-  if (["checked_in", "inspecting"].includes(status)) return 2;
-  if (["result_received", "returning"].includes(status)) return 3;
-  // A completed service has no active step left: every node in the five-step
-  // timeline must be rendered as completed to agree with the overall status.
-  if (status === "completed") return 5;
-  return 0;
-}
-
-function processSteps(status: Booking["status"]): ProcessStep[] {
-  const activeIndex = currentStepIndex(status);
-  const steps = [
-    ["confirmed", "预约确认", "/assets/icons/calendar-check.png"],
-    ["checked_in", "到站核验", "/assets/icons/user-circle.png"],
-    ["inspecting", "交接检测", "/assets/icons/car.png"],
-    ["result_received", "结果回传", "/assets/icons/file-arrow-up.png"],
-    ["completed", "服务完成", "/assets/icons/shield-check.png"],
-  ];
-  return steps.map(([key, label, iconPath], index) => ({
-    key,
-    label,
-    iconPath,
-    state: index < activeIndex ? "done" : index === activeIndex ? "active" : "pending",
-    stateLabel: index < activeIndex ? "已完成" : index === activeIndex ? "进行中" : "待进行",
-  }));
-}
-
 function verificationRows(booking: Booking): VerificationRow[] {
   const verification = booking.verification;
   return [
@@ -134,7 +106,7 @@ function arrivalEvidenceView(booking: Booking): ArrivalEvidenceView | null {
   };
 }
 
-function viewState(booking: Booking): Pick<Data, "booking" | "processSteps" | "verificationRows" | "mediaUrls" | "arrivalEvidence"> {
+function viewState(booking: Booking): Pick<Data, "booking" | "taskCard" | "verificationRows" | "mediaUrls" | "arrivalEvidence"> {
   const media = (booking.media || []).map((item) => ({ ...item, label: mediaLabel(item.kind) }));
   return {
     booking: {
@@ -151,7 +123,7 @@ function viewState(booking: Booking): Pick<Data, "booking" | "processSteps" | "v
       navigationLabel: booking.pickupAddress ? "打开取车点导航" : "打开检测站导航",
       inspectionResultLabel: inspectionResultLabel(booking),
     },
-    processSteps: processSteps(booking.status),
+    taskCard: buildOperatorTaskCard(booking),
     verificationRows: verificationRows(booking),
     mediaUrls: media.map((item) => item.url),
     arrivalEvidence: arrivalEvidenceView(booking),
@@ -160,7 +132,7 @@ function viewState(booking: Booking): Pick<Data, "booking" | "processSteps" | "v
 
 Page<Data>({
   data: {
-    id: "", booking: null, processSteps: [], verificationRows: [], mediaUrls: [], loading: true, acting: false, actingAction: "",
+    id: "", booking: null, taskCard: null, verificationRows: [], mediaUrls: [], loading: true, acting: false, actingAction: "",
     arrivalEvidence: null, arrivalUploadingKind: "", arrivalCompleting: false,
     accessReady: false, loadError: "",
   },

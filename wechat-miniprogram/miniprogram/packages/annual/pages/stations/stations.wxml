@@ -51,8 +51,8 @@
   <view class="route-notice">
     <image src="/assets/icons/shield-check.png" mode="aspectFit" />
     <view>
-      <text>路线显示说明</text>
-      <text>无起点时显示“确定起点后计算”；地图服务异常时会标记为“预计距离”。</text>
+      <text>路线与价格说明</text>
+      <text>无起点时显示“确定起点后计算”；地图服务异常时会标记为“预计距离”。{{feeHint}}</text>
     </view>
   </view>
 
@@ -84,7 +84,7 @@
         </view>
         <view class="tags"><text wx:for="{{item.tags}}" wx:key="*this">{{item}}</text></view>
         <view class="station-bottom">
-          <view class="price"><text>年检参考价</text><text>¥{{fmt.money(item.serviceFeeFen)}}</text></view>
+          <view class="price"><text>{{item.feeFromVehicle ? '按车辆核算' : '年检参考价'}}</text><text>¥{{fmt.money(item.displayFeeFen)}}</text></view>
           <view class="choose-station"><text>{{canSelectStation ? '选择站点' : '先确定取车地址'}}</text><image src="/assets/icons/caret-right.png" mode="aspectFit" /></view>
         </view>
       </view>

@@ -702,8 +702,26 @@ function workflowWechatAppId(): string {
   return (process.env.WECHAT_MINIPROGRAM_APP_ID ?? process.env.WECHAT_APP_ID)?.trim() ?? "";
 }
 
-export async function ownerWechatSubscriptionTemplateIds(database: AppDatabase): Promise<string[]> {
+/** Owner-facing WeChat once-subscribe prompts keyed by product moment. */
+export const OWNER_WECHAT_SUBSCRIPTION_PURPOSES = {
+  message_center: null,
+  // After pay: precheck outcome, report ready, and inspection-started notice (max 3 tmplIds).
+  // annual.arrival.owner is the "检测已开始" slot for both self-drive and valet (fires on inspecting).
+  post_payment: [
+    "annual.precheck.action_required",
+    "annual.report.ready",
+    "annual.arrival.owner",
+  ],
+} as const;
+
+export type OwnerWechatSubscriptionPurpose = keyof typeof OWNER_WECHAT_SUBSCRIPTION_PURPOSES;
+
+export async function ownerWechatSubscriptionTemplates(
+  database: AppDatabase,
+  purpose: OwnerWechatSubscriptionPurpose = "message_center",
+): Promise<Array<{ nodeCode: string; providerTemplateId: string }>> {
   if (!workflowIntegrationStatus().wechat.configured || !workflowWechatAppId()) return [];
+    const preferredNodeCodes = OWNER_WECHAT_SUBSCRIPTION_PURPOSES[purpose];
   const nodes = await database.prepare<Row>(`
     SELECT node.node_code, node.enabled_channels_json, node.template_bindings_json
     FROM workflow_policy_nodes node
@@ -712,9 +730,11 @@ export async function ownerWechatSubscriptionTemplateIds(database: AppDatabase):
       AND node.is_enabled = 1 AND node.assignee_role = 'owner'
     ORDER BY policy.domain, node.sort_order, node.node_code
   `).all();
-  const providerTemplateIds: string[] = [];
+  const entries: Array<{ nodeCode: string; providerTemplateId: string }> = [];
   const seen = new Set<string>();
   for (const node of nodes) {
+    const nodeCode = String(node.node_code);
+    if (preferredNodeCodes && !(preferredNodeCodes as readonly string[]).includes(nodeCode)) continue;
     if (!stringArray(node.enabled_channels_json).includes("wechat")) continue;
     const boundTemplateId = jsonObject(node.template_bindings_json).wechat;
     if (typeof boundTemplateId !== "string" || !boundTemplateId) continue;
@@ -732,7 +752,7 @@ export async function ownerWechatSubscriptionTemplateIds(database: AppDatabase):
     `).get(boundTemplateId);
     if (!template) continue;
     const matchesOwnerNode = DEFAULT_WORKFLOW_NODES.some((definition) => (
-      definition.code === String(node.node_code)
+      definition.code === nodeCode
       && definition.assigneeRole === "owner"
       && definition.templateCode === String(template.stable_code)
     ));
@@ -744,9 +764,20 @@ export async function ownerWechatSubscriptionTemplateIds(database: AppDatabase):
     }).length === 0;
     if (!matchesOwnerNode || !configured || seen.has(providerTemplateId)) continue;
     seen.add(providerTemplateId);
-    providerTemplateIds.push(providerTemplateId);
+    entries.push({ nodeCode, providerTemplateId });
   }
-  return providerTemplateIds;
+  if (!preferredNodeCodes) return entries;
+  const byNode = new Map(entries.map((item) => [item.nodeCode, item]));
+  return preferredNodeCodes
+    .map((nodeCode) => byNode.get(nodeCode))
+    .filter((item): item is { nodeCode: string; providerTemplateId: string } => Boolean(item));
+}
+
+export async function ownerWechatSubscriptionTemplateIds(
+  database: AppDatabase,
+  purpose: OwnerWechatSubscriptionPurpose = "message_center",
+): Promise<string[]> {
+  return (await ownerWechatSubscriptionTemplates(database, purpose)).map((item) => item.providerTemplateId);
 }
 
 export async function workflowWechatAuthorizationAvailable(
@@ -2636,7 +2667,20 @@ export function registerWorkflowRoutes(
 
   app.get("/api/workflow/wechat-subscription-templates", async (request) => {
     await requireCurrentUser(request, database);
-    return { data: { templateIds: await ownerWechatSubscriptionTemplateIds(database) } };
+    const purposeRaw = typeof (request.query as { purpose?: unknown })?.purpose === "string"
+      ? String((request.query as { purpose?: string }).purpose).trim()
+      : "message_center";
+    const purpose = (purposeRaw in OWNER_WECHAT_SUBSCRIPTION_PURPOSES
+      ? purposeRaw
+      : "message_center") as OwnerWechatSubscriptionPurpose;
+    const templates = await ownerWechatSubscriptionTemplates(database, purpose);
+    return {
+      data: {
+        purpose,
+        templateIds: templates.map((item) => item.providerTemplateId),
+        templates,
+      },
+    };
   });
 
   app.post("/api/workflow/wechat-subscriptions", async (request) => {

@@ -18,6 +18,8 @@ type BookingView = Booking & {
 
 type PressureView = Workbench["pressure"][number] & { levelLabel: string };
 
+type FilterOption = { id: string; label: string };
+
 type Data = {
   workbench: Workbench | null;
   stations: Station[];
@@ -25,7 +27,7 @@ type Data = {
   stationName: string;
   date: string;
   filter: string;
-  filters: string[];
+  filters: FilterOption[];
   visibleBookings: BookingView[];
   primaryPressure: PressureView | null;
   loading: boolean;
@@ -37,7 +39,17 @@ type Data = {
   workflowLoading: boolean;
 };
 
-const filters = ["all", "confirmed", "awaiting_arrival", "checked_in", "inspecting", "result_received", "on_hold", "completed"];
+const filters: FilterOption[] = [
+  { id: "active", label: "待处理" },
+  { id: "in_station", label: "场内" },
+  { id: "awaiting", label: "待到站" },
+  { id: "completed", label: "已完成" },
+  { id: "all", label: "全部" },
+];
+
+const TERMINAL_STATUSES = new Set<Booking["status"]>(["completed", "cancelled", "no_show"]);
+const AWAITING_STATUSES = new Set<Booking["status"]>(["confirmed", "driver_arranged", "picked_up", "awaiting_arrival"]);
+const IN_STATION_STATUSES = new Set<Booking["status"]>(["checked_in", "inspecting", "result_received", "returning"]);
 
 function maskPhone(phone: string): string {
   if (!phone) return "联系方式待补充";
@@ -74,9 +86,34 @@ function bookingView(item: Booking): BookingView {
   };
 }
 
+function matchesFilter(item: Booking, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "active") return !TERMINAL_STATUSES.has(item.status);
+  if (filter === "awaiting") return AWAITING_STATUSES.has(item.status);
+  if (filter === "in_station") return IN_STATION_STATUSES.has(item.status) || item.status === "on_hold";
+  if (filter === "completed") return item.status === "completed";
+  return item.status === filter;
+}
+
+function priorityRank(status: Booking["status"]): number {
+  if (status === "on_hold") return 0;
+  if (IN_STATION_STATUSES.has(status)) return 1;
+  if (AWAITING_STATUSES.has(status)) return 2;
+  if (TERMINAL_STATUSES.has(status)) return 4;
+  return 3;
+}
+
 function filteredBookings(bookings: Booking[], filter: string): BookingView[] {
-  const source = filter === "all" ? bookings : bookings.filter((item) => item.status === filter);
-  return [...source].sort((left, right) => left.startTime.localeCompare(right.startTime)).map(bookingView);
+  const source = bookings.filter((item) => matchesFilter(item, filter));
+  return [...source]
+    .sort((left, right) => {
+      if (filter === "active" || filter === "in_station" || filter === "awaiting") {
+        const rankDiff = priorityRank(left.status) - priorityRank(right.status);
+        if (rankDiff !== 0) return rankDiff;
+      }
+      return left.startTime.localeCompare(right.startTime);
+    })
+    .map(bookingView);
 }
 
 function pressureView(workbench: Workbench): PressureView | null {

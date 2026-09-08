@@ -224,7 +224,7 @@ test("消息中心有完整空态、错误恢复、分页与安全动作实现",
   assert.match(page, /requestOwnerWorkflowSubscriptions\(orderedIds, "message_center"\)/);
   assert.match(markup, /wx:if="\{\{wechatSubscriptionAvailable\}\}"/);
   assert.match(markup, /bindtap="enableWechatReminders"/);
-  assert.match(markup, /授权仅在你点击后发起/);
+  assert.match(markup, /补开或续订|授权仅在你点击后发起/);
   assert.match(style, /\.message-card\s*\{[^}]*min-height:\s*176rpx/);
   assert.match(style, /\.wechat-reminder-card > button\s*\{[^}]*min-height:\s*88rpx/);
   assert.match(style, /\.state-card button\s*\{[^}]*min-height:\s*88rpx/);
@@ -300,6 +300,12 @@ test("消息中心与角色待办路由已注册且根 Tab 始终只有三个", 
     const config = readFileSync(new URL(`../miniprogram/pages/${page}/${page}.json`, import.meta.url), "utf8");
     assert.match(config, /"workflow-bell"/);
   }
+});
+
+test("订单支付点击路径会预取支付后订阅模板并同步发起授权", () => {
+  const page = readFileSync(new URL("../miniprogram/packages/annual/pages/order-detail/order-detail.ts", import.meta.url), "utf8");
+  assert.match(page, /wechatSubscriptionTemplateIds\("post_payment"\)/);
+  assert.match(page, /requestOwnerWorkflowSubscriptions\(this\.data\.wechatPostPaymentTemplateIds, "post_payment"\)/);
 });
 
 test("微信订阅请求由点击路径直接发起且客户端不提交 AppID 或可用次数", async () => {

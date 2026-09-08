@@ -30,8 +30,9 @@
       <image src="/assets/icons/shield-check.png" mode="aspectFit" />
       <text>年检服务参考价</text>
     </view>
-    <text>¥{{fmt.money(station.serviceFeeFen)}}</text>
-    <text>精确价格将在下一页根据车辆信息重新核算</text>
+    <text wx:if="{{quotingFee && !referenceFeeFen}}">核算中…</text>
+    <text wx:else>¥{{fmt.money(referenceFeeFen || station.serviceFeeFen)}}</text>
+    <text>{{referenceFeeNote}}</text>
   </view>
 
   <view class="slots-heading">

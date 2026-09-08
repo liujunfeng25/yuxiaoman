@@ -545,7 +545,7 @@ async function rejectFromStation(miniProgram, precheck, bookingId, feeFen) {
   await (await waitForElement(precheck, '.action-bar .reject', 'station reject action')).tap();
   await waitForPageData(precheck, 'showReject', (value) => value === true, 'Waiting for rejection sheet');
   for (const code of rejectionReasonCodes) {
-    const button = await elementByAttribute(precheck, '.reason-grid button', 'data-code', code, `rejection reason ${code}`);
+    const button = await elementByAttribute(precheck, '.reason-grid .reason-toggle', 'data-code', code, `rejection reason ${code}`);
     await button.tap();
   }
   await waitForPageData(

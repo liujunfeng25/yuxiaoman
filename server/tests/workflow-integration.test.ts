@@ -86,7 +86,7 @@ test("新自驾订单完整进入督办，历史订单不补任务，预检至�
     await syncAnnualWorkflowForBooking(database, String(booking.id), {
       now: new Date(now.getTime() + 240_000), actorType: "operator",
     });
-    assert.deepEqual(await openNodes(database, String(booking.id)), ["annual.arrival.owner"]);
+    assert.deepEqual(await openNodes(database, String(booking.id)), []);
 
     await database.prepare(`
       UPDATE bookings SET status = 'checked_in', fulfillment_status = 'checked_in', updated_at = ? WHERE id = ?
@@ -102,15 +102,22 @@ test("新自驾订单完整进入督办，历史订单不补任务，预检至�
     const inspecting = await syncAnnualWorkflowForBooking(database, String(booking.id), {
       now: new Date(now.getTime() + 360_000), actorType: "operator",
     });
-    assert.deepEqual(inspecting.opened.map((task) => task.nodeCode), ["annual.inspection.report"]);
-    assert.equal(inspecting.opened[0].subject?.type, "inspection_station");
-    assert.deepEqual(await openNodes(database, String(booking.id)), ["annual.inspection.report"]);
+    assert.deepEqual(
+      inspecting.opened.map((task) => task.nodeCode).sort(),
+      ["annual.arrival.owner", "annual.inspection.report"],
+    );
+    assert.deepEqual(
+      (await openNodes(database, String(booking.id))).slice().sort(),
+      ["annual.arrival.owner", "annual.inspection.report"],
+    );
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.start")).length, 1);
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.report")).length, 1);
+    assert.equal((await nodeRows(database, String(booking.id), "annual.arrival.owner")).length, 1);
     await syncAnnualWorkflowForBooking(database, String(booking.id), {
       now: new Date(now.getTime() + 360_000), actorType: "operator",
     });
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.report")).length, 1);
+    assert.equal((await nodeRows(database, String(booking.id), "annual.arrival.owner")).length, 1);
 
     const reportId = randomUUID();
     const completedAt = new Date(now.getTime() + 420_000).toISOString();
@@ -257,13 +264,18 @@ test("代驾换派重开领取节点，兑换后换责为司机取车留证并�
     await syncAnnualWorkflowForBooking(database, String(booking.id), {
       now: new Date(now.getTime() + 180_000), actorType: "operator",
     });
-    assert.deepEqual(await openNodes(database, String(booking.id)), ["annual.inspection.report"]);
+    assert.deepEqual(
+      (await openNodes(database, String(booking.id))).slice().sort(),
+      ["annual.arrival.owner", "annual.inspection.report"],
+    );
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.start")).length, 1);
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.report")).length, 1);
+    assert.equal((await nodeRows(database, String(booking.id), "annual.arrival.owner")).length, 1);
     await syncAnnualWorkflowForBooking(database, String(booking.id), {
       now: new Date(now.getTime() + 180_000), actorType: "operator",
     });
     assert.equal((await nodeRows(database, String(booking.id), "annual.inspection.report")).length, 1);
+    assert.equal((await nodeRows(database, String(booking.id), "annual.arrival.owner")).length, 1);
 
     const reportAt = new Date(now.getTime() + 240_000).toISOString();
     await database.prepare(`

@@ -88,8 +88,9 @@ function appointmentAt(row: Row): Date {
 
 function formatWechatAmount(fen: unknown): string {
   const value = Number(fen);
-  if (!Number.isFinite(value) || value < 0) return "0.00";
-  return (value / 100).toFixed(2);
+  if (!Number.isFinite(value) || value < 0) return "￥0.00";
+  // amount.* examples use a leading currency mark; bare decimals are often rejected.
+  return `￥${(value / 100).toFixed(2)}`;
 }
 
 function formatWechatEventTime(value: Date = new Date()): string {
@@ -104,7 +105,18 @@ function formatWechatEventTime(value: Date = new Date()): string {
     hour12: false,
   }).formatToParts(value);
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+  // WeChat time.* fields require 中文年月日, not ISO-like "YYYY-MM-DD HH:mm:ss".
+  return `${get("year")}年${get("month")}月${get("day")}日 ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+function formatWechatAppointmentTime(date: unknown, startTime: unknown): string {
+  const day = String(date ?? "").trim();
+  const clock = String(startTime ?? "").trim().slice(0, 5);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
+  if (match && /^\d{2}:\d{2}$/u.test(clock)) {
+    return `${match[1]}年${match[2]}月${match[3]}日 ${clock}`;
+  }
+  return [day, clock].filter(Boolean).join(" ") || formatWechatEventTime();
 }
 
 function annualMetadata(row: Row, extra: Record<string, string | number> = {}): Record<string, string | number> {
@@ -112,9 +124,9 @@ function annualMetadata(row: Row, extra: Record<string, string | number> = {}): 
   return {
     maskedPlate: maskedPlate(row.plate_number),
     maskedBusinessCode: maskedBusinessCode(row.booking_number),
-    appointmentTime: `${String(row.appointment_date)} ${String(row.start_time).slice(0, 5)}`,
+    appointmentTime: formatWechatAppointmentTime(row.appointment_date, row.start_time),
     stationName: String(row.station_name ?? "检测站"),
-    reportConclusion: reportConclusion === "passed" ? "通过" : reportConclusion === "failed" ? "未通过" : "待发布",
+    reportConclusion: reportConclusion === "passed" ? "合格" : reportConclusion === "failed" ? "不合格" : "待发布",
     remainingTime: "策略规定时间",
     pendingCount: 1,
     overdueCount: 1,
@@ -122,8 +134,8 @@ function annualMetadata(row: Row, extra: Record<string, string | number> = {}): 
     serviceItem: "机动车年检",
     warmTip: "请打开小程序查看详情",
     taskSummary: "年检服务待办",
-    reviewStatus: "待处理",
-    reviewResult: "需补充",
+    reviewStatus: "审核中",
+    reviewResult: "未通过",
     eventTime: formatWechatEventTime(),
     ...extra,
   };
@@ -221,8 +233,8 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
       firstReminderAt: now,
       metadata: annualMetadata(row, {
         warmTip: "请打开订单按指引处理",
-        reviewStatus: "待处理",
-        reviewResult: "需补充",
+        reviewStatus: "审核中",
+        reviewResult: "未通过",
       }),
     }));
   } else if (state === "confirmed") {
@@ -234,17 +246,10 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
         assigneeRole: "platform",
         metadata: annualMetadata(row),
       });
-    } else {
-      desired.push(ownerTask(row, "annual.arrival.owner", {
-        anchorAt: appointment,
-        metadata: annualMetadata(row, { warmTip: "请按预约时间到站验车" }),
-      }));
     }
+    // Owner WeChat/in-app "检测开始" fires when station starts inspection (self-drive + valet).
   } else if (state === "awaiting_arrival") {
-    desired.push(ownerTask(row, "annual.arrival.owner", {
-      anchorAt: appointment,
-      metadata: annualMetadata(row, { warmTip: "请按预约时间到站验车" }),
-    }));
+    // Intentionally no owner arrival reminder: push moved to inspecting.
   } else if (state === "driver_arranged") {
     // A claimed one-time entry must stay closed. Ordinary same-state writes
     // (notes, fee adjustments, etc.) must never recreate a code-less claim.
@@ -272,6 +277,10 @@ function annualDesiredTasks(row: Row, options: WorkflowSyncOptions): WorkflowTas
   } else if (state === "inspecting") {
     const anchor = new Date(String(row.updated_at));
     desired.push(stationTask(row, "annual.inspection.report", { anchorAt: anchor }));
+    desired.push(ownerTask(row, "annual.arrival.owner", {
+      firstReminderAt: now,
+      metadata: annualMetadata(row, { warmTip: "检测站已开始检测，请留意报告通知" }),
+    }));
   } else if (state === "result_received") {
     if (String(row.report_status) === "published") {
       desired.push(ownerTask(row, "annual.report.ready", {

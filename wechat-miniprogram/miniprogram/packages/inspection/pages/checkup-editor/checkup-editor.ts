@@ -912,7 +912,7 @@ Page<Data>({
   async submitReport() {
     if (this.data.submitting) return;
     if (this.data.fixedPhotoUploadingCount > 0 || this.data.markUploading || this.data.faultPhotoBusyCount > 0) {
-      wx.showModal({ title: "材料仍在上传", content: "请等待现场状态照片或法定检测材料上传完成。", confirmText: "我知道了", success: () => undefined });
+      wx.showModal({ title: "材料仍在上传", content: "请等待现场状态照片或检测证明材料上传完成。", confirmText: "我知道了", success: () => undefined });
       return;
     }
     const uploadingFaults = this.data.faultPhotoAttempts

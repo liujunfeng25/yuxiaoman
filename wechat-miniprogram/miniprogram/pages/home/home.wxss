@@ -47,7 +47,7 @@
 .inspection-hero { position: relative; height: 402rpx; margin: 0; overflow: hidden; border-radius: 0; background: #edf7ff; }
 .hero-background { position: absolute; inset: 0; width: 100%; height: 100%; }
 .inspection-hero::after { position: absolute; inset: 0; z-index: 0; content: ""; pointer-events: none; background: linear-gradient(90deg, rgba(244,249,255,.25) 0%, rgba(244,249,255,.08) 43%, rgba(244,249,255,0) 70%); }
-.hero-car-edit { position: absolute; z-index: 2; right: -8rpx; bottom: 21rpx; display: flex; width: 370rpx; height: 218rpx; align-items: flex-end; justify-content: flex-end; }
+.hero-car-edit { position: absolute; z-index: 2; right: -18rpx; bottom: 21rpx; display: flex; width: 300rpx; height: 200rpx; align-items: flex-end; justify-content: flex-end; }
 .hero-car-image { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; }
 .hero-edit-chip {
   position: relative;
@@ -69,8 +69,8 @@
 .hero-edit-chip image { width: 24rpx; height: 24rpx; flex: none; opacity: .9; }
 .hero-edit-chip text { color: inherit; font-size: inherit; font-weight: inherit; line-height: 1; }
 .hero-car-edit-pressed .hero-edit-chip { transform: scale(.97); background: #e7f2ff; }
-.hero-car-edit.empty-car { right: -8rpx; bottom: 20rpx; width: 360rpx; height: 210rpx; }
-.hero-copy { position: relative; z-index: 1; display: flex; width: 59%; height: 100%; padding: 28rpx 0 22rpx 42rpx; flex-direction: column; align-items: flex-start; box-sizing: border-box; }
+.hero-car-edit.empty-car { right: -18rpx; bottom: 20rpx; width: 300rpx; height: 200rpx; }
+.hero-copy { position: relative; z-index: 3; display: flex; width: 72%; height: 100%; padding: 28rpx 0 22rpx 42rpx; flex-direction: column; align-items: flex-start; box-sizing: border-box; }
 .hero-plate,
 .hero-model-button {
   display: flex;
@@ -80,8 +80,8 @@
   align-items: center;
   box-sizing: border-box;
 }
-.hero-plate { color: #0d1b31; font-size: 44rpx; font-weight: 800; line-height: 1.1; letter-spacing: 1rpx; }
-.hero-plate text { color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: inherit; }
+.hero-plate { position: relative; z-index: 4; max-width: 100%; color: #0d1b31; font-size: 42rpx; font-weight: 800; line-height: 1.15; letter-spacing: 0.5rpx; }
+.hero-plate text { max-width: 100%; overflow: visible; color: inherit; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: inherit; white-space: nowrap; }
 .hero-plate .hero-plate-caret { width: 27rpx; height: 27rpx; margin-left: 6rpx; flex: none; opacity: .62; }
 .hero-model-button { max-width: 330rpx; margin-top: 8rpx; padding: 6rpx 10rpx 6rpx 12rpx; gap: 6rpx; overflow: hidden; color: #184f8c; border: 1rpx solid rgba(23, 104, 207, .18); border-radius: 999rpx; background: rgba(255, 255, 255, .72); font-size: 22rpx; font-weight: 800; line-height: 1.3; box-shadow: 0 4rpx 12rpx rgba(23, 104, 207, .08); }
 .hero-model-button text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

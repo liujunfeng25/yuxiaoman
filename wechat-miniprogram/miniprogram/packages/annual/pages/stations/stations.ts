@@ -4,9 +4,14 @@ import type { BookingDraft, PickupAddress, ServiceMode, Station } from "../../..
 import { stationDistance } from "../../../../utils/format";
 import { stationEntryState } from "./entry-state";
 
+type StationCard = Station & {
+  displayFeeFen: number;
+  feeFromVehicle: boolean;
+};
+
 type Data = {
   mode: ServiceMode;
-  stations: Station[];
+  stations: StationCard[];
   suggestions: PickupAddress[];
   originText: string;
   hasOrigin: boolean;
@@ -18,6 +23,8 @@ type Data = {
   searchError: string;
   stationError: string;
   canSelectStation: boolean;
+  quotingFees: boolean;
+  feeHint: string;
   stationDistance: typeof stationDistance;
 };
 
@@ -55,12 +62,25 @@ function promptLocationPermission(fallback: string) {
   });
 }
 
+function toStationCard(station: Station, displayFeeFen = station.serviceFeeFen, feeFromVehicle = false): StationCard {
+  return { ...station, displayFeeFen, feeFromVehicle };
+}
+
+function toStation(card: StationCard): Station {
+  const { displayFeeFen: _displayFeeFen, feeFromVehicle: _feeFromVehicle, ...station } = card;
+  return station;
+}
+
 Page<Data>({
   data: {
     mode: "self_drive", stations: [], suggestions: [], originText: "尚未确定起点", hasOrigin: false,
-    loading: false, locating: false, searching: false, searchQuery: "", searchBoxVisible: true, searchError: "", stationError: "", canSelectStation: true, stationDistance,
+    loading: false, locating: false, searching: false, searchQuery: "", searchBoxVisible: true, searchError: "", stationError: "", canSelectStation: true,
+    quotingFees: false,
+    feeHint: "参考价为站点挂牌价；选定站点后会按车辆重新核算",
+    stationDistance,
   },
   searchSequence: 0,
+  feeSequence: 0,
   initialLocationAttempted: false,
   onLoad(query) {
     const entry = stationEntryState(query, getBookingDraft());
@@ -96,10 +116,15 @@ Page<Data>({
       hasOrigin: canSelectStation && Boolean(origin),
       canSelectStation,
       originText: draft.pickupAddress ? `${draft.pickupAddress.title} · ${draft.pickupAddress.address}` : origin ? "已使用当前位置计算路线" : "尚未确定起点",
+      feeHint: draft.vehicleId
+        ? "正在按当前车辆核算各站年检参考价…"
+        : "参考价为站点挂牌价；选定站点后会按车辆重新核算",
     });
     try {
-      const stations = await api.stations({ originLat: origin?.latitude, originLng: origin?.longitude, originType: origin?.type });
+      const stations = (await api.stations({ originLat: origin?.latitude, originLng: origin?.longitude, originType: origin?.type }))
+        .map((item) => toStationCard(item));
       this.setData({ stations, stationError: "" });
+      void this.loadVehicleFees(stations, draft);
     } catch (error) {
       const stationError = error instanceof Error ? error.message : "读取检测站失败，请稍后重试";
       this.setData({ stations: [], stationError });
@@ -107,7 +132,47 @@ Page<Data>({
     }
     finally { this.setData({ loading: false }); }
   },
-  retryStations() { if (!this.data.loading) void this.loadStations(); },
+  async loadVehicleFees(stations: StationCard[], draft: BookingDraft) {
+    const vehicleId = draft.vehicleId || "";
+    if (!vehicleId || !stations.length) {
+      this.setData({
+        quotingFees: false,
+        feeHint: vehicleId
+          ? "暂无可报价检测站"
+          : "参考价为站点挂牌价；选定站点后会按车辆重新核算",
+      });
+      return;
+    }
+    const sequence = Number(this.feeSequence || 0) + 1;
+    this.feeSequence = sequence;
+    this.setData({ quotingFees: true, feeHint: "正在按当前车辆核算各站年检参考价…" });
+    const quoted = await Promise.all(stations.map(async (station) => {
+      try {
+        const quote = await api.quote({
+          vehicleId,
+          stationId: station.id,
+          serviceMode: draft.serviceMode || this.data.mode,
+          pickupAddress: draft.pickupAddress,
+          originLat: draft.origin?.latitude,
+          originLng: draft.origin?.longitude,
+          originType: draft.origin?.type,
+        });
+        return toStationCard(station, quote.inspectionFeeFen, true);
+      } catch {
+        return toStationCard(station, station.serviceFeeFen, false);
+      }
+    }));
+    if (this.feeSequence !== sequence) return;
+    const fromVehicle = quoted.some((item) => item.feeFromVehicle);
+    this.setData({
+      stations: quoted,
+      quotingFees: false,
+      feeHint: fromVehicle
+        ? "已按当前车辆核算年检参考价；代驾等费用在确认预约页显示"
+        : "车辆报价暂不可用，以下为站点挂牌参考价",
+    });
+  },
+  retryStations() { if (!this.data.loading && !this.data.quotingFees) void this.loadStations(); },
   locate() { void this.locateCurrentOrigin(); },
   async locateCurrentOrigin() {
     this.setData({ locating: true });
@@ -227,9 +292,9 @@ Page<Data>({
       wx.showToast({ title: "请先获取或选择取车地址", icon: "none" });
       return;
     }
-    const station = this.data.stations.find((item) => item.id === event.currentTarget.dataset.id);
-    if (!station) return;
-    patchBookingDraft({ station, slot: undefined });
-    wx.navigateTo({ url: `/packages/annual/pages/slots/slots?stationId=${station.id}` });
+    const card = this.data.stations.find((item) => item.id === event.currentTarget.dataset.id);
+    if (!card) return;
+    patchBookingDraft({ station: toStation(card), slot: undefined });
+    wx.navigateTo({ url: `/packages/annual/pages/slots/slots?stationId=${card.id}` });
   },
 });

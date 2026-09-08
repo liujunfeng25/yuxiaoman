@@ -158,7 +158,8 @@ test("检测站预审统一核对七张资料并展示订单真实督办时点",
   assert.match(listSource, /supervision\.lastRemindedAt/);
   assert.match(listTemplate, /item\.requiredPhotoCount/);
   assert.match(listTemplate, /item\.photoProgressPercent/);
-  assert.match(listTemplate, /item\.supervisionDetail/);
+  assert.match(listTemplate, /item\.supervisionTitle/);
+  assert.match(listTemplate, /item\.supervisionLines/);
   assert.doesNotMatch(listTemplate, /PHOTO PRECHECK|支付后 30 分钟|2 小时标记超时/);
 
   assert.doesNotMatch(detailSource, /valetPhotoDefinitions|valetReasonCodes/);
@@ -201,10 +202,17 @@ test("代驾履约留证由司机、检测站和报告分阶段展示且不要�
   assert.match(operatorSource, /sourceType: \["camera", "album"\]/);
   assert.match(operatorSource, /operatorStationEvidenceComplete/);
   assert.match(operatorTemplate, /detail-error-state[\s\S]*retry[\s\S]*goTasks/, "检测端详情失败时应有明确恢复路径");
-  assert.match(operatorSource, /\["driver_arranged", "picked_up", "awaiting_arrival", "on_hold"\]\.includes\(status\)\) return 1;/, "司机已安排和已取车应落在到站前节点");
-  assert.match(operatorSource, /\["checked_in", "inspecting"\]\.includes\(status\)\) return 2;/, "到站和检测中应落在检测节点");
-  assert.match(operatorSource, /\["result_received", "returning"\]\.includes\(status\)\) return 3;/, "结果回传和送回中应落在结果节点");
-  assert.match(operatorSource, /if \(status === "completed"\) return 5;/, "服务完成后五个流程节点都应显示已完成");
+  assert.match(operatorSource, /buildOperatorTaskCard/);
+  assert.match(operatorTemplate, /task-card/);
+  assert.match(operatorTemplate, /taskCard\.title/);
+  assert.match(operatorTemplate, /primary-hint|taskCard\.primaryHint/);
+  assert.doesNotMatch(operatorTemplate, /process-steps/);
+  const taskCardUtil = readFileSync(new URL("../miniprogram/utils/operator-task-card.ts", import.meta.url), "utf8");
+  assert.match(taskCardUtil, /确认到车 · 核验通过/);
+  assert.match(taskCardUtil, /确认交接 · 开始检测/);
+  assert.match(taskCardUtil, /填写体检报告并回传/);
+  assert.match(taskCardUtil, /status === "inspecting"/);
+  assert.match(taskCardUtil, /status === "awaiting_arrival"/);
   assert.match(operatorStyle, /\.detail-error-actions button\s*\{[^}]*min-height:\s*88rpx/);
   assert.match(operatorStyle, /\.navigate-button\s*\{[^}]*min-height:\s*88rpx/);
   assert.match(operatorStyle, /\.arrival-evidence-submit\s*\{[^}]*min-height:\s*88rpx/);

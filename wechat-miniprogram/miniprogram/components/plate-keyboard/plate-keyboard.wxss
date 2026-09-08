@@ -4,15 +4,15 @@
 .plate-cells {
   display: flex;
   width: 100%;
-  min-height: 92rpx;
+  min-height: 108rpx;
   align-items: stretch;
-  gap: 8rpx;
+  gap: 6rpx;
   box-sizing: border-box;
 }
 
 .plate-dot {
   display: flex;
-  width: 18rpx;
+  width: 14rpx;
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, .92);
@@ -23,18 +23,26 @@
 
 .plate-cell {
   display: flex;
-  min-width: 0;
-  flex: 1;
+  min-width: 64rpx;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
+  overflow: visible;
   border: 2rpx solid rgba(255, 255, 255, .35);
   border-radius: 12rpx;
   background: rgba(0, 0, 0, .12);
   color: #fff;
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 850;
-  letter-spacing: 1rpx;
+  letter-spacing: 0;
+  line-height: 1;
   box-sizing: border-box;
+}
+
+.plate-cell text {
+  display: block;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .plate-cell.is-focused {
