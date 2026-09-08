@@ -1676,12 +1676,51 @@ export const api = {
   createBooking: async (data: Record<string, unknown>) => localizeOwnerBookingPrivateMedia(
     normalizeBooking(await request<Booking>("/bookings", "POST", data)),
   ),
+  paymentProvider: async () => request<{
+    provider: "wechat" | "mock";
+    wechatConfigured: boolean;
+    mockAllowed: boolean;
+  }>("/payments/provider"),
   payBooking: async (id: string, idempotencyKey: string, quoteSnapshotId?: string | null) => {
-    const payload = await request<{ booking: Booking; payment: { id: string; provider: "mock"; amountFen: number; status: string } }>(`/bookings/${id}/payments`, "POST", {
-      provider: "mock",
+    const providerInfo = await api.paymentProvider().catch(() => ({
+      provider: "mock" as const,
+      wechatConfigured: false,
+      mockAllowed: true,
+    }));
+    const provider = providerInfo.wechatConfigured ? "wechat" : "mock";
+    const payload = await request<{
+      booking: Booking;
+      payment: { id: string; provider: string; amountFen: number; status: string };
+      wechatPay?: {
+        timeStamp: string;
+        nonceStr: string;
+        package: string;
+        signType: "RSA";
+        paySign: string;
+      };
+    }>(`/bookings/${id}/payments`, "POST", {
+      provider,
       idempotencyKey,
       ...(quoteSnapshotId ? { quoteSnapshotId } : {}),
     });
+    if (payload.wechatPay) {
+      await new Promise<void>((resolve, reject) => {
+        wx.requestPayment({
+          ...payload.wechatPay!,
+          success: () => resolve(),
+          fail: (error) => reject(new Error(error.errMsg || "微信支付未完成")),
+        });
+      });
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const booking = normalizeBooking(await request<Booking>(`/bookings/${encodeURIComponent(id)}`));
+        if (booking.paymentStatus === "paid" || Number(booking.amountDueFen ?? 0) <= 0) {
+          return localizeOwnerBookingPrivateMedia(booking);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      const waiting = normalizeBooking(await request<Booking>(`/bookings/${encodeURIComponent(id)}`));
+      return localizeOwnerBookingPrivateMedia(waiting);
+    }
     return localizeOwnerBookingPrivateMedia(normalizeBooking(payload.booking));
   },
   requoteBooking: async (id: string, expectedQuoteSnapshotId: string) => {
@@ -1763,7 +1802,43 @@ export const api = {
   washOrders: async () => listFrom(await request<WashOrderPayload[] | { orders?: WashOrderPayload[] }>("/wash/orders")).map(normalizeWashOrder),
   washOrder: async (id: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}`)),
   createWashOrder: async (data: { precheckBookingId?: string; quoteSnapshotId: string; idempotencyKey: string; contactName: string; contactPhone: string; notes?: string }) => normalizeWashOrder(await request<WashOrderPayload>("/wash/orders", "POST", data)),
-  payWashOrder: async (id: string, idempotencyKey: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/payments`, "POST", { provider: "mock", idempotencyKey })),
+  payWashOrder: async (id: string, idempotencyKey: string) => {
+    const providerInfo = await api.paymentProvider().catch(() => ({
+      provider: "mock" as const,
+      wechatConfigured: false,
+      mockAllowed: true,
+    }));
+    const provider = providerInfo.wechatConfigured ? "wechat" : "mock";
+    const payload = await requestEnvelope<{
+      order: WashOrderPayload;
+      payment: { id: string; provider: string; amountFen: number; status: string };
+      redemptionCode?: string | null;
+      wechatPay?: {
+        timeStamp: string;
+        nonceStr: string;
+        package: string;
+        signType: "RSA";
+        paySign: string;
+      };
+    }>(`/wash/orders/${encodeURIComponent(id)}/payments`, "POST", { provider, idempotencyKey });
+    const data = payload.data;
+    if (data.wechatPay) {
+      await new Promise<void>((resolve, reject) => {
+        wx.requestPayment({
+          ...data.wechatPay!,
+          success: () => resolve(),
+          fail: (error) => reject(new Error(error.errMsg || "微信支付未完成")),
+        });
+      });
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const order = normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}`));
+        if (order.status !== "pending_payment" && order.paymentStatus === "paid") return order;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      return normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}`));
+    }
+    return normalizeWashOrder(data.order);
+  },
   cancelWashOrder: async (id: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/cancel`, "POST")),
   rescheduleWashOrder: async (id: string, slotId: string) => normalizeWashOrder(await request<WashOrderPayload>(`/wash/orders/${encodeURIComponent(id)}/reschedule`, "POST", { slotId })),
   insuranceDisclosure: async () => normalizeInsuranceDisclosure(await request<Partial<InsuranceDisclosure>>("/insurance/disclosure")),

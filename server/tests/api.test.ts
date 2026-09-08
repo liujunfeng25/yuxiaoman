@@ -8771,3 +8771,87 @@ test("检测后台关键写操作只生成语义审计且与业务变更原子�
     await close();
   }
 });
+
+test("支付提供方探测与 mock 支付仍可用；未配置微信时 wechat 返回 503", async () => {
+  const { app, close } = await fixture();
+  const previous = {
+    NODE_ENV: process.env.NODE_ENV,
+    ALLOW_MOCK_PAYMENT: process.env.ALLOW_MOCK_PAYMENT,
+    WECHAT_PAY_MCH_ID: process.env.WECHAT_PAY_MCH_ID,
+    WECHAT_PAY_API_V3_KEY: process.env.WECHAT_PAY_API_V3_KEY,
+    WECHAT_PAY_CERT_SERIAL: process.env.WECHAT_PAY_CERT_SERIAL,
+    WECHAT_PAY_PRIVATE_KEY_PATH: process.env.WECHAT_PAY_PRIVATE_KEY_PATH,
+    WECHAT_PAY_NOTIFY_URL: process.env.WECHAT_PAY_NOTIFY_URL,
+    WECHAT_PAY_PUBLIC_KEY_PATH: process.env.WECHAT_PAY_PUBLIC_KEY_PATH,
+    WECHAT_PAY_PUBLIC_KEY_ID: process.env.WECHAT_PAY_PUBLIC_KEY_ID,
+  };
+  try {
+    process.env.NODE_ENV = "test";
+    process.env.ALLOW_MOCK_PAYMENT = "true";
+    for (const key of [
+      "WECHAT_PAY_MCH_ID",
+      "WECHAT_PAY_API_V3_KEY",
+      "WECHAT_PAY_CERT_SERIAL",
+      "WECHAT_PAY_PRIVATE_KEY_PATH",
+      "WECHAT_PAY_NOTIFY_URL",
+      "WECHAT_PAY_PUBLIC_KEY_PATH",
+      "WECHAT_PAY_PUBLIC_KEY_ID",
+    ]) {
+      delete process.env[key];
+    }
+    const { resetWechatPayConfigCache } = await import("../wechat-pay.js");
+    resetWechatPayConfigCache();
+
+    const provider = await app.inject({ method: "GET", url: "/api/payments/provider" });
+    assert.equal(provider.statusCode, 200, provider.body);
+    assert.equal(provider.json<Json>().data.wechatConfigured, false);
+    assert.equal(provider.json<Json>().data.provider, "mock");
+
+    const { vehicle, station, slots } = await seedContext(app);
+    const created = await createBooking(app, { vehicleId: vehicle.id, stationId: station.id, slotId: slots[0].id });
+    assert.equal(created.statusCode, 201, created.body);
+    const booking = created.json<Json>().data;
+
+    const mockPaid = await app.inject({
+      method: "POST",
+      url: `/api/bookings/${booking.id}/payments`,
+      payload: {
+        provider: "mock",
+        idempotencyKey: "wechat-gate-mock-pay-0001",
+        quoteSnapshotId: booking.quoteSnapshotId,
+      },
+    });
+    assert.equal(mockPaid.statusCode, 201, mockPaid.body);
+    assert.equal(mockPaid.json<Json>().data.booking.paymentStatus, "paid");
+    assert.equal(mockPaid.json<Json>().data.payment.status, "confirmed");
+    assert.equal(mockPaid.json<Json>().data.wechatPay, undefined);
+
+    const unpaidVehicle = await createVehicle(app, "测A88888");
+    const unpaid = await createBooking(app, {
+      vehicleId: unpaidVehicle.id,
+      stationId: station.id,
+      slotId: slots[1]?.id ?? slots[0].id,
+    });
+    assert.equal(unpaid.statusCode, 201, unpaid.body);
+    const unpaidBooking = unpaid.json<Json>().data;
+    const wechatUnavailable = await app.inject({
+      method: "POST",
+      url: `/api/bookings/${unpaidBooking.id}/payments`,
+      payload: {
+        provider: "wechat",
+        idempotencyKey: "wechat-gate-missing-config-0001",
+        quoteSnapshotId: unpaidBooking.quoteSnapshotId,
+      },
+    });
+    assert.equal(wechatUnavailable.statusCode, 503, wechatUnavailable.body);
+    assert.equal(wechatUnavailable.json<Json>().error.code, "WECHAT_PAY_NOT_CONFIGURED");
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    const { resetWechatPayConfigCache } = await import("../wechat-pay.js");
+    resetWechatPayConfigCache();
+    await close();
+  }
+});

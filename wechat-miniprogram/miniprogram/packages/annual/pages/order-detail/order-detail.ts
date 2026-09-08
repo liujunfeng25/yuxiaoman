@@ -1,5 +1,9 @@
 import { api } from "../../../../services/api";
 import { invalidateOwnerMedia, localizeOwnerMedia, ownerMediaSourceUrl } from "../../../../services/owner-media";
+import {
+  ownerWorkflowApi,
+  requestOwnerWorkflowSubscriptions,
+} from "../../../../services/workflow";
 import type {
   Booking,
   BookingMedia,
@@ -92,6 +96,7 @@ type Data = {
   precheckIssueText: string;
   precheckReviewedAt: string;
   precheckSupervisionNote: string;
+  wechatPostPaymentTemplateIds: string[];
 };
 
 const precheckReasonLabels: Record<string, string> = {
@@ -262,10 +267,20 @@ Page<Data>({
     evidenceStages: [], legacyEvidence: false,
     viewerOpen: false, viewerItems: [], viewerIndex: 0, viewerUrl: "", viewerLabel: "", viewerCounter: "", viewerHasPrevious: false, viewerHasNext: false,
     precheckReasonText: "", precheckIssueText: "", precheckReviewedAt: "", precheckSupervisionNote: "",
+    wechatPostPaymentTemplateIds: [],
   },
   onLoad(query) {
     const id = query.id || "";
     this.setData({ id, loading: Boolean(id), missingOrder: !id });
+    void this.loadWechatPostPaymentTemplates();
+  },
+  async loadWechatPostPaymentTemplates() {
+    try {
+      const wechatPostPaymentTemplateIds = await ownerWorkflowApi.wechatSubscriptionTemplateIds("post_payment");
+      this.setData({ wechatPostPaymentTemplateIds });
+    } catch {
+      this.setData({ wechatPostPaymentTemplateIds: [] });
+    }
   },
   onShow() {
     if (this.data.id) void this.load();
@@ -474,6 +489,11 @@ Page<Data>({
       : `inspection-pay-${booking.id}-${Date.now()}`;
     this.paymentOrderId = booking.id;
     this.paymentKey = idempotencyKey;
+    // Start subscribe synchronously from the pay tap so WeChat still treats it as
+    // a user gesture. Prefer precheck-result + report-ready templates for this step.
+    const subscribeRequest = this.data.wechatPostPaymentTemplateIds.length
+      ? requestOwnerWorkflowSubscriptions(this.data.wechatPostPaymentTemplateIds, "post_payment")
+      : null;
     this.setData({ paying: true, paymentError: "" });
     try {
       const paidBooking = await api.payBooking(booking.id, idempotencyKey, quoteSnapshotId);
@@ -497,7 +517,18 @@ Page<Data>({
         pricingFormulaText: paidQuoteView.pricingFormulaText,
         priceChangeNotice: "",
       });
-      wx.showToast({ title: "支付成功，等待预审", icon: "success" });
+      if (paidQuoteView.paymentPending) {
+        wx.showToast({ title: "支付处理中，请稍候", icon: "none" });
+      } else {
+        wx.showToast({ title: "支付成功，等待预审", icon: "success" });
+      }
+      if (subscribeRequest) {
+        void subscribeRequest.then((result) => {
+          if (result.acceptedCount > 0) {
+            wx.showToast({ title: `已开启 ${result.acceptedCount} 类微信提醒`, icon: "success" });
+          }
+        }).catch(() => undefined);
+      }
       await this.load();
     } catch (error) {
       const code = quoteErrorCode(error);
@@ -507,7 +538,7 @@ Page<Data>({
         await this.load();
         this.setData({ paymentError: "订单报价已更新，请重新确认最新金额后支付。" });
       } else {
-        this.setData({ paymentError: error instanceof Error ? error.message : "模拟支付失败，请重试" });
+        this.setData({ paymentError: error instanceof Error ? error.message : "支付失败，请重试" });
       }
     } finally {
       this.setData({ paying: false });

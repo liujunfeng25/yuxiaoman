@@ -66,12 +66,21 @@ import {
 import { registerInsuranceRoutes } from "./insurance.js";
 import { registerSubsidyConsultationRoutes } from "./subsidy-consultation.js";
 import {
+  confirmWashWechatPaymentByOutTradeNo,
   createWashLocationProof,
   registerWashRoutes,
   validWashLocationProof,
   washLocationSuggestionSchema,
 } from "./wash.js";
 import { assertAnnualBookingFinancialClosureReady } from "./annual-booking-finance.js";
+import {
+  buildMiniProgramPayParams,
+  createJsapiPrepay,
+  isWechatPayConfigured,
+  loadConfig as loadWechatPayConfig,
+  recommendedPaymentProvider,
+  verifyAndDecryptNotify,
+} from "./wechat-pay.js";
 import { registerUsedCarAssetRoutes } from "./used-car-assets.js";
 import { registerDrivingSchoolAssetRoutes } from "./driving-school-assets.js";
 import { registerDrivingSchoolRoutes } from "./driving-school.js";
@@ -622,7 +631,7 @@ const stationPricePlansSchema = z.object({
 });
 
 const paymentSchema = z.object({
-  provider: z.literal("mock"),
+  provider: z.enum(["mock", "wechat"]),
   idempotencyKey: z.string().trim().min(8).max(160),
   quoteSnapshotId: idSchema.optional(),
 });
@@ -1951,8 +1960,111 @@ function paymentFromRow(row: Row) {
     amountFen: Number(row.amount_fen),
     status: String(row.status),
     createdAt: String(row.created_at),
-    confirmedAt: String(row.confirmed_at),
+    confirmedAt: row.confirmed_at == null ? null : String(row.confirmed_at),
+    outTradeNo: row.out_trade_no == null ? null : String(row.out_trade_no),
   };
+}
+
+async function wechatOpenIdForUser(database: AppDatabase, userId: string): Promise<string | null> {
+  const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
+  if (!appId) return null;
+  const row = await database.prepare<Row>(`
+    SELECT provider_subject FROM user_identities
+    WHERE user_id = ? AND provider = 'wechat' AND provider_app_id = ?
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `).get(userId, appId);
+  const openid = row?.provider_subject == null ? "" : String(row.provider_subject).trim();
+  return openid || null;
+}
+
+async function confirmBookingPaymentRecord(
+  tx: AppDatabase,
+  input: {
+    bookingId: string;
+    paymentId: string;
+    provider: string;
+    amountFen: number;
+    idempotencyKey: string;
+    now: string;
+    eventNote?: string;
+  },
+): Promise<void> {
+  const lockedBooking = await tx
+    .prepare<Row>("SELECT * FROM bookings WHERE id = ? FOR UPDATE")
+    .get(input.bookingId);
+  if (!lockedBooking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
+  if (bookingIsTerminal(lockedBooking)) {
+    throw new ApiProblem(409, "PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
+  }
+  const payment = await tx.prepare<Row>(`
+    SELECT * FROM booking_payments WHERE id = ? AND booking_id = ? FOR UPDATE
+  `).get(input.paymentId, input.bookingId);
+  if (!payment) throw new ApiProblem(404, "PAYMENT_NOT_FOUND", "未找到支付记录");
+  if (String(payment.status) === "confirmed") return;
+  await tx.prepare(`
+    UPDATE booking_payments
+    SET status = 'confirmed', confirmed_at = ?
+    WHERE id = ? AND status = 'pending'
+  `).run(input.now, input.paymentId);
+  const currentFulfillment = String(lockedBooking.fulfillment_status ?? "legacy");
+  const submittedForPrecheck = ["pending_payment", "paid_pending_confirmation"].includes(currentFulfillment);
+  const updatedFinancials = await bookingFinancials(tx, input.bookingId);
+  await tx.prepare(`
+    UPDATE bookings SET
+      payment_status = ?,
+      fulfillment_status = CASE
+        WHEN fulfillment_status IN ('pending_payment', 'paid_pending_confirmation') THEN 'pending_precheck'
+        ELSE fulfillment_status
+      END,
+      updated_at = ?
+    WHERE id = ?
+  `).run(paymentStatusFromFinancials(updatedFinancials), input.now, input.bookingId);
+  if (submittedForPrecheck) {
+    await tx.prepare(`
+      INSERT INTO booking_prechecks (
+        id, booking_id, station_id, status, submitted_at,
+        reason_codes_json, issue_photo_kinds_json, refund_status,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, 'pending', ?, '[]', '[]', 'not_requested', ?, ?)
+      ON CONFLICT (booking_id) DO NOTHING
+    `).run(randomUUID(), input.bookingId, String(lockedBooking.station_id), input.now, input.now, input.now);
+  }
+  const note = input.eventNote
+    ?? (input.provider === "mock"
+      ? `已确认模拟支付 ¥${(input.amountFen / 100).toFixed(2)}`
+      : `已确认微信支付 ¥${(input.amountFen / 100).toFixed(2)}`);
+  await insertEvent(
+    tx,
+    input.bookingId,
+    submittedForPrecheck ? "pending_precheck" : currentFulfillment === "legacy" ? String(lockedBooking.status) : currentFulfillment,
+    "支付已确认",
+    submittedForPrecheck
+      ? `${note}，订单已提交检测站进行照片预审`
+      : note,
+    input.now,
+    "owner",
+    {
+      paymentId: input.paymentId,
+      provider: input.provider,
+      amountFen: input.amountFen,
+      idempotencyKey: input.idempotencyKey,
+      quoteSnapshotId: lockedBooking.quote_snapshot_id == null ? null : String(lockedBooking.quote_snapshot_id),
+      submittedForPrecheck,
+    },
+  );
+  if (submittedForPrecheck) {
+    await insertEvent(
+      tx,
+      input.bookingId,
+      "pending_precheck",
+      "等待检测站预审",
+      "检测站将核对行驶证、车辆四角及启动后仪表盘共 7 张预约资料",
+      input.now,
+      "system",
+      { supervisionSource: "workflow_task" },
+    );
+  }
 }
 
 function ledgerEntryFromRow(row: Row) {
@@ -3668,6 +3780,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
     const raw = typeof body === "string" ? body : Buffer.isBuffer(body) ? body.toString("utf8") : "";
+    (request as FastifyRequest & { rawBody?: string }).rawBody = raw;
     if (!raw.trim()) {
       done(null, null);
       return;
@@ -3787,6 +3900,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       status: "ok",
       service: "yuxiaoman-api",
       time: new Date().toISOString(),
+      paymentProvider: recommendedPaymentProvider(),
+      wechatPayConfigured: isWechatPayConfigured(),
       map: {
         provider: "tencent",
         configured: Boolean(process.env.TENCENT_MAP_KEY?.trim()),
@@ -3798,6 +3913,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
   app.get("/health", healthHandler);
   app.get("/api/health", healthHandler);
+  app.get("/api/payments/provider", async () => {
+    const wechatConfigured = isWechatPayConfigured();
+    const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
+    return {
+      data: {
+        provider: recommendedPaymentProvider(),
+        wechatConfigured,
+        mockAllowed,
+      },
+    };
+  });
   registerAuthRoutes(app, database, { uploadDir });
   registerUserProfileRoutes(app, database, { uploadDir });
   registerBackofficeRoutes(app, database);
@@ -5113,11 +5239,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     const body = parseBody(paymentSchema, request.body, reply);
     if (!body) return;
     const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
-    if (!mockAllowed) {
+    if (body.provider === "mock" && !mockAllowed) {
       throw new ApiProblem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
     }
-    if (process.env.PAYMENT_PROVIDER && process.env.PAYMENT_PROVIDER !== "mock") {
-      throw new ApiProblem(503, "PAYMENT_PROVIDER_UNAVAILABLE", "当前支付提供方不可用");
+    if (body.provider === "wechat" && !isWechatPayConfigured()) {
+      throw new ApiProblem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
     }
     const bookingRow = await getBookingRow(database, request.params.id, userId);
     if (!bookingRow) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
@@ -5128,7 +5254,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       if (String(existing.booking_id) !== request.params.id) {
         throw new ApiProblem(409, "PAYMENT_IDEMPOTENCY_CONFLICT", "支付幂等键已用于其他订单");
       }
-      return { data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(existing) } };
+      if (String(existing.status) === "confirmed" || body.provider === "mock") {
+        return { data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(existing) } };
+      }
+      // Pending WeChat payment: re-issue JSAPI params with the same out_trade_no below.
     }
     if (bookingIsTerminal(bookingRow)) {
       throw new ApiProblem(409, "PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
@@ -5177,136 +5306,291 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
     const now = new Date().toISOString();
     let paymentCreated = false;
-    await runTransaction(database, async (tx) => {
-      const lockedBooking = await tx
-        .prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE")
-        .get(request.params.id, userId);
-      if (!lockedBooking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
-      if (bookingIsTerminal(lockedBooking)) {
-        throw new ApiProblem(409, "PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
-      }
-      const concurrentExisting = await tx.prepare<Row>(`
-        SELECT * FROM booking_payments WHERE provider = ? AND idempotency_key = ?
-      `).get(body.provider, body.idempotencyKey);
-      if (concurrentExisting) {
-        if (String(concurrentExisting.booking_id) !== request.params.id) {
-          throw new ApiProblem(409, "PAYMENT_IDEMPOTENCY_CONFLICT", "支付幂等键已用于其他订单");
+    let pendingPaymentId: string | null = existing && String(existing.status) === "pending"
+      ? String(existing.id)
+      : null;
+    let pendingOutTradeNo: string | null = existing?.out_trade_no == null ? null : String(existing.out_trade_no);
+    let pendingAmountFen = existing ? Number(existing.amount_fen) : 0;
+
+    if (body.provider === "mock") {
+      await runTransaction(database, async (tx) => {
+        const lockedBooking = await tx
+          .prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE")
+          .get(request.params.id, userId);
+        if (!lockedBooking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
+        if (bookingIsTerminal(lockedBooking)) {
+          throw new ApiProblem(409, "PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
         }
-        return;
-      }
-      financials = await bookingFinancials(tx, request.params.id);
-      if (financials.chargedFen === 0) {
-        await tx.prepare(`
-          INSERT INTO booking_ledger_entries (
-            id, booking_id, kind, amount_fen, description, actor_type,
-            payment_id, idempotency_key, created_at
-          ) VALUES (?, ?, 'legacy_booking_charge', ?, '旧订单服务费', 'system', NULL, 'legacy-booking-charge', ?)
-        `).run(randomUUID(), request.params.id, Number(lockedBooking.service_fee_fen), now);
+        const concurrentExisting = await tx.prepare<Row>(`
+          SELECT * FROM booking_payments WHERE provider = ? AND idempotency_key = ?
+        `).get(body.provider, body.idempotencyKey);
+        if (concurrentExisting) {
+          if (String(concurrentExisting.booking_id) !== request.params.id) {
+            throw new ApiProblem(409, "PAYMENT_IDEMPOTENCY_CONFLICT", "支付幂等键已用于其他订单");
+          }
+          return;
+        }
         financials = await bookingFinancials(tx, request.params.id);
-      }
-      const lockedHasConfirmedPayment = financials.payments.some((payment) => payment.status === "confirmed");
-      const lockedHasConfirmedSupplement = financials.ledgerEntries.some((entry) =>
-        entry.amountFen > 0
-        && entry.confirmationStatus === "confirmed"
-        && !["booking_charge", "legacy_booking_charge"].includes(entry.kind),
-      );
-      const lockedSupplementPayment = lockedHasConfirmedPayment
-        && lockedHasConfirmedSupplement
-        && financials.amountDueFen > 0;
-      if (String(lockedBooking.fulfillment_status) !== "legacy" && !lockedSupplementPayment) {
-        if (String(lockedBooking.quote_snapshot_id ?? "") !== expectedPaymentQuoteSnapshotId) {
-          throw new ApiProblem(409, "BOOKING_QUOTE_CHANGED", "订单报价已更新，请确认最新金额后重新支付");
+        if (financials.chargedFen === 0) {
+          await tx.prepare(`
+            INSERT INTO booking_ledger_entries (
+              id, booking_id, kind, amount_fen, description, actor_type,
+              payment_id, idempotency_key, created_at
+            ) VALUES (?, ?, 'legacy_booking_charge', ?, '旧订单服务费', 'system', NULL, 'legacy-booking-charge', ?)
+          `).run(randomUUID(), request.params.id, Number(lockedBooking.service_fee_fen), now);
+          financials = await bookingFinancials(tx, request.params.id);
         }
-        const lockedSnapshot = lockedBooking.quote_snapshot_id == null
-          ? undefined
-          : await tx.prepare<Row>(`
-              SELECT * FROM quote_snapshots WHERE id = ? AND user_id = ?
-            `).get(String(lockedBooking.quote_snapshot_id), userId);
-        const lockedBookingExpiresAt = String(lockedBooking.quote_expires_at ?? "");
-        const lockedSnapshotExpiresAt = String(lockedSnapshot?.expires_at ?? "");
-        const paymentNow = new Date().toISOString();
-        if (
-          !lockedSnapshot
-          || !lockedBookingExpiresAt
-          || !lockedSnapshotExpiresAt
-          || lockedBookingExpiresAt <= paymentNow
-          || lockedSnapshotExpiresAt <= paymentNow
-        ) {
-          throw new ApiProblem(409, "QUOTE_EXPIRED", "报价已过期，请先更新订单报价再支付");
+        const lockedHasConfirmedPayment = financials.payments.some((payment) => payment.status === "confirmed");
+        const lockedHasConfirmedSupplement = financials.ledgerEntries.some((entry) =>
+          entry.amountFen > 0
+          && entry.confirmationStatus === "confirmed"
+          && !["booking_charge", "legacy_booking_charge"].includes(entry.kind),
+        );
+        const lockedSupplementPayment = lockedHasConfirmedPayment
+          && lockedHasConfirmedSupplement
+          && financials.amountDueFen > 0;
+        if (String(lockedBooking.fulfillment_status) !== "legacy" && !lockedSupplementPayment) {
+          if (String(lockedBooking.quote_snapshot_id ?? "") !== expectedPaymentQuoteSnapshotId) {
+            throw new ApiProblem(409, "BOOKING_QUOTE_CHANGED", "订单报价已更新，请确认最新金额后重新支付");
+          }
+          const lockedSnapshot = lockedBooking.quote_snapshot_id == null
+            ? undefined
+            : await tx.prepare<Row>(`
+                SELECT * FROM quote_snapshots WHERE id = ? AND user_id = ?
+              `).get(String(lockedBooking.quote_snapshot_id), userId);
+          const lockedBookingExpiresAt = String(lockedBooking.quote_expires_at ?? "");
+          const lockedSnapshotExpiresAt = String(lockedSnapshot?.expires_at ?? "");
+          const paymentNow = new Date().toISOString();
+          if (
+            !lockedSnapshot
+            || !lockedBookingExpiresAt
+            || !lockedSnapshotExpiresAt
+            || lockedBookingExpiresAt <= paymentNow
+            || lockedSnapshotExpiresAt <= paymentNow
+          ) {
+            throw new ApiProblem(409, "QUOTE_EXPIRED", "报价已过期，请先更新订单报价再支付");
+          }
         }
-      }
-      if (financials.amountDueFen <= 0) throw new ApiProblem(409, "PAYMENT_NOT_REQUIRED", "订单当前没有待支付金额");
-      const paymentId = randomUUID();
-      await tx.prepare(`
-        INSERT INTO booking_payments (
-          id, booking_id, provider, idempotency_key, amount_fen,
-          status, created_at, confirmed_at
-        ) VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?)
-      `).run(paymentId, request.params.id, body.provider, body.idempotencyKey, financials.amountDueFen, now, now);
-      paymentCreated = true;
-      const currentFulfillment = String(lockedBooking.fulfillment_status ?? "legacy");
-      const submittedForPrecheck = ["pending_payment", "paid_pending_confirmation"].includes(currentFulfillment);
-      const updatedFinancials = await bookingFinancials(tx, request.params.id);
-      await tx.prepare(`
-        UPDATE bookings SET
-          payment_status = ?,
-          fulfillment_status = CASE
-            WHEN fulfillment_status IN ('pending_payment', 'paid_pending_confirmation') THEN 'pending_precheck'
-            ELSE fulfillment_status
-          END,
-          updated_at = ?
-        WHERE id = ?
-      `).run(paymentStatusFromFinancials(updatedFinancials), now, request.params.id);
-      if (submittedForPrecheck) {
+        if (financials.amountDueFen <= 0) throw new ApiProblem(409, "PAYMENT_NOT_REQUIRED", "订单当前没有待支付金额");
+        const paymentId = randomUUID();
         await tx.prepare(`
-          INSERT INTO booking_prechecks (
-            id, booking_id, station_id, status, submitted_at,
-            reason_codes_json, issue_photo_kinds_json, refund_status,
-            created_at, updated_at
-          ) VALUES (?, ?, ?, 'pending', ?, '[]', '[]', 'not_requested', ?, ?)
-          ON CONFLICT (booking_id) DO NOTHING
-        `).run(randomUUID(), request.params.id, String(lockedBooking.station_id), now, now, now);
-      }
-      await insertEvent(
-        tx,
-        request.params.id,
-        submittedForPrecheck ? "pending_precheck" : currentFulfillment === "legacy" ? String(lockedBooking.status) : currentFulfillment,
-        "支付已确认",
-        submittedForPrecheck
-          ? `已确认模拟支付 ¥${(financials.amountDueFen / 100).toFixed(2)}，订单已提交检测站进行照片预审`
-          : `已确认支付 ¥${(financials.amountDueFen / 100).toFixed(2)}`,
-        now,
-        "owner",
-        {
+          INSERT INTO booking_payments (
+            id, booking_id, provider, idempotency_key, amount_fen,
+            status, created_at, confirmed_at, out_trade_no
+          ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, NULL)
+        `).run(paymentId, request.params.id, body.provider, body.idempotencyKey, financials.amountDueFen, now);
+        paymentCreated = true;
+        await confirmBookingPaymentRecord(tx, {
+          bookingId: request.params.id,
           paymentId,
           provider: body.provider,
           amountFen: financials.amountDueFen,
           idempotencyKey: body.idempotencyKey,
-          quoteSnapshotId: lockedBooking.quote_snapshot_id == null ? null : String(lockedBooking.quote_snapshot_id),
-          submittedForPrecheck,
-        },
-      );
-      if (submittedForPrecheck) {
+          now,
+          eventNote: `已确认模拟支付 ¥${(financials.amountDueFen / 100).toFixed(2)}`,
+        });
+      });
+      const payment = await database.prepare<Row>(`
+        SELECT * FROM booking_payments WHERE provider = ? AND idempotency_key = ?
+      `).get(body.provider, body.idempotencyKey);
+      if (!payment) throw new ApiProblem(500, "PAYMENT_PERSISTENCE_FAILED", "支付记录保存失败，请重试");
+      if (!paymentCreated) {
+        return { data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(payment) } };
+      }
+      return reply.status(201).send({ data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(payment) } });
+    }
+
+    // WeChat JSAPI path — create/reuse pending payment, do not fulfill until notify.
+    const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
+    if (!appId) throw new ApiProblem(503, "WECHAT_APP_ID_MISSING", "未配置小程序 AppID");
+    const openid = await wechatOpenIdForUser(database, userId);
+    if (!openid) {
+      throw new ApiProblem(409, "WECHAT_OPENID_REQUIRED", "请先完成微信登录后再支付");
+    }
+    const wechatPayConfig = loadWechatPayConfig();
+    if (!wechatPayConfig) throw new ApiProblem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
+
+    if (!pendingPaymentId) {
+      await runTransaction(database, async (tx) => {
+        const lockedBooking = await tx
+          .prepare<Row>("SELECT * FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE")
+          .get(request.params.id, userId);
+        if (!lockedBooking) throw new ApiProblem(404, "BOOKING_NOT_FOUND", "未找到该预约");
+        if (bookingIsTerminal(lockedBooking)) {
+          throw new ApiProblem(409, "PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
+        }
+        const concurrentExisting = await tx.prepare<Row>(`
+          SELECT * FROM booking_payments WHERE provider = ? AND idempotency_key = ?
+        `).get(body.provider, body.idempotencyKey);
+        if (concurrentExisting) {
+          if (String(concurrentExisting.booking_id) !== request.params.id) {
+            throw new ApiProblem(409, "PAYMENT_IDEMPOTENCY_CONFLICT", "支付幂等键已用于其他订单");
+          }
+          pendingPaymentId = String(concurrentExisting.id);
+          pendingOutTradeNo = concurrentExisting.out_trade_no == null ? null : String(concurrentExisting.out_trade_no);
+          pendingAmountFen = Number(concurrentExisting.amount_fen);
+          return;
+        }
+        financials = await bookingFinancials(tx, request.params.id);
+        if (financials.chargedFen === 0) {
+          await tx.prepare(`
+            INSERT INTO booking_ledger_entries (
+              id, booking_id, kind, amount_fen, description, actor_type,
+              payment_id, idempotency_key, created_at
+            ) VALUES (?, ?, 'legacy_booking_charge', ?, '旧订单服务费', 'system', NULL, 'legacy-booking-charge', ?)
+          `).run(randomUUID(), request.params.id, Number(lockedBooking.service_fee_fen), now);
+          financials = await bookingFinancials(tx, request.params.id);
+        }
+        const lockedHasConfirmedPayment = financials.payments.some((payment) => payment.status === "confirmed");
+        const lockedHasConfirmedSupplement = financials.ledgerEntries.some((entry) =>
+          entry.amountFen > 0
+          && entry.confirmationStatus === "confirmed"
+          && !["booking_charge", "legacy_booking_charge"].includes(entry.kind),
+        );
+        const lockedSupplementPayment = lockedHasConfirmedPayment
+          && lockedHasConfirmedSupplement
+          && financials.amountDueFen > 0;
+        if (String(lockedBooking.fulfillment_status) !== "legacy" && !lockedSupplementPayment) {
+          if (String(lockedBooking.quote_snapshot_id ?? "") !== expectedPaymentQuoteSnapshotId) {
+            throw new ApiProblem(409, "BOOKING_QUOTE_CHANGED", "订单报价已更新，请确认最新金额后重新支付");
+          }
+          const lockedSnapshot = lockedBooking.quote_snapshot_id == null
+            ? undefined
+            : await tx.prepare<Row>(`
+                SELECT * FROM quote_snapshots WHERE id = ? AND user_id = ?
+              `).get(String(lockedBooking.quote_snapshot_id), userId);
+          const lockedBookingExpiresAt = String(lockedBooking.quote_expires_at ?? "");
+          const lockedSnapshotExpiresAt = String(lockedSnapshot?.expires_at ?? "");
+          const paymentNow = new Date().toISOString();
+          if (
+            !lockedSnapshot
+            || !lockedBookingExpiresAt
+            || !lockedSnapshotExpiresAt
+            || lockedBookingExpiresAt <= paymentNow
+            || lockedSnapshotExpiresAt <= paymentNow
+          ) {
+            throw new ApiProblem(409, "QUOTE_EXPIRED", "报价已过期，请先更新订单报价再支付");
+          }
+        }
+        if (financials.amountDueFen <= 0) throw new ApiProblem(409, "PAYMENT_NOT_REQUIRED", "订单当前没有待支付金额");
+        const paymentId = randomUUID();
+        const outTradeNo = paymentId.replace(/-/g, "");
+        await tx.prepare(`
+          INSERT INTO booking_payments (
+            id, booking_id, provider, idempotency_key, amount_fen,
+            status, created_at, confirmed_at, out_trade_no
+          ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?)
+        `).run(paymentId, request.params.id, body.provider, body.idempotencyKey, financials.amountDueFen, now, outTradeNo);
+        paymentCreated = true;
+        pendingPaymentId = paymentId;
+        pendingOutTradeNo = outTradeNo;
+        pendingAmountFen = financials.amountDueFen;
         await insertEvent(
           tx,
           request.params.id,
-          "pending_precheck",
-          "等待检测站预审",
-          "检测站将核对行驶证、车辆四角及启动后仪表盘共 7 张预约资料",
+          String(lockedBooking.fulfillment_status ?? lockedBooking.status),
+          "发起微信支付",
+          `待确认微信支付 ¥${(financials.amountDueFen / 100).toFixed(2)}`,
           now,
-          "system",
-          { supervisionSource: "workflow_task" },
+          "owner",
+          { paymentId, provider: body.provider, amountFen: financials.amountDueFen, outTradeNo },
         );
-      }
-    });
-    const payment = await database.prepare<Row>(`
-      SELECT * FROM booking_payments WHERE provider = ? AND idempotency_key = ?
-    `).get(body.provider, body.idempotencyKey);
-    if (!payment) throw new ApiProblem(500, "PAYMENT_PERSISTENCE_FAILED", "支付记录保存失败，请重试");
-    if (!paymentCreated) {
-      return { data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(payment) } };
+      });
     }
-    return reply.status(201).send({ data: { booking: await getBooking(database, request.params.id, userId), payment: paymentFromRow(payment) } });
+
+    if (!pendingPaymentId || !pendingOutTradeNo) {
+      throw new ApiProblem(500, "PAYMENT_PERSISTENCE_FAILED", "支付记录保存失败，请重试");
+    }
+    let prepayId: string;
+    try {
+      const prepay = await createJsapiPrepay({
+        appId,
+        openid,
+        outTradeNo: pendingOutTradeNo,
+        description: "鱼小满年检预约",
+        amountFen: pendingAmountFen,
+        notifyUrl: wechatPayConfig.notifyUrl,
+        attach: `booking:${request.params.id}`,
+      });
+      prepayId = prepay.prepayId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "微信统一下单失败";
+      throw new ApiProblem(502, "WECHAT_PREPAY_FAILED", message);
+    }
+    const wechatPay = buildMiniProgramPayParams(prepayId, appId);
+    const payment = await database.prepare<Row>("SELECT * FROM booking_payments WHERE id = ?").get(pendingPaymentId);
+    if (!payment) throw new ApiProblem(500, "PAYMENT_PERSISTENCE_FAILED", "支付记录保存失败，请重试");
+    const responseBody = {
+      data: {
+        booking: await getBooking(database, request.params.id, userId),
+        payment: paymentFromRow(payment),
+        wechatPay,
+      },
+    };
+    return paymentCreated ? reply.status(201).send(responseBody) : reply.status(200).send(responseBody);
+  });
+
+  app.post("/api/payments/wechat/notify", async (request, reply) => {
+    const rawBody = (request as FastifyRequest & { rawBody?: string }).rawBody
+      ?? (typeof request.body === "string" ? request.body : JSON.stringify(request.body ?? {}));
+    try {
+      const notify = await verifyAndDecryptNotify(request.headers as Record<string, string | string[] | undefined>, rawBody);
+      if (notify.tradeState !== "SUCCESS") {
+        return reply.status(200).send({ code: "SUCCESS", message: "成功" });
+      }
+      const now = new Date().toISOString();
+      const bookingPayment = await database.prepare<Row>(`
+        SELECT * FROM booking_payments WHERE out_trade_no = ?
+      `).get(notify.outTradeNo);
+      if (bookingPayment) {
+        await runTransaction(database, async (tx) => {
+          const locked = await tx.prepare<Row>(`
+            SELECT * FROM booking_payments WHERE id = ? FOR UPDATE
+          `).get(String(bookingPayment.id));
+          if (!locked) return;
+          if (String(locked.status) === "confirmed") return;
+          if (notify.amountFen > 0 && Number(locked.amount_fen) !== notify.amountFen) {
+            throw new ApiProblem(409, "WECHAT_AMOUNT_MISMATCH", "支付金额与订单不一致");
+          }
+          await confirmBookingPaymentRecord(tx, {
+            bookingId: String(locked.booking_id),
+            paymentId: String(locked.id),
+            provider: String(locked.provider),
+            amountFen: Number(locked.amount_fen),
+            idempotencyKey: String(locked.idempotency_key),
+            now,
+            eventNote: `已确认微信支付 ¥${(Number(locked.amount_fen) / 100).toFixed(2)}`,
+          });
+        });
+        return reply.status(200).send({ code: "SUCCESS", message: "成功" });
+      }
+      const washResult = await confirmWashWechatPaymentByOutTradeNo(database, {
+        outTradeNo: notify.outTradeNo,
+        amountFen: notify.amountFen,
+        transactionId: notify.transactionId,
+        now,
+        problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+      });
+      if (washResult === "not_found") {
+        throw new ApiProblem(404, "PAYMENT_NOT_FOUND", "未找到对应支付单");
+      }
+      return reply.status(200).send({ code: "SUCCESS", message: "成功" });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === "WECHAT_NOTIFY_VERIFY_KEY_MISSING") {
+        reply.log.error({ err: error }, "wechat notify verify key missing");
+        return reply.status(500).send({ code: "FAIL", message: "验签公钥未配置" });
+      }
+      if (error instanceof ApiProblem) {
+        reply.log.error({ err: error }, "wechat notify business failure");
+        return reply.status(error.statusCode >= 500 ? 500 : 200).send({
+          code: "FAIL",
+          message: error.message,
+        });
+      }
+      reply.log.error({ err: error }, "wechat notify failure");
+      return reply.status(500).send({ code: "FAIL", message: "通知处理失败" });
+    }
   });
 
   app.post<{ Params: { id: string; entryId: string } }>("/api/bookings/:id/ledger/:entryId/confirm", async (request, reply) => {

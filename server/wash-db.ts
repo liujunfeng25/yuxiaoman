@@ -210,9 +210,10 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
       kind TEXT NOT NULL CHECK (kind IN ('charge', 'refund')),
       idempotency_key TEXT NOT NULL,
       amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
-      status TEXT NOT NULL CHECK (status IN ('confirmed')),
+      status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed')),
       created_at TEXT NOT NULL,
-      confirmed_at TEXT NOT NULL,
+      confirmed_at TEXT,
+      out_trade_no TEXT,
       UNIQUE (provider, idempotency_key)
     );
 
@@ -361,6 +362,15 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
       ON wash_order_events(order_id, created_at);
     CREATE INDEX IF NOT EXISTS wash_payments_order_created_index
       ON wash_order_payments(order_id, created_at);
+
+    ALTER TABLE wash_order_payments ADD COLUMN IF NOT EXISTS out_trade_no TEXT;
+    ALTER TABLE wash_order_payments ALTER COLUMN confirmed_at DROP NOT NULL;
+    ALTER TABLE wash_order_payments DROP CONSTRAINT IF EXISTS wash_order_payments_status_check;
+    ALTER TABLE wash_order_payments
+      ADD CONSTRAINT wash_order_payments_status_check
+      CHECK (status IN ('pending', 'confirmed'));
+    CREATE UNIQUE INDEX IF NOT EXISTS wash_order_payments_out_trade_no_uidx
+      ON wash_order_payments(out_trade_no) WHERE out_trade_no IS NOT NULL;
   `);
 
   await database.transaction(async (tx) => {

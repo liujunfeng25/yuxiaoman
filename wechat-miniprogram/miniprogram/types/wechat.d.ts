@@ -107,6 +107,15 @@ declare const wx: {
   makePhoneCall(options: { phoneNumber: string; fail?(error: { errMsg?: string }): void }): void;
   showLoading(options: { title: string; mask?: boolean }): void;
   hideLoading(): void;
+  requestPayment(options: {
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: "RSA" | "MD5";
+    paySign: string;
+    success?(): void;
+    fail?(error: { errMsg?: string }): void;
+  }): void;
   stopPullDownRefresh(): void;
   setNavigationBarTitle(options: { title: string }): void;
   setStorageSync(key: string, data: unknown): void;

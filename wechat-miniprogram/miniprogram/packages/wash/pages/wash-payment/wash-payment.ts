@@ -50,7 +50,7 @@ Page<Data>({
       wx.showToast({ title: "支付成功", icon: "success" });
       wx.redirectTo({ url: `/packages/wash/pages/wash-order-detail/wash-order-detail?id=${encodeURIComponent(paid.id)}` });
     } catch (error) {
-      this.setData({ error: error instanceof Error ? error.message : "模拟支付失败，请重试" });
+      this.setData({ error: error instanceof Error ? error.message : "支付失败，请重试" });
     } finally {
       this.setData({ paying: false });
     }

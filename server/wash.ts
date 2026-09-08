@@ -494,7 +494,7 @@ const createOrderSchema = z.object({
   notes: z.string().trim().max(300).optional(),
 });
 const paymentSchema = z.object({
-  provider: z.literal("mock"),
+  provider: z.enum(["mock", "wechat"]),
   idempotencyKey: z.string().trim().min(8).max(160),
 });
 const cancelSchema = z.object({
@@ -1188,7 +1188,8 @@ function paymentFromRow(row: Row) {
     amountFen: Number(row.amount_fen),
     status: String(row.status),
     createdAt: String(row.created_at),
-    confirmedAt: String(row.confirmed_at),
+    confirmedAt: row.confirmed_at == null ? null : String(row.confirmed_at),
+    outTradeNo: row.out_trade_no == null ? null : String(row.out_trade_no),
   };
 }
 
@@ -1583,6 +1584,78 @@ async function generateRedemptionCode(database: AppDatabase): Promise<string> {
     if (!await database.prepare("SELECT 1 FROM wash_orders WHERE redemption_code = ?").get(code)) return code;
   }
   throw new Error("Unable to allocate a unique wash redemption code");
+}
+
+/** Confirm a pending WeChat wash payment by merchant out_trade_no (notify path). */
+export async function confirmWashWechatPaymentByOutTradeNo(
+  database: AppDatabase,
+  input: {
+    outTradeNo: string;
+    amountFen: number;
+    transactionId?: string;
+    now?: string;
+    problem?: ProblemFactory;
+  },
+): Promise<"confirmed" | "already_confirmed" | "not_found"> {
+  const problem = input.problem ?? ((statusCode, code, message) => {
+    const error = new Error(message) as Error & { statusCode: number; code: string };
+    error.statusCode = statusCode;
+    error.code = code;
+    return error;
+  });
+  const now = input.now ?? new Date().toISOString();
+  return database.transaction(async (tx) => {
+    const washPayment = await tx.prepare<Row>(`
+      SELECT * FROM wash_order_payments WHERE out_trade_no = ? FOR UPDATE
+    `).get(input.outTradeNo);
+    if (!washPayment) return "not_found";
+    if (String(washPayment.status) === "confirmed") return "already_confirmed";
+    if (input.amountFen > 0 && Number(washPayment.amount_fen) !== input.amountFen) {
+      throw problem(409, "WECHAT_AMOUNT_MISMATCH", "支付金额与订单不一致");
+    }
+    const order = await tx.prepare<Row>(`
+      SELECT * FROM wash_orders WHERE id = ? FOR UPDATE
+    `).get(String(washPayment.order_id));
+    if (!order) throw problem(404, "WASH_ORDER_NOT_FOUND", "未找到该洗车订单");
+    if (String(order.status) !== "pending_payment") {
+      await tx.prepare(`
+        UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ? WHERE id = ?
+      `).run(now, String(washPayment.id));
+      return "already_confirmed";
+    }
+    await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended('wash-redemption-code', 0))").get();
+    const code = await generateRedemptionCode(tx);
+    await tx.prepare(`
+      UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ? WHERE id = ? AND status = 'pending'
+    `).run(now, String(washPayment.id));
+    const updated = await tx.prepare(`
+      UPDATE wash_orders SET status = 'awaiting_redemption', payment_status = 'paid',
+        redemption_code = ?, paid_at = ?, updated_at = ?
+      WHERE id = ? AND status = 'pending_payment'
+    `).run(code, now, now, String(order.id));
+    if (updated.changes !== 1) {
+      throw problem(409, "WASH_PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
+    }
+    await insertEvent(
+      tx,
+      String(order.id),
+      "awaiting_redemption",
+      "支付成功",
+      String(order.service_mode) === "valet"
+        ? "预约已生效，运营将按约定地址协调往返取送；六位码仍用于门店线下核销"
+        : "预约已生效，到店后向工作人员出示六位核销码",
+      "owner",
+      {
+        provider: "wechat",
+        paymentId: String(washPayment.id),
+        outTradeNo: input.outTradeNo,
+        transactionId: input.transactionId ?? null,
+        serviceMode: String(order.service_mode ?? "self_drive"),
+      },
+      now,
+    );
+    return "confirmed";
+  });
 }
 
 async function insertRefundPayment(
@@ -2254,9 +2327,100 @@ async function registerWashRoutesAsync(
     const body = parseBody(paymentSchema, request.body, reply);
     if (!body) return;
     const mockAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_MOCK_PAYMENT === "true";
-    if (!mockAllowed) throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
-    if (process.env.PAYMENT_PROVIDER && process.env.PAYMENT_PROVIDER !== "mock") {
-      throw problem(503, "PAYMENT_PROVIDER_UNAVAILABLE", "当前支付提供方不可用");
+    if (body.provider === "mock" && !mockAllowed) {
+      throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
+    }
+    if (body.provider === "wechat") {
+      const { isWechatPayConfigured, loadConfig, createJsapiPrepay, buildMiniProgramPayParams } = await import("./wechat-pay.js");
+      if (!isWechatPayConfigured()) {
+        throw problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
+      }
+      const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
+      if (!appId) throw problem(503, "WECHAT_APP_ID_MISSING", "未配置小程序 AppID");
+      const identity = await database.prepare<Row>(`
+        SELECT provider_subject FROM user_identities
+        WHERE user_id = ? AND provider = 'wechat' AND provider_app_id = ?
+        ORDER BY updated_at DESC LIMIT 1
+      `).get(currentUserId, appId);
+      const openid = identity?.provider_subject == null ? "" : String(identity.provider_subject).trim();
+      if (!openid) throw problem(409, "WECHAT_OPENID_REQUIRED", "请先完成微信登录后再支付");
+      const wechatPayConfig = loadConfig();
+      if (!wechatPayConfig) throw problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
+      await expirePendingOrders(database);
+      const prepared = await database.transaction(async (tx) => {
+        await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))").get(
+          `wash-payment:${body.provider}:${body.idempotencyKey}`,
+        );
+        const current = await findOrder(tx, request.params.id, currentUserId, true);
+        if (!current) throw problem(404, "WASH_ORDER_NOT_FOUND", "未找到该洗车订单");
+        const existing = await tx.prepare<Row>(`
+          SELECT * FROM wash_order_payments WHERE provider = ? AND idempotency_key = ?
+        `).get(body.provider, body.idempotencyKey);
+        if (existing) {
+          if (String(existing.order_id) !== request.params.id) {
+            throw problem(409, "PAYMENT_IDEMPOTENCY_CONFLICT", "支付幂等键已用于其他订单");
+          }
+          return { payment: existing, created: false, order: current };
+        }
+        if (String(current.status) !== "pending_payment" || String(current.hold_expires_at) <= new Date().toISOString()) {
+          throw problem(409, "WASH_PAYMENT_NOT_ALLOWED", "当前订单状态不能继续支付");
+        }
+        const now = new Date().toISOString();
+        const paymentId = randomUUID();
+        const outTradeNo = paymentId.replace(/-/g, "");
+        await tx.prepare(`
+          INSERT INTO wash_order_payments (
+            id, order_id, provider, kind, idempotency_key, amount_fen, status, created_at, confirmed_at, out_trade_no
+          ) VALUES (?, ?, 'wechat', 'charge', ?, ?, 'pending', ?, NULL, ?)
+        `).run(paymentId, request.params.id, body.idempotencyKey, Number(current.total_fee_fen), now, outTradeNo);
+        await insertEvent(
+          tx,
+          request.params.id,
+          "pending_payment",
+          "发起微信支付",
+          `待确认微信支付 ¥${(Number(current.total_fee_fen) / 100).toFixed(2)}`,
+          "owner",
+          { provider: "wechat", paymentId, outTradeNo, serviceMode: String(current.service_mode ?? "self_drive") },
+          now,
+        );
+        const payment = await tx.prepare<Row>("SELECT * FROM wash_order_payments WHERE id = ?").get(paymentId);
+        if (!payment) throw problem(500, "WASH_PAYMENT_CREATE_FAILED", "支付记录创建失败");
+        return { payment, created: true, order: current };
+      });
+      if (String(prepared.payment.status) === "confirmed") {
+        const row = await findOrder(database, request.params.id, currentUserId);
+        if (!row) throw problem(404, "WASH_ORDER_NOT_FOUND", "未找到该洗车订单");
+        const order = await orderFromRow(database, row);
+        return { data: { order, payment: paymentFromRow(prepared.payment), redemptionCode: order.redemptionCode } };
+      }
+      let prepayId: string;
+      try {
+        const prepay = await createJsapiPrepay({
+          appId,
+          openid,
+          outTradeNo: String(prepared.payment.out_trade_no),
+          description: "鱼小满洗车预约",
+          amountFen: Number(prepared.payment.amount_fen),
+          notifyUrl: wechatPayConfig.notifyUrl,
+          attach: `wash:${request.params.id}`,
+        });
+        prepayId = prepay.prepayId;
+      } catch (error) {
+        throw problem(502, "WECHAT_PREPAY_FAILED", error instanceof Error ? error.message : "微信统一下单失败");
+      }
+      const wechatPay = buildMiniProgramPayParams(prepayId, appId);
+      const row = await findOrder(database, request.params.id, currentUserId);
+      if (!row) throw problem(404, "WASH_ORDER_NOT_FOUND", "未找到该洗车订单");
+      const order = await orderFromRow(database, row);
+      const response = {
+        data: {
+          order,
+          payment: paymentFromRow(prepared.payment),
+          redemptionCode: order.redemptionCode,
+          wechatPay,
+        },
+      };
+      return prepared.created ? reply.status(201).send(response) : reply.status(200).send(response);
     }
     await expirePendingOrders(database);
     const result = await database.transaction(async (tx) => {
@@ -2283,8 +2447,8 @@ async function registerWashRoutesAsync(
       const code = await generateRedemptionCode(tx);
       await tx.prepare(`
         INSERT INTO wash_order_payments (
-          id, order_id, provider, kind, idempotency_key, amount_fen, status, created_at, confirmed_at
-        ) VALUES (?, ?, 'mock', 'charge', ?, ?, 'confirmed', ?, ?)
+          id, order_id, provider, kind, idempotency_key, amount_fen, status, created_at, confirmed_at, out_trade_no
+        ) VALUES (?, ?, 'mock', 'charge', ?, ?, 'confirmed', ?, ?, NULL)
       `).run(paymentId, request.params.id, body.idempotencyKey, Number(current.total_fee_fen), now, now);
       const updated = await tx.prepare(`
         UPDATE wash_orders SET status = 'awaiting_redemption', payment_status = 'paid',

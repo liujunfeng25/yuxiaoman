@@ -324,7 +324,8 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
       amount_fen INTEGER NOT NULL CHECK (amount_fen >= 0),
       status TEXT NOT NULL,
       created_at TEXT NOT NULL,
-      confirmed_at TEXT NOT NULL,
+      confirmed_at TEXT,
+      out_trade_no TEXT,
       UNIQUE(provider, idempotency_key)
     );
 
@@ -487,6 +488,12 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
     ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resubmission_key TEXT;
     ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resubmission_hash TEXT;
     ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS decision_hash TEXT;
+    ALTER TABLE booking_payments ADD COLUMN IF NOT EXISTS out_trade_no TEXT;
+    ALTER TABLE booking_payments ALTER COLUMN confirmed_at DROP NOT NULL;
+  `);
+  await database.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS booking_payments_out_trade_no_uidx
+      ON booking_payments(out_trade_no) WHERE out_trade_no IS NOT NULL;
   `);
   await migrateRepairDatabase(database);
   await migrateWashDatabase(database);

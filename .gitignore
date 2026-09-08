@@ -34,3 +34,10 @@ source-assets/owner-vehicle-presentation-v2/
 
 # Superpowers brainstorm/local session artifacts
 .superpowers/
+
+# Merchant WeChat Pay certificates / private keys (never commit)
+**/apiclient_key.pem
+**/apiclient_cert.pem
+**/apiclient_cert.p12
+**/wechatpay_*.pem
+cert/

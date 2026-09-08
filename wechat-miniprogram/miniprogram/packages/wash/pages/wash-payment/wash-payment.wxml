@@ -64,7 +64,7 @@
     <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{error}}</text></view>
 
     <view class="payment-actions">
-      <button wx:if="{{order.status === 'pending_payment'}}" class="primary-button pay-button" loading="{{paying}}" disabled="{{paying}}" bindtap="pay">{{paying ? '正在确认支付' : '确认模拟支付 ¥' + fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</button>
+      <button wx:if="{{order.status === 'pending_payment'}}" class="primary-button pay-button" loading="{{paying}}" disabled="{{paying}}" bindtap="pay">{{paying ? '正在确认支付' : '确认支付 ¥' + fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</button>
       <button wx:else class="primary-button pay-button" bindtap="viewOrder">{{order.serviceMode === 'valet' ? '查看取送核销码' : '查看核销码'}}</button>
       <button class="later" bindtap="viewOrder">{{order.status === 'pending_payment' ? '稍后支付，先查看订单' : '查看订单详情'}}</button>
     </view>
