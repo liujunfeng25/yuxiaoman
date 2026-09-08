@@ -6,7 +6,7 @@ import { bookingQuoteAmountChanged, createBookingWithFreshQuote, isQuoteExpired,
 import { requiredUploadItems, updateUploadItem, type UploadItem } from "./upload-state";
 declare function getCurrentPages(): unknown[];
 
-type Data = { draft: BookingDraft | null; vehicles: Vehicle[]; vehicleId: string; vehicleIndex: number; quote: BookingQuote | null; quoteError: string; quoteBlocked: boolean; contactName: string; contactPhone: string; note: string; uploads: UploadItem[]; loading: boolean; loadError: string; canRetryLoad: boolean; quoting: boolean; submitting: boolean; mediaUploadingCount: number; money: typeof money; distanceLabel: typeof distanceLabel };
+type Data = { draft: BookingDraft | null; vehicles: Vehicle[]; vehicleId: string; vehicleIndex: number; quote: BookingQuote | null; quoteError: string; quoteBlocked: boolean; contactName: string; contactPhone: string; note: string; uploads: UploadItem[]; loading: boolean; loadError: string; canRetryLoad: boolean; quoting: boolean; submitting: boolean; mediaUploadingCount: number; money: typeof money; distanceLabel: typeof distanceLabel; paymentHint: string };
 type ApiFailure = Error & { code?: string; statusCode?: number; fields?: Record<string, string> };
 const validityConflictMessage = "用户确认日期与规则估算不一致，请先核验";
 const quoteRefreshStoppedCode = "QUOTE_REFRESH_STOPPED";
@@ -34,9 +34,24 @@ function confirmQuoteUpdate(before: BookingQuote, after: BookingQuote): Promise<
 }
 
 Page<Data>({
-  data: { draft: null, vehicles: [], vehicleId: "", vehicleIndex: 0, quote: null, quoteError: "", quoteBlocked: false, contactName: "", contactPhone: "", note: "", uploads: [], loading: true, loadError: "", canRetryLoad: false, quoting: false, submitting: false, mediaUploadingCount: 0, money, distanceLabel },
+  data: { draft: null, vehicles: [], vehicleId: "", vehicleIndex: 0, quote: null, quoteError: "", quoteBlocked: false, contactName: "", contactPhone: "", note: "", uploads: [], loading: true, loadError: "", canRetryLoad: false, quoting: false, submitting: false, mediaUploadingCount: 0, money, distanceLabel, paymentHint: "当前为本地演示流程，提交后可继续体验模拟支付，不会产生真实扣款。" },
   uploadSequences: {} as Partial<Record<MediaKind, number>>,
-  async onLoad() { await this.load(); },
+  async onLoad() {
+    void this.loadPaymentHint();
+    await this.load();
+  },
+  async loadPaymentHint() {
+    try {
+      const info = await api.paymentProvider();
+      this.setData({
+        paymentHint: info.wechatConfigured
+          ? "提交预约后将进入订单详情，可通过微信支付完成付款。"
+          : "当前为本地演示流程，提交后可继续体验模拟支付，不会产生真实扣款。",
+      });
+    } catch {
+      // Keep mock hint when provider probe fails.
+    }
+  },
   async load() {
     this.setData({ loading: true, loadError: "", canRetryLoad: false });
     const draft = getBookingDraft();

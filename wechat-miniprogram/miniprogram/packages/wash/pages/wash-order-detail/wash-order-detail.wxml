@@ -89,7 +89,7 @@
     </view>
 
     <view wx:if="{{error}}" class="inline-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{error}}</text></view>
-    <button wx:if="{{canPay}}" class="primary-button main-action" bindtap="pay"><image src="/assets/icons/receipt.png" mode="aspectFit" /><text>去模拟支付</text></button>
+    <button wx:if="{{canPay}}" class="primary-button main-action" bindtap="pay"><image src="/assets/icons/receipt.png" mode="aspectFit" /><text>{{payActionLabel}}</text></button>
     <view wx:if="{{canReschedule || canCancel}}" class="manage-actions">
       <button wx:if="{{canReschedule}}" disabled="{{busy}}" bindtap="reschedule"><image src="/assets/icons/calendar-check.png" mode="aspectFit" /><text>更改服务时段</text></button>
       <button wx:if="{{canCancel}}" disabled="{{busy}}" class="danger" bindtap="cancel"><image src="/assets/icons/trash.png" mode="aspectFit" /><text>取消预约</text></button>

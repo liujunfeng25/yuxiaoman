@@ -43,6 +43,10 @@ type Data = {
   loading: boolean;
   submitting: boolean;
   error: string;
+  usesWechatPay: boolean;
+  feePayHint: string;
+  submitAssuranceSelfDrive: string;
+  submitAssuranceValet: string;
 };
 
 function addDays(date: string, amount: number): string {
@@ -125,11 +129,35 @@ Page<Data>({
     serviceMode: "self_drive", pickupAddress: null, addressQuery: "", suggestions: [], addressLoading: false, mapResolving: false,
     quote: null, quoteLoading: false, quoteError: "", quoteErrorCode: "", quoteBlocked: false,
     contactName: "", contactPhone: "", notes: "", loading: true, submitting: false, error: "",
+    usesWechatPay: false,
+    feePayHint: "模拟支付不会真实扣款",
+    submitAssuranceSelfDrive: "价格透明 · 无额外费用 · 模拟支付不真实扣款",
+    submitAssuranceValet: "单程计价 · 往返已含 · 模拟支付不真实扣款",
   },
 
   onLoad() {
     const contact = getRecentContact();
     this.setData({ contactName: contact.name, contactPhone: contact.phone });
+    void this.loadPaymentChannel();
+  },
+
+  async loadPaymentChannel() {
+    try {
+      const info = await api.paymentProvider();
+      const usesWechatPay = Boolean(info.wechatConfigured);
+      this.setData({
+        usesWechatPay,
+        feePayHint: usesWechatPay ? "支付将调起微信支付" : "模拟支付不会真实扣款",
+        submitAssuranceSelfDrive: usesWechatPay
+          ? "价格透明 · 无额外费用 · 微信支付"
+          : "价格透明 · 无额外费用 · 模拟支付不真实扣款",
+        submitAssuranceValet: usesWechatPay
+          ? "单程计价 · 往返已含 · 微信支付"
+          : "单程计价 · 往返已含 · 模拟支付不真实扣款",
+      });
+    } catch {
+      // Keep mock hints when provider probe fails.
+    }
   },
 
   onShow() {

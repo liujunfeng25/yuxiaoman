@@ -6,7 +6,7 @@ import { requiredUploadItems, updateUploadItem } from "../miniprogram/packages/a
 import { bookingQuoteAmountChanged, createBookingWithFreshQuote, QuoteRefreshError } from "../miniprogram/packages/annual/pages/booking/quote-submission";
 import { stationEntryState } from "../miniprogram/packages/annual/pages/stations/entry-state";
 import { homeReportEntry } from "../miniprogram/pages/home/home-report";
-import { bookingPaymentStateView, bookingQuoteView, quoteAmountChanged, quoteClockView } from "../miniprogram/packages/annual/pages/order-detail/order-detail.model";
+import { bookingPaymentStateView, bookingQuoteView, paymentChannelCopy, quoteAmountChanged, quoteClockView } from "../miniprogram/packages/annual/pages/order-detail/order-detail.model";
 import { distanceLabel, driveDuration, stationDistance } from "../miniprogram/utils/format";
 
 function media(kind: MediaKind, id: string): BookingMedia {
@@ -663,6 +663,11 @@ test("已支付订单即使报价时间已过也不再显示或允许重新报�
   assert.equal(quote.paymentPending, false, "支付确认后报价过期不再影响订单");
   assert.equal(quote.payableFen, 0, "已支付订单的当前待付金额为零");
   assert.equal(quote.paymentSummaryLabel, "已模拟支付");
+  assert.equal(bookingQuoteView(paid, "wechat").paymentSummaryLabel, "已支付");
+  assert.equal(bookingPaymentStateView(paid, "wechat").title, "微信支付已确认");
+  assert.equal(bookingPaymentStateView(pendingBooking(), "wechat").title, "待完成微信支付");
+  assert.equal(paymentChannelCopy("wechat").payButton, "微信支付");
+  assert.equal(paymentChannelCopy("mock").payButton, "本地模拟支付");
   assert.equal(quote.paymentSummaryFen, 36900, "交易卡应展示真实模拟实付，不能把待付零元当成实付");
   assert.equal(quote.refundedFen, 0);
 

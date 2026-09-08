@@ -15,7 +15,15 @@ import type {
   VehicleCheckupReport,
 } from "../../../../types";
 import { formatShanghaiDateTime } from "../../../../utils/format";
-import { bookingPaymentPending, bookingPaymentStateView, bookingQuoteView, quoteAmountChanged, quoteClockView } from "./order-detail.model";
+import {
+  bookingPaymentPending,
+  bookingPaymentStateView,
+  bookingQuoteView,
+  paymentChannelCopy,
+  quoteAmountChanged,
+  quoteClockView,
+  type PaymentChannel,
+} from "./order-detail.model";
 
 // Annual inspection and vehicle-checkup are independent subpackages. Importing
 // a sibling subpackage utility works in TypeScript but leaves the module absent
@@ -97,6 +105,12 @@ type Data = {
   precheckReviewedAt: string;
   precheckSupervisionNote: string;
   wechatPostPaymentTemplateIds: string[];
+  paymentChannel: PaymentChannel;
+  payButtonLabel: string;
+  payingLabel: string;
+  paymentNotice: string;
+  paymentFooterNote: string;
+  refundRowLabel: string;
 };
 
 const precheckReasonLabels: Record<string, string> = {
@@ -268,11 +282,46 @@ Page<Data>({
     viewerOpen: false, viewerItems: [], viewerIndex: 0, viewerUrl: "", viewerLabel: "", viewerCounter: "", viewerHasPrevious: false, viewerHasNext: false,
     precheckReasonText: "", precheckIssueText: "", precheckReviewedAt: "", precheckSupervisionNote: "",
     wechatPostPaymentTemplateIds: [],
+    paymentChannel: "mock",
+    payButtonLabel: "本地模拟支付",
+    payingLabel: "正在模拟支付…",
+    paymentNotice: "当前为 mock 支付：不拉起微信支付 SDK，不会产生真实扣款；金额按真实测试口径参与计算与统计。",
+    paymentFooterNote: "预约、支付与取消状态均以后端最新记录为准；模拟支付不会产生真实扣款。",
+    refundRowLabel: "已模拟退款",
   },
   onLoad(query) {
     const id = query.id || "";
     this.setData({ id, loading: Boolean(id), missingOrder: !id });
     void this.loadWechatPostPaymentTemplates();
+    void this.loadPaymentChannel();
+  },
+  async loadPaymentChannel() {
+    try {
+      const info = await api.paymentProvider();
+      const paymentChannel: PaymentChannel = info.wechatConfigured ? "wechat" : "mock";
+      const copy = paymentChannelCopy(paymentChannel);
+      this.setData({
+        paymentChannel,
+        payButtonLabel: copy.payButton,
+        payingLabel: copy.paying,
+        paymentNotice: copy.notice,
+        paymentFooterNote: copy.footer,
+        refundRowLabel: copy.refundRow,
+      });
+      const booking = this.data.booking;
+      if (booking) {
+        const quoteView = bookingQuoteView(booking, paymentChannel);
+        const paymentState = bookingPaymentStateView(booking, paymentChannel);
+        this.setData({
+          paymentStateTitle: paymentState.title,
+          paymentStateCopy: paymentState.copy,
+          paymentStateTone: paymentState.tone,
+          paymentSummaryLabel: quoteView.paymentSummaryLabel,
+        });
+      }
+    } catch {
+      // Keep mock copy when provider probe fails.
+    }
   },
   async loadWechatPostPaymentTemplates() {
     try {
@@ -317,8 +366,9 @@ Page<Data>({
     try {
       const booking = await api.booking(this.data.id);
       const evidenceStages = evidenceViews(booking);
-      const quoteView = bookingQuoteView(booking);
-      const paymentState = bookingPaymentStateView(booking);
+      const paymentChannel = this.data.paymentChannel;
+      const quoteView = bookingQuoteView(booking, paymentChannel);
+      const paymentState = bookingPaymentStateView(booking, paymentChannel);
       const quoteClock = quoteView.paymentPending ? quoteClockView(booking.quoteExpiresAt) : null;
       const checkupMaterial = checkupMaterialView(booking);
       if (this.ownerEvidenceLoadSequence !== loadSequence) return;
@@ -470,7 +520,7 @@ Page<Data>({
   async pay() {
     const booking = this.data.booking;
     if (!booking || this.data.paying) return;
-    if (!bookingQuoteView(booking).paymentPending) {
+    if (!bookingQuoteView(booking, this.data.paymentChannel).paymentPending) {
       await this.load();
       return;
     }
@@ -497,8 +547,8 @@ Page<Data>({
     this.setData({ paying: true, paymentError: "" });
     try {
       const paidBooking = await api.payBooking(booking.id, idempotencyKey, quoteSnapshotId);
-      const paidQuoteView = bookingQuoteView(paidBooking);
-      const paidState = bookingPaymentStateView(paidBooking);
+      const paidQuoteView = bookingQuoteView(paidBooking, this.data.paymentChannel);
+      const paidState = bookingPaymentStateView(paidBooking, this.data.paymentChannel);
       this.stopQuoteClock();
       this.setData({
         booking: paidBooking,
@@ -565,11 +615,11 @@ Page<Data>({
     }
     this.setData({ requoting: true, paymentError: "", priceChangeNotice: "" });
     try {
-      const previousFen = bookingQuoteView(booking).payableFen;
+      const previousFen = bookingQuoteView(booking, this.data.paymentChannel).payableFen;
       const payload = await api.requoteBooking(booking.id, expectedQuoteSnapshotId);
       const next = payload.booking;
-      const quoteView = bookingQuoteView(next);
-      const paymentState = bookingPaymentStateView(next);
+      const quoteView = bookingQuoteView(next, this.data.paymentChannel);
+      const paymentState = bookingPaymentStateView(next, this.data.paymentChannel);
       const quoteClock = quoteClockView(next.quoteExpiresAt);
       const amountChanged = quoteAmountChanged(booking, next);
       const evidenceStages = evidenceViews(next);

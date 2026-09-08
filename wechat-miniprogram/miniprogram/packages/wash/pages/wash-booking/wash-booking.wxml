@@ -151,7 +151,7 @@
         <image src="/assets/icons/map-pin.png" mode="aspectFit" />
         <view><text>单程到店 {{quote.oneWayDistanceKm}} km{{quote.driveMinutes === null ? '' : ' · 约 ' + quote.driveMinutes + ' 分钟'}}</text><text>往返 {{quote.roundTripDistanceKm}} km 已含，费用按单程真实驾车路线计算</text><text wx:if="{{quote.valetRule}}">门店服务半径：{{quote.valetRule.maxRadiusKm === null ? '不限' : quote.valetRule.maxRadiusKm + ' km'}}</text></view>
       </view>
-      <view class="fee-total"><view><text>合计费用</text><text>模拟支付不会真实扣款</text></view><text>¥{{fmt.money(quote.totalFeeFen)}}</text></view>
+      <view class="fee-total"><view><text>合计费用</text><text>{{feePayHint}}</text></view><text>¥{{fmt.money(quote.totalFeeFen)}}</text></view>
     </view>
 
     <view class="wash-section contact-section">
@@ -176,6 +176,6 @@
       <view><text>{{quote ? '合计费用' : serviceMode === 'valet' ? '总价待计算' : '洗车费用'}}</text><text>{{quote ? '¥' + fmt.money(quote.totalFeeFen) : serviceMode === 'valet' ? '--' : '¥' + fmt.money(selectedPackage ? selectedPackage.priceFen : 0)}}</text></view>
       <button disabled="{{!quote || quoteLoading || submitting || quoteBlocked}}" loading="{{submitting}}" bindtap="submit">{{submitting ? '提交中' : quoteLoading ? '正在确认价格' : quoteBlocked ? '当前代驾不可预约' : serviceMode === 'valet' && !pickupAddress ? '请选择取车地址' : quote ? '确认预约 ¥' + fmt.money(quote.totalFeeFen) : '请选择可约时间'}}</button>
     </view>
-    <view class="submit-assurance"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{serviceMode === 'valet' ? '单程计价 · 往返已含 · 模拟支付不真实扣款' : '价格透明 · 无额外费用 · 模拟支付不真实扣款'}}</text></view>
+    <view class="submit-assurance"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{serviceMode === 'valet' ? submitAssuranceValet : submitAssuranceSelfDrive}}</text></view>
   </view>
 </view>

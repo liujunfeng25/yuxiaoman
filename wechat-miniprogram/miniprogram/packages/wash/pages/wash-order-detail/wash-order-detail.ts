@@ -19,20 +19,31 @@ type Data = {
   canReschedule: boolean;
   isTerminal: boolean;
   money: typeof money;
+  usesWechatPay: boolean;
+  payActionLabel: string;
 };
 
-function addDays(date: string, amount: number): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + amount)).toISOString().slice(0, 10);
-}
-
-function statusDescription(order: WashOrder): string {
-  if (order.status === "pending_payment") return order.serviceMode === "valet" ? "请完成模拟支付，支付后即可获得六位取送核销码。" : "请完成模拟支付，支付后即可获得六位核销码。";
+function statusDescription(order: WashOrder, usesWechatPay: boolean): string {
+  if (order.status === "pending_payment") {
+    if (usesWechatPay) {
+      return order.serviceMode === "valet"
+        ? "请完成微信支付，支付后即可获得六位取送核销码。"
+        : "请完成微信支付，支付后即可获得六位核销码。";
+    }
+    return order.serviceMode === "valet"
+      ? "请完成模拟支付，支付后即可获得六位取送核销码。"
+      : "请完成模拟支付，支付后即可获得六位核销码。";
+  }
   if (order.status === "awaiting_redemption") return order.serviceMode === "valet" ? "预约已生效，等待车辆交接与运营线下完成门店核销。" : "预约已生效，到店后向门店出示核销码。";
   if (order.status === "redeemed") return "门店已核销，本次洗车服务已完成。";
   if (order.status === "cancelled") return "订单已取消，不再占用原预约时段。";
   if (order.status === "refunded") return "订单已退款，具体到账时间以支付渠道为准。";
   return "订单已过期，可以重新选择套餐和时间。";
+}
+
+function addDays(date: string, amount: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + amount)).toISOString().slice(0, 10);
 }
 
 function displayCode(order: WashOrder): string {
@@ -57,27 +68,47 @@ Page<Data>({
     canReschedule: false,
     isTerminal: false,
     money,
+    usesWechatPay: false,
+    payActionLabel: "去模拟支付",
   },
 
   onLoad(query) {
     const id = query.id || "";
     this.setData({ id, loading: Boolean(id), missingOrder: !id });
+    void this.loadPaymentChannel();
   },
   onShow() {
     if (this.data.id) void this.load();
     else this.setData({ loading: false, missingOrder: true });
   },
 
+  async loadPaymentChannel() {
+    try {
+      const info = await api.paymentProvider();
+      const usesWechatPay = Boolean(info.wechatConfigured);
+      this.setData({
+        usesWechatPay,
+        payActionLabel: usesWechatPay ? "去微信支付" : "去模拟支付",
+      });
+      const order = this.data.order;
+      if (order) this.applyOrder(order);
+    } catch {
+      // Keep mock labels when provider probe fails.
+    }
+  },
+
   applyOrder(order: WashOrder) {
     const code = displayCode(order);
     const terminal = ["redeemed", "cancelled", "refunded", "expired"].includes(order.status);
+    const usesWechatPay = this.data.usesWechatPay;
     this.setData({
       order,
       statusText: washStatusLabel(order.status),
-      statusDescription: statusDescription(order),
+      statusDescription: statusDescription(order, usesWechatPay),
       displayCode: code,
       showCode: Boolean(code) && order.status !== "pending_payment" && !["cancelled", "refunded", "expired"].includes(order.status),
       canPay: order.status === "pending_payment",
+      payActionLabel: usesWechatPay ? "去微信支付" : "去模拟支付",
       canCancel: ["pending_payment", "awaiting_redemption"].includes(order.status),
       canReschedule: ["pending_payment", "awaiting_redemption"].includes(order.status),
       isTerminal: terminal,

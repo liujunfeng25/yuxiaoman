@@ -21,14 +21,14 @@
         <image wx:if="{{order.status === 'pending_payment'}}" src="/assets/icons/receipt.png" mode="aspectFit" />
         <image wx:else src="/assets/icons/check-circle.png" mode="aspectFit" />
       </view>
-      <text>{{order.status === 'pending_payment' ? '本次模拟支付' : '模拟支付已完成'}}</text>
+      <text>{{order.status === 'pending_payment' ? heroPendingLabel : heroPaidLabel}}</text>
       <text>¥{{fmt.money(order.totalFeeFen || order.serviceFeeFen)}}</text>
-      <text>{{order.status === 'pending_payment' ? (order.serviceMode === 'valet' ? '上门取送 · 往返已含 · 确认后不会真实扣款' : '确认后不会发生真实扣款') : (order.serviceMode === 'valet' ? '取送核销码已生成，车辆交接时向平台司机出示' : '核销码已生成，到店后向工作人员出示即可')}}</text>
+      <text>{{order.status === 'pending_payment' ? heroPendingHint : (order.serviceMode === 'valet' ? '取送核销码已生成，车辆交接时向平台司机出示' : '核销码已生成，到店后向工作人员出示即可')}}</text>
     </view>
 
     <view class="safety-card surface">
       <image src="/assets/icons/shield-check.png" mode="aspectFit" />
-      <view><text>仅用于演示预约闭环</text><text>不会唤起微信支付、银行卡或任何真实资金渠道。</text></view>
+      <view><text>{{safetyTitle}}</text><text>{{safetyCopy}}</text></view>
     </view>
 
     <view class="payment-summary surface">

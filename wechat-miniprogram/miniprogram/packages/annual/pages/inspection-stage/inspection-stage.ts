@@ -29,6 +29,7 @@ type Data = {
   stationPhone: string;
   showArrivalContact: boolean;
   resultPassed: boolean;
+  usesWechatPay: boolean;
 };
 
 const STOPPED = new Set(["cancelled", "no_show"]);
@@ -62,7 +63,7 @@ function inspectionResultLabel(order: Booking | null): string {
   return order.inspectionResult.conclusionStatus === "legacy_requires_reentry" ? "历史结果待重新录入" : "结果未确认";
 }
 
-function buildStage(step: StepId, vehicle: Vehicle | null, order: Booking | null): StageView {
+function buildStage(step: StepId, vehicle: Vehicle | null, order: Booking | null, usesWechatPay = false): StageView {
   const inProgress = order && !IN_PROGRESS_STOPPED.has(order.status) ? order : null;
   const usableOrder = order && !STOPPED.has(order.status) ? order : null;
   const plate = vehicleLabel(vehicle, order);
@@ -71,10 +72,23 @@ function buildStage(step: StepId, vehicle: Vehicle | null, order: Booking | null
     if (inProgress) {
       const awaitingPayment = inProgress.status === "pending_payment" || inProgress.paymentStatus === "unpaid";
       return {
-        stepNumber: "01", eyebrow: "在线预约", title: awaitingPayment ? "预约已占位，完成模拟支付后生效" : "预约信息已经保存", description: awaitingPayment ? "检测站与时段已经暂时保留，请在订单详情完成本地模拟支付；不会产生真实扣款。" : "检测站、日期和服务方式都在订单中，后续步骤将读取这条预约的真实状态。", stateLabel: statusLabel(inProgress.status), tone: "active", iconPath: "/assets/icons/calendar-check.png",
+        stepNumber: "01", eyebrow: "在线预约",
+        title: awaitingPayment
+          ? (usesWechatPay ? "预约已占位，完成微信支付后生效" : "预约已占位，完成模拟支付后生效")
+          : "预约信息已经保存",
+        description: awaitingPayment
+          ? (usesWechatPay
+            ? "检测站与时段已经暂时保留，请在订单详情完成微信支付。"
+            : "检测站与时段已经暂时保留，请在订单详情完成本地模拟支付；不会产生真实扣款。")
+          : "检测站、日期和服务方式都在订单中，后续步骤将读取这条预约的真实状态。",
+        stateLabel: statusLabel(inProgress.status), tone: "active", iconPath: "/assets/icons/calendar-check.png",
         facts: [{ label: "预约车辆", value: plate }, { label: "检测站", value: inProgress.station?.name || "待确认" }, { label: "预约时间", value: orderTime(inProgress) }],
-        tips: [{ title: awaitingPayment ? "本地模拟支付" : "查询与预约是两个动作", copy: awaitingPayment ? "继续按钮会进入当前订单，不会重新创建预约或重复占用号源。" : "规则测算只回答是否可能需要上线；当前订单才代表已占用检测站与时段。" }],
-        primaryLabel: awaitingPayment ? "继续模拟支付" : "查看预约详情", primaryAction: "order",
+        tips: [{
+          title: awaitingPayment ? (usesWechatPay ? "微信支付" : "本地模拟支付") : "查询与预约是两个动作",
+          copy: awaitingPayment ? "继续按钮会进入当前订单，不会重新创建预约或重复占用号源。" : "规则测算只回答是否可能需要上线；当前订单才代表已占用检测站与时段。",
+        }],
+        primaryLabel: awaitingPayment ? (usesWechatPay ? "继续微信支付" : "继续模拟支付") : "查看预约详情",
+        primaryAction: "order",
       };
     }
     return {
@@ -150,13 +164,26 @@ function buildStage(step: StepId, vehicle: Vehicle | null, order: Booking | null
 const EMPTY_STAGE = buildStage("booking", null, null);
 
 Page<Data>({
-  data: { step: "booking", loading: true, vehicle: null, order: null, stage: EMPTY_STAGE, stationPhone: "", showArrivalContact: false, resultPassed: false },
+  data: { step: "booking", loading: true, vehicle: null, order: null, stage: EMPTY_STAGE, stationPhone: "", showArrivalContact: false, resultPassed: false, usesWechatPay: false },
   onLoad(query) {
     const step = (["booking", "arrival", "materials", "result"].includes(query.step) ? query.step : "booking") as StepId;
     this.setData({ step });
     wx.setNavigationBarTitle({ title: ({ booking: "在线预约", arrival: "到站验车", materials: "提交资料", result: "结果与申领" })[step] });
+    void this.loadPaymentChannel();
   },
   onShow() { void this.load(); },
+  async loadPaymentChannel() {
+    try {
+      const info = await api.paymentProvider();
+      const usesWechatPay = Boolean(info.wechatConfigured);
+      this.setData({
+        usesWechatPay,
+        stage: buildStage(this.data.step, this.data.vehicle, this.data.order, usesWechatPay),
+      });
+    } catch {
+      // Keep mock labels when provider probe fails.
+    }
+  },
   async load() {
     this.setData({ loading: true });
     try {
@@ -168,14 +195,14 @@ Page<Data>({
       this.setData({
         vehicle,
         order,
-        stage: buildStage(this.data.step, vehicle, order),
+        stage: buildStage(this.data.step, vehicle, order, this.data.usesWechatPay),
         stationPhone: order?.station?.phone || "",
         showArrivalContact: this.data.step === "arrival" && order?.serviceMode === "self_drive" && Boolean(order?.station?.phone),
         resultPassed: this.data.step === "result" && order?.inspectionResult?.conclusion === "passed",
       });
     } catch (error) {
       wx.showToast({ title: error instanceof Error ? error.message : "读取年检进度失败", icon: "none" });
-      this.setData({ stage: buildStage(this.data.step, null, null) });
+      this.setData({ stage: buildStage(this.data.step, null, null, this.data.usesWechatPay) });
     } finally {
       this.setData({ loading: false });
     }

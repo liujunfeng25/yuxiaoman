@@ -115,7 +115,7 @@
         </view>
       </view>
       <view class="payment-summary-row"><text>{{paymentSummaryLabel}}</text><text>¥{{fmt.money(paymentSummaryFen)}}</text></view>
-      <view wx:if="{{refundedFen > 0}}" class="payment-refund-row"><text>已模拟退款</text><text>−¥{{fmt.money(refundedFen)}}</text></view>
+      <view wx:if="{{refundedFen > 0}}" class="payment-refund-row"><text>{{refundRowLabel}}</text><text>−¥{{fmt.money(refundedFen)}}</text></view>
       <view class="quote-breakdown">
         <view><text>年检服务费</text><text>¥{{fmt.money(booking.inspectionFeeFen)}}</text></view>
         <view wx:if="{{booking.serviceMode === 'valet'}}"><text>往返取送费</text><text>¥{{fmt.money(booking.valetFeeFen)}}</text></view>
@@ -136,9 +136,9 @@
         <button loading="{{requoting}}" disabled="{{requoting || paying}}" bindtap="requote">{{requoting ? '正在重新报价…' : '重新报价'}}</button>
       </view>
       <button wx:if="{{paymentPending && booking.status === 'pending_payment' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'refunded' && !quoteExpired}}" class="pay-button" loading="{{paying}}" disabled="{{paying || requoting}}" bindtap="pay">
-        <text>{{paying ? '正在模拟支付…' : '本地模拟支付'}}</text>
+        <text>{{paying ? payingLabel : payButtonLabel}}</text>
       </button>
-      <view class="mock-notice"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>当前为 mock 支付：不拉起微信支付 SDK，不会产生真实扣款；金额按真实测试口径参与计算与统计。</text></view>
+      <view class="mock-notice"><image src="/assets/icons/shield-check.png" mode="aspectFit" /><text>{{paymentNotice}}</text></view>
       <view wx:if="{{paymentError}}" class="payment-error"><image src="/assets/icons/warning-circle.png" mode="aspectFit" /><text>{{paymentError}}</text></view>
     </view>
 
@@ -244,7 +244,7 @@
 
     <view class="order-assurance">
       <image src="/assets/icons/shield-check.png" mode="aspectFit" />
-      <text>预约、支付与取消状态均以后端最新记录为准；模拟支付不会产生真实扣款。</text>
+      <text>{{paymentFooterNote}}</text>
     </view>
   </view>
 

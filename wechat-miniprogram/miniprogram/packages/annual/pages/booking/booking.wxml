@@ -168,7 +168,7 @@
 
     <view class="demo-notice">
       <image src="/assets/icons/shield-check.png" mode="aspectFit" />
-      <text>当前为本地演示流程，提交后可继续体验模拟支付，不会产生真实扣款。</text>
+      <text>{{paymentHint}}</text>
     </view>
 
     <view class="submit-spacer"></view>

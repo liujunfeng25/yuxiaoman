@@ -1,5 +1,7 @@
 import type { Booking } from "../../../../types";
 
+export type PaymentChannel = "wechat" | "mock";
+
 export type QuoteClockView = { expired: boolean; text: string };
 export type BookingQuoteView = {
   paymentPending: boolean;
@@ -15,6 +17,14 @@ export type BookingPaymentStateView = {
   title: string;
   copy: string;
   tone: "pending" | "paid" | "refunded" | "unpaid" | "unknown";
+};
+
+export type PaymentChannelCopy = {
+  payButton: string;
+  paying: string;
+  notice: string;
+  footer: string;
+  refundRow: string;
 };
 
 export function bookingPaymentPending(booking: Booking): boolean {
@@ -46,7 +56,26 @@ export function quoteClockView(expiresAt: string | null | undefined, now = Date.
   };
 }
 
-export function bookingQuoteView(booking: Booking): BookingQuoteView {
+export function paymentChannelCopy(channel: PaymentChannel): PaymentChannelCopy {
+  if (channel === "wechat") {
+    return {
+      payButton: "微信支付",
+      paying: "正在拉起微信支付…",
+      notice: "将调起微信支付完成付款；到账以微信收款与后台回调确认为准。",
+      footer: "预约、支付与取消状态均以后端最新记录为准。",
+      refundRow: "已退款",
+    };
+  }
+  return {
+    payButton: "本地模拟支付",
+    paying: "正在模拟支付…",
+    notice: "当前为 mock 支付：不拉起微信支付 SDK，不会产生真实扣款；金额按真实测试口径参与计算与统计。",
+    footer: "预约、支付与取消状态均以后端最新记录为准；模拟支付不会产生真实扣款。",
+    refundRow: "已模拟退款",
+  };
+}
+
+export function bookingQuoteView(booking: Booking, channel: PaymentChannel = "mock"): BookingQuoteView {
   const paymentPending = bookingPaymentPending(booking);
   const payableFen = Number(booking.amountDueFen ?? booking.chargedFen ?? booking.serviceFeeFen ?? 0);
   const chargedFen = Math.max(0, Number(booking.chargedFen ?? booking.serviceFeeFen ?? 0));
@@ -59,7 +88,7 @@ export function bookingQuoteView(booking: Booking): BookingQuoteView {
   const paymentSummaryLabel = paymentPending
     ? "当前待付"
     : hasRecordedPayment
-      ? "已模拟支付"
+      ? (channel === "wechat" ? "已支付" : "已模拟支付")
       : payableFen > 0
         ? "当前待付"
         : "订单累计应收";
@@ -104,47 +133,53 @@ export function bookingQuoteView(booking: Booking): BookingQuoteView {
   };
 }
 
-export function bookingPaymentStateView(booking: Booking): BookingPaymentStateView {
+export function bookingPaymentStateView(booking: Booking, channel: PaymentChannel = "mock"): BookingPaymentStateView {
   if (booking.paymentStatus === "paid") {
     if (booking.status === "pending_precheck") {
       return {
-        title: "本地模拟支付已确认",
+        title: channel === "wechat" ? "微信支付已确认" : "本地模拟支付已确认",
         copy: "订单已提交检测站照片预审；预审通过后才会进入车辆履约流程。",
         tone: "paid",
       };
     }
     return {
-      title: "本地模拟支付已确认",
-      copy: "该金额已计入模拟应收、已收和后台统计。",
+      title: channel === "wechat" ? "微信支付已确认" : "本地模拟支付已确认",
+      copy: channel === "wechat"
+        ? "付款已确认，金额已计入订单应收与已收。"
+        : "该金额已计入模拟应收、已收和后台统计。",
       tone: "paid",
     };
   }
   if (booking.paymentStatus === "partially_refunded") {
     return {
-      title: "本地模拟支付已部分退款",
-      copy: "支付与退款金额分别展示；记录仅用于演示，不涉及真实资金流转。",
+      title: channel === "wechat" ? "支付已部分退款" : "本地模拟支付已部分退款",
+      copy: channel === "wechat"
+        ? "支付与退款金额分别展示，请以订单与后台记录为准。"
+        : "支付与退款金额分别展示；记录仅用于演示，不涉及真实资金流转。",
       tone: "refunded",
     };
   }
   if (booking.paymentStatus === "refunded") {
     return {
-      title: "本地模拟款项已退款",
-      copy: "退款仅更新演示交易记录，不涉及真实资金流转。",
+      title: channel === "wechat" ? "款项已退款" : "本地模拟款项已退款",
+      copy: channel === "wechat"
+        ? "退款结果请以订单与后台记录为准。"
+        : "退款仅更新演示交易记录，不涉及真实资金流转。",
       tone: "refunded",
     };
   }
   if (booking.status === "pending_payment") {
     return {
-      title: "待完成本地模拟支付",
+      title: channel === "wechat" ? "待完成微信支付" : "待完成本地模拟支付",
       copy: "支付成功后订单将进入检测站照片预审，预审通过后再开始履约。",
       tone: "pending",
     };
   }
   if (booking.paymentStatus === "unpaid") {
     return {
-      title: "模拟支付未完成",
+      title: channel === "wechat" ? "尚未支付" : "模拟支付未完成",
       copy: booking.status === "cancelled"
-        ? "该预约已取消，未产生模拟支付记录。"
+        ? (channel === "wechat" ? "该预约已取消，未产生支付记录。" : "该预约已取消，未产生模拟支付记录。")
         : "当前订单未记录已支付金额，请以订单状态和后台记录为准。",
       tone: "unpaid",
     };
