@@ -131,6 +131,26 @@ export function recommendedPaymentProvider(): "wechat" | "mock" {
   return isWechatPayConfigured() ? "wechat" : "mock";
 }
 
+/**
+ * Test/prod tuning: charge WeChat `listAmountFen / divisor`, rounded to fen (分).
+ * Set WECHAT_PAY_AMOUNT_DIVISOR=1000 to charge 0.1% of list price (min 1 分 when list > 0).
+ * Divisor <= 1 disables scaling.
+ */
+export function scaleWechatChargeAmountFen(listAmountFen: number): number {
+  const raw = Number(process.env.WECHAT_PAY_AMOUNT_DIVISOR ?? "1");
+  const divisor = Number.isFinite(raw) && raw > 0 ? raw : 1;
+  if (!Number.isInteger(listAmountFen) || listAmountFen <= 0) return 0;
+  if (divisor <= 1) return listAmountFen;
+  // fen integer ÷ divisor, round to nearest fen (两位小数到分)
+  const scaled = Math.round(listAmountFen / divisor);
+  return Math.max(1, scaled);
+}
+
+export function wechatAmountDivisor(): number {
+  const raw = Number(process.env.WECHAT_PAY_AMOUNT_DIVISOR ?? "1");
+  return Number.isFinite(raw) && raw > 1 ? raw : 1;
+}
+
 function nonceStr(size = 32): string {
   return randomBytes(Math.ceil(size / 2)).toString("hex").slice(0, size);
 }

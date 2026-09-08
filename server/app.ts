@@ -79,6 +79,8 @@ import {
   isWechatPayConfigured,
   loadConfig as loadWechatPayConfig,
   recommendedPaymentProvider,
+  scaleWechatChargeAmountFen,
+  wechatAmountDivisor,
   verifyAndDecryptNotify,
 } from "./wechat-pay.js";
 import { registerUsedCarAssetRoutes } from "./used-car-assets.js";
@@ -5475,25 +5477,38 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         if (financials.amountDueFen <= 0) throw new ApiProblem(409, "PAYMENT_NOT_REQUIRED", "订单当前没有待支付金额");
         const paymentId = randomUUID();
         const outTradeNo = paymentId.replace(/-/g, "");
+        const listAmountFen = financials.amountDueFen;
+        const chargeAmountFen = scaleWechatChargeAmountFen(listAmountFen);
         await tx.prepare(`
           INSERT INTO booking_payments (
             id, booking_id, provider, idempotency_key, amount_fen,
             status, created_at, confirmed_at, out_trade_no
           ) VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, ?)
-        `).run(paymentId, request.params.id, body.provider, body.idempotencyKey, financials.amountDueFen, now, outTradeNo);
+        `).run(paymentId, request.params.id, body.provider, body.idempotencyKey, chargeAmountFen, now, outTradeNo);
         paymentCreated = true;
         pendingPaymentId = paymentId;
         pendingOutTradeNo = outTradeNo;
-        pendingAmountFen = financials.amountDueFen;
+        pendingAmountFen = chargeAmountFen;
+        const divisor = wechatAmountDivisor();
+        const payNote = divisor > 1
+          ? `待确认微信支付 ¥${(chargeAmountFen / 100).toFixed(2)}（标价 ¥${(listAmountFen / 100).toFixed(2)} ÷ ${divisor}，测试缩放）`
+          : `待确认微信支付 ¥${(chargeAmountFen / 100).toFixed(2)}`;
         await insertEvent(
           tx,
           request.params.id,
           String(lockedBooking.fulfillment_status ?? lockedBooking.status),
           "发起微信支付",
-          `待确认微信支付 ¥${(financials.amountDueFen / 100).toFixed(2)}`,
+          payNote,
           now,
           "owner",
-          { paymentId, provider: body.provider, amountFen: financials.amountDueFen, outTradeNo },
+          {
+            paymentId,
+            provider: body.provider,
+            amountFen: chargeAmountFen,
+            listAmountFen,
+            amountDivisor: divisor > 1 ? divisor : null,
+            outTradeNo,
+          },
         );
       });
     }
@@ -5552,14 +5567,26 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           if (notify.amountFen > 0 && Number(locked.amount_fen) !== notify.amountFen) {
             throw new ApiProblem(409, "WECHAT_AMOUNT_MISMATCH", "支付金额与订单不一致");
           }
+          // Test scale: WeChat charged scaled fen; book full remaining due so order can proceed.
+          const financials = await bookingFinancials(tx, String(locked.booking_id));
+          const bookedAmountFen = Math.max(Number(locked.amount_fen), financials.amountDueFen);
+          if (bookedAmountFen !== Number(locked.amount_fen)) {
+            await tx.prepare(`
+              UPDATE booking_payments SET amount_fen = ? WHERE id = ?
+            `).run(bookedAmountFen, String(locked.id));
+          }
+          const divisor = wechatAmountDivisor();
+          const eventNote = divisor > 1
+            ? `已确认微信支付实付 ¥${(Number(locked.amount_fen) / 100).toFixed(2)}（标价按 ÷${divisor} 测试缩放，账本按全额入账）`
+            : `已确认微信支付 ¥${(bookedAmountFen / 100).toFixed(2)}`;
           await confirmBookingPaymentRecord(tx, {
             bookingId: String(locked.booking_id),
             paymentId: String(locked.id),
             provider: String(locked.provider),
-            amountFen: Number(locked.amount_fen),
+            amountFen: bookedAmountFen,
             idempotencyKey: String(locked.idempotency_key),
             now,
-            eventNote: `已确认微信支付 ¥${(Number(locked.amount_fen) / 100).toFixed(2)}`,
+            eventNote,
           });
         });
         return reply.status(200).send({ code: "SUCCESS", message: "成功" });

@@ -12,9 +12,30 @@ import {
   isWechatPayConfigured,
   loadConfig,
   resetWechatPayConfigCache,
+  scaleWechatChargeAmountFen,
   signAuthorizationMessage,
   verifyAndDecryptNotify,
 } from "../wechat-pay.js";
+
+test("scaleWechatChargeAmountFen divides by WECHAT_PAY_AMOUNT_DIVISOR and rounds to fen", () => {
+  const previous = process.env.WECHAT_PAY_AMOUNT_DIVISOR;
+  try {
+    delete process.env.WECHAT_PAY_AMOUNT_DIVISOR;
+    assert.equal(scaleWechatChargeAmountFen(29900), 29900);
+
+    process.env.WECHAT_PAY_AMOUNT_DIVISOR = "1000";
+    // ¥299.00 → 29.9 分 → 30 分 = ¥0.30
+    assert.equal(scaleWechatChargeAmountFen(29900), 30);
+    // ¥1.00 → 0.1 分 → 最少 1 分
+    assert.equal(scaleWechatChargeAmountFen(100), 1);
+    assert.equal(scaleWechatChargeAmountFen(0), 0);
+    assert.equal(scaleWechatChargeAmountFen(1000), 1);
+    assert.equal(scaleWechatChargeAmountFen(1500), 2);
+  } finally {
+    if (previous === undefined) delete process.env.WECHAT_PAY_AMOUNT_DIVISOR;
+    else process.env.WECHAT_PAY_AMOUNT_DIVISOR = previous;
+  }
+});
 
 test("wechat-pay RSA-SHA256 authorization and mini-program paySign with ephemeral key", () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {

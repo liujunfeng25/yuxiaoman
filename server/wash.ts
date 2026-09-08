@@ -2331,7 +2331,14 @@ async function registerWashRoutesAsync(
       throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
     }
     if (body.provider === "wechat") {
-      const { isWechatPayConfigured, loadConfig, createJsapiPrepay, buildMiniProgramPayParams } = await import("./wechat-pay.js");
+      const {
+        isWechatPayConfigured,
+        loadConfig,
+        createJsapiPrepay,
+        buildMiniProgramPayParams,
+        scaleWechatChargeAmountFen,
+        wechatAmountDivisor,
+      } = await import("./wechat-pay.js");
       if (!isWechatPayConfigured()) {
         throw problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
       }
@@ -2368,19 +2375,33 @@ async function registerWashRoutesAsync(
         const now = new Date().toISOString();
         const paymentId = randomUUID();
         const outTradeNo = paymentId.replace(/-/g, "");
+        const listAmountFen = Number(current.total_fee_fen);
+        const chargeAmountFen = scaleWechatChargeAmountFen(listAmountFen);
+        const divisor = wechatAmountDivisor();
         await tx.prepare(`
           INSERT INTO wash_order_payments (
             id, order_id, provider, kind, idempotency_key, amount_fen, status, created_at, confirmed_at, out_trade_no
           ) VALUES (?, ?, 'wechat', 'charge', ?, ?, 'pending', ?, NULL, ?)
-        `).run(paymentId, request.params.id, body.idempotencyKey, Number(current.total_fee_fen), now, outTradeNo);
+        `).run(paymentId, request.params.id, body.idempotencyKey, chargeAmountFen, now, outTradeNo);
+        const payNote = divisor > 1
+          ? `待确认微信支付 ¥${(chargeAmountFen / 100).toFixed(2)}（标价 ¥${(listAmountFen / 100).toFixed(2)} ÷ ${divisor}，测试缩放）`
+          : `待确认微信支付 ¥${(chargeAmountFen / 100).toFixed(2)}`;
         await insertEvent(
           tx,
           request.params.id,
           "pending_payment",
           "发起微信支付",
-          `待确认微信支付 ¥${(Number(current.total_fee_fen) / 100).toFixed(2)}`,
+          payNote,
           "owner",
-          { provider: "wechat", paymentId, outTradeNo, serviceMode: String(current.service_mode ?? "self_drive") },
+          {
+            provider: "wechat",
+            paymentId,
+            outTradeNo,
+            amountFen: chargeAmountFen,
+            listAmountFen,
+            amountDivisor: divisor > 1 ? divisor : null,
+            serviceMode: String(current.service_mode ?? "self_drive"),
+          },
           now,
         );
         const payment = await tx.prepare<Row>("SELECT * FROM wash_order_payments WHERE id = ?").get(paymentId);
