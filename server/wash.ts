@@ -1619,15 +1619,26 @@ export async function confirmWashWechatPaymentByOutTradeNo(
     if (!order) throw problem(404, "WASH_ORDER_NOT_FOUND", "未找到该洗车订单");
     if (String(order.status) !== "pending_payment") {
       await tx.prepare(`
-        UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ? WHERE id = ?
-      `).run(now, String(washPayment.id));
+        UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ?,
+          transaction_id = COALESCE(?, transaction_id),
+          channel_amount_fen = COALESCE(channel_amount_fen, ?)
+        WHERE id = ?
+      `).run(now, input.transactionId ?? null, Number(washPayment.amount_fen), String(washPayment.id));
       return "already_confirmed";
     }
     await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended('wash-redemption-code', 0))").get();
     const code = await generateRedemptionCode(tx);
     await tx.prepare(`
-      UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ? WHERE id = ? AND status = 'pending'
-    `).run(now, String(washPayment.id));
+      UPDATE wash_order_payments SET status = 'confirmed', confirmed_at = ?,
+        transaction_id = COALESCE(?, transaction_id),
+        channel_amount_fen = ?
+      WHERE id = ? AND status = 'pending'
+    `).run(
+      now,
+      input.transactionId ?? null,
+      input.amountFen > 0 ? input.amountFen : Number(washPayment.amount_fen),
+      String(washPayment.id),
+    );
     const updated = await tx.prepare(`
       UPDATE wash_orders SET status = 'awaiting_redemption', payment_status = 'paid',
         redemption_code = ?, paid_at = ?, updated_at = ?
@@ -1663,17 +1674,89 @@ async function insertRefundPayment(
   row: Row,
   idempotencyKey: string,
   now: string,
+  input: {
+    provider: "mock" | "wechat";
+    amountFen: number;
+    outTradeNo?: string | null;
+  } = { provider: "mock", amountFen: Number(row.total_fee_fen) },
 ): Promise<void> {
   const existing = await database.prepare(`
-    SELECT id FROM wash_order_payments WHERE provider = 'mock' AND idempotency_key = ?
-  `).get(idempotencyKey);
+    SELECT id FROM wash_order_payments WHERE provider = ? AND idempotency_key = ?
+  `).get(input.provider, idempotencyKey);
   if (existing) return;
   await database.prepare(`
     INSERT INTO wash_order_payments (
       id, order_id, provider, kind, idempotency_key, amount_fen,
-      status, created_at, confirmed_at
-    ) VALUES (?, ?, 'mock', 'refund', ?, ?, 'confirmed', ?, ?)
-  `).run(randomUUID(), String(row.id), idempotencyKey, Number(row.total_fee_fen), now, now);
+      status, created_at, confirmed_at, out_trade_no, channel_amount_fen
+    ) VALUES (?, ?, ?, 'refund', ?, ?, 'confirmed', ?, ?, ?, ?)
+  `).run(
+    randomUUID(),
+    String(row.id),
+    input.provider,
+    idempotencyKey,
+    input.amountFen,
+    now,
+    now,
+    input.outTradeNo ?? null,
+    input.provider === "wechat" ? input.amountFen : null,
+  );
+}
+
+async function refundWechatWashPayments(
+  database: AppDatabase,
+  orderId: string,
+  reason: string,
+): Promise<{ provider: "mock" | "wechat"; amountFen: number; outTradeNo: string | null }> {
+  const charges = await database.prepare<Row>(`
+    SELECT * FROM wash_order_payments
+    WHERE order_id = ?
+      AND kind = 'charge'
+      AND status = 'confirmed'
+    ORDER BY created_at DESC, id DESC
+  `).all(orderId);
+  const wechatCharge = charges.find((item) => (
+    String(item.provider) === "wechat" && Number(item.channel_amount_fen ?? item.amount_fen ?? 0) > 0
+  ));
+  if (!wechatCharge || Number(wechatCharge.channel_amount_fen ?? 0) <= 0) {
+    return {
+      provider: "mock",
+      amountFen: Number(charges[0]?.amount_fen ?? 0),
+      outTradeNo: null,
+    };
+  }
+  const { createDomesticRefund, isWechatPayConfigured } = await import("./wechat-pay.js");
+  if (!isWechatPayConfigured()) {
+    const error = new Error("微信支付未配置，无法原路退款") as Error & { statusCode: number; code: string };
+    error.statusCode = 503;
+    error.code = "WECHAT_PAY_NOT_CONFIGURED";
+    throw error;
+  }
+  const channelTotalFen = Number(wechatCharge.channel_amount_fen);
+  const outTradeNo = wechatCharge.out_trade_no == null ? "" : String(wechatCharge.out_trade_no);
+  const transactionId = wechatCharge.transaction_id == null ? "" : String(wechatCharge.transaction_id);
+  const outRefundNo = `wr${String(wechatCharge.id).replace(/-/g, "")}`.slice(0, 64);
+  try {
+    await createDomesticRefund({
+      outTradeNo: outTradeNo || undefined,
+      transactionId: transactionId || undefined,
+      outRefundNo,
+      reason,
+      refundFen: channelTotalFen,
+      totalFen: channelTotalFen,
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "WECHAT_PAY_NOT_CONFIGURED") throw error;
+    const message = error instanceof Error ? error.message : "微信退款失败";
+    const wrapped = new Error(`微信退款失败：${message}`) as Error & { statusCode: number; code: string };
+    wrapped.statusCode = 502;
+    wrapped.code = "WECHAT_REFUND_FAILED";
+    throw wrapped;
+  }
+  return {
+    provider: "wechat",
+    amountFen: channelTotalFen,
+    outTradeNo: outTradeNo || null,
+  };
 }
 
 async function cancelOrRefundOrder(
@@ -1694,7 +1777,15 @@ async function cancelOrRefundOrder(
   const now = new Date().toISOString();
   const paid = String(row.payment_status) === "paid";
   const next = paid ? "refunded" as const : "cancelled" as const;
-  if (paid) await insertRefundPayment(database, row, `wash-refund-${row.id}`, now);
+  let refundMeta: { provider: "mock" | "wechat"; amountFen: number; outTradeNo: string | null } | null = null;
+  if (paid) {
+    refundMeta = await refundWechatWashPayments(database, String(row.id), reason || "洗车订单退款");
+    await insertRefundPayment(database, row, `wash-refund-${row.id}`, now, {
+      provider: refundMeta.provider,
+      amountFen: refundMeta.amountFen > 0 ? refundMeta.amountFen : Number(row.total_fee_fen),
+      outTradeNo: refundMeta.outTradeNo,
+    });
+  }
   await database.prepare(`
     UPDATE wash_orders SET
       status = ?, payment_status = ?, updated_at = ?,
@@ -1707,14 +1798,17 @@ async function cancelOrRefundOrder(
       status = 'void', operator = ?, reason = ?, settled_at = NULL, updated_at = ?
     WHERE order_id = ?
   `).run(operator ?? actorType, reason, now, String(row.id));
+  const refundCopy = refundMeta?.provider === "wechat"
+    ? "已支付金额已按微信支付原路退回，核销码同步失效"
+    : "已支付金额已按模拟支付流程原路退回，核销码同步失效";
   await insertEvent(
     database,
     String(row.id),
     next,
     paid ? "洗车订单已退款" : "洗车订单已取消",
-    paid ? "已支付金额已按模拟支付流程原路退回，核销码同步失效" : "待支付预约已取消，预约时段已释放",
+    paid ? refundCopy : "待支付预约已取消，预约时段已释放",
     actorType,
-    { reason, operator: operator ?? null },
+    { reason, operator: operator ?? null, refundProvider: refundMeta?.provider ?? null },
     now,
   );
   return next;
@@ -1726,6 +1820,10 @@ function throwWashProblem(problem: ProblemFactory, error: unknown): never {
   }
   if (error instanceof Error && error.message === "WASH_ORDER_ALREADY_SETTLED") {
     throw problem(409, "WASH_ORDER_ALREADY_SETTLED", "已结算订单需要先填写原因修正结算状态后才能退款");
+  }
+  const coded = error as Error & { statusCode?: number; code?: string };
+  if (coded?.code === "WECHAT_REFUND_FAILED" || coded?.code === "WECHAT_PAY_NOT_CONFIGURED") {
+    throw problem(Number(coded.statusCode || 502), coded.code, coded.message);
   }
   throw error;
 }

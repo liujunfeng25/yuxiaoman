@@ -489,6 +489,8 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
     ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS resubmission_hash TEXT;
     ALTER TABLE booking_prechecks ADD COLUMN IF NOT EXISTS decision_hash TEXT;
     ALTER TABLE booking_payments ADD COLUMN IF NOT EXISTS out_trade_no TEXT;
+    ALTER TABLE booking_payments ADD COLUMN IF NOT EXISTS transaction_id TEXT;
+    ALTER TABLE booking_payments ADD COLUMN IF NOT EXISTS channel_amount_fen INTEGER;
     ALTER TABLE booking_payments ALTER COLUMN confirmed_at DROP NOT NULL;
   `);
   await database.execute(`

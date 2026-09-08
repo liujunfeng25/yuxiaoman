@@ -364,6 +364,8 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
       ON wash_order_payments(order_id, created_at);
 
     ALTER TABLE wash_order_payments ADD COLUMN IF NOT EXISTS out_trade_no TEXT;
+    ALTER TABLE wash_order_payments ADD COLUMN IF NOT EXISTS transaction_id TEXT;
+    ALTER TABLE wash_order_payments ADD COLUMN IF NOT EXISTS channel_amount_fen INTEGER;
     ALTER TABLE wash_order_payments ALTER COLUMN confirmed_at DROP NOT NULL;
     ALTER TABLE wash_order_payments DROP CONSTRAINT IF EXISTS wash_order_payments_status_check;
     ALTER TABLE wash_order_payments

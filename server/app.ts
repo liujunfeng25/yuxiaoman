@@ -75,6 +75,8 @@ import {
 import { assertAnnualBookingFinancialClosureReady } from "./annual-booking-finance.js";
 import {
   buildMiniProgramPayParams,
+  channelRefundFen,
+  createDomesticRefund,
   createJsapiPrepay,
   isWechatPayConfigured,
   loadConfig as loadWechatPayConfig,
@@ -2385,7 +2387,14 @@ async function cancelBooking(
   }
   const availablePaidFen = Math.max(0, before.paidFen - before.refundedFen);
   const automaticRefundFen = Math.max(0, availablePaidFen - retainedFen);
+  let wechatChannelRefunded = false;
   if (automaticRefundFen > 0) {
+    wechatChannelRefunded = await refundWechatBookingPayments(database, {
+      bookingId: String(row.id),
+      ledgerPaidFen: availablePaidFen,
+      ledgerRefundFen: automaticRefundFen,
+      reason: retainedFen > 0 ? "取消预约退款（保留代驾起步价）" : "取消预约全额退款",
+    });
     await database.prepare(`
       INSERT INTO booking_ledger_entries (
         id, booking_id, kind, amount_fen, description, actor_type,
@@ -2435,16 +2444,76 @@ async function cancelBooking(
   if (!Number(row.precheck_slot_released ?? 0)) {
     await database.prepare("UPDATE station_slots SET booked_count = GREATEST(0, booked_count - 1) WHERE id = ?").run(String(row.slot_id));
   }
+  const refundNote = automaticRefundFen > 0
+    ? (wechatChannelRefunded
+      ? (retainedFen > 0
+        ? "司机已安排，保留代驾起步价，其余已按微信支付原路退回"
+        : "该时段已释放，已支付金额已按微信支付原路退回")
+      : (retainedFen > 0
+        ? "司机已安排，保留代驾起步价，其余已退回"
+        : "该时段已释放，已支付金额已退回"))
+    : "该时段已释放";
   await insertEvent(
     database,
     String(row.id),
     "cancelled",
     "预约已取消",
-    retainedFen > 0 ? "司机已安排，保留代驾起步价，其余已原路退回" : "该时段已释放，已支付金额将原路退回",
+    refundNote,
     now,
     actorType,
-    { effectiveStage, retainedFen, cancellationAdjustmentFen, automaticRefundFen },
+    { effectiveStage, retainedFen, cancellationAdjustmentFen, automaticRefundFen, wechatChannelRefunded },
   );
+}
+
+/** Refund WeChat channel amounts for confirmed booking payments that recorded channel_amount_fen. */
+async function refundWechatBookingPayments(
+  database: AppDatabase,
+  input: {
+    bookingId: string;
+    ledgerPaidFen: number;
+    ledgerRefundFen: number;
+    reason: string;
+  },
+): Promise<boolean> {
+  if (input.ledgerRefundFen <= 0) return false;
+  const payments = await database.prepare<Row>(`
+    SELECT * FROM booking_payments
+    WHERE booking_id = ?
+      AND provider = 'wechat'
+      AND status = 'confirmed'
+      AND COALESCE(channel_amount_fen, 0) > 0
+    ORDER BY created_at, id
+  `).all(input.bookingId);
+  if (payments.length === 0) return false;
+  if (!isWechatPayConfigured()) {
+    throw new ApiProblem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付未配置，无法原路退款");
+  }
+  for (const payment of payments) {
+    const channelTotalFen = Number(payment.channel_amount_fen);
+    const refundFen = channelRefundFen({
+      channelTotalFen,
+      ledgerPaidFen: input.ledgerPaidFen,
+      ledgerRefundFen: input.ledgerRefundFen,
+    });
+    if (refundFen <= 0) continue;
+    const outTradeNo = payment.out_trade_no == null ? "" : String(payment.out_trade_no);
+    const transactionId = payment.transaction_id == null ? "" : String(payment.transaction_id);
+    const outRefundNo = `br${String(payment.id).replace(/-/g, "")}`.slice(0, 64);
+    try {
+      await createDomesticRefund({
+        outTradeNo: outTradeNo || undefined,
+        transactionId: transactionId || undefined,
+        outRefundNo,
+        reason: input.reason,
+        refundFen,
+        totalFen: channelTotalFen,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "微信退款失败";
+      throw new ApiProblem(502, "WECHAT_REFUND_FAILED", `微信退款失败：${message}`);
+    }
+  }
+  return true;
 }
 
 function vehicleFromRow(row: Row) {
@@ -5567,17 +5636,23 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           if (notify.amountFen > 0 && Number(locked.amount_fen) !== notify.amountFen) {
             throw new ApiProblem(409, "WECHAT_AMOUNT_MISMATCH", "支付金额与订单不一致");
           }
+          const channelAmountFen = notify.amountFen > 0 ? notify.amountFen : Number(locked.amount_fen);
           // Test scale: WeChat charged scaled fen; book full remaining due so order can proceed.
           const financials = await bookingFinancials(tx, String(locked.booking_id));
           const bookedAmountFen = Math.max(Number(locked.amount_fen), financials.amountDueFen);
-          if (bookedAmountFen !== Number(locked.amount_fen)) {
-            await tx.prepare(`
-              UPDATE booking_payments SET amount_fen = ? WHERE id = ?
-            `).run(bookedAmountFen, String(locked.id));
-          }
+          await tx.prepare(`
+            UPDATE booking_payments
+            SET amount_fen = ?, channel_amount_fen = ?, transaction_id = COALESCE(?, transaction_id)
+            WHERE id = ?
+          `).run(
+            bookedAmountFen,
+            channelAmountFen,
+            notify.transactionId || null,
+            String(locked.id),
+          );
           const divisor = wechatAmountDivisor();
           const eventNote = divisor > 1
-            ? `已确认微信支付实付 ¥${(Number(locked.amount_fen) / 100).toFixed(2)}（标价按 ÷${divisor} 测试缩放，账本按全额入账）`
+            ? `已确认微信支付实付 ¥${(channelAmountFen / 100).toFixed(2)}（标价按 ÷${divisor} 测试缩放，账本按全额入账）`
             : `已确认微信支付 ¥${(bookedAmountFen / 100).toFixed(2)}`;
           await confirmBookingPaymentRecord(tx, {
             bookingId: String(locked.booking_id),

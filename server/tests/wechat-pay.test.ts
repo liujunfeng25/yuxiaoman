@@ -6,6 +6,8 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   buildMiniProgramPayParams,
+  channelRefundFen,
+  createDomesticRefund,
   createEphemeralNotifyFixtures,
   decryptResourceAesGcm,
   encryptNotifyResourceForTest,
@@ -16,6 +18,36 @@ import {
   signAuthorizationMessage,
   verifyAndDecryptNotify,
 } from "../wechat-pay.js";
+
+test("channelRefundFen maps ledger refund onto WeChat channel total", () => {
+  assert.equal(channelRefundFen({ channelTotalFen: 24, ledgerPaidFen: 24000, ledgerRefundFen: 24000 }), 24);
+  assert.equal(channelRefundFen({ channelTotalFen: 24, ledgerPaidFen: 24000, ledgerRefundFen: 12000 }), 12);
+  assert.equal(channelRefundFen({ channelTotalFen: 24, ledgerPaidFen: 24000, ledgerRefundFen: 0 }), 0);
+  assert.equal(channelRefundFen({ channelTotalFen: 0, ledgerPaidFen: 24000, ledgerRefundFen: 24000 }), 0);
+});
+
+test("createDomesticRefund validates amounts before calling WeChat", async () => {
+  await assert.rejects(
+    () => createDomesticRefund({
+      outTradeNo: "abc",
+      outRefundNo: "rf1",
+      reason: "test",
+      refundFen: 0,
+      totalFen: 100,
+    }),
+    /refundFen must be a positive integer/,
+  );
+  await assert.rejects(
+    () => createDomesticRefund({
+      outTradeNo: "abc",
+      outRefundNo: "rf1",
+      reason: "test",
+      refundFen: 200,
+      totalFen: 100,
+    }),
+    /refundFen cannot exceed totalFen/,
+  );
+});
 
 test("scaleWechatChargeAmountFen divides by WECHAT_PAY_AMOUNT_DIVISOR and rounds to fen", () => {
   const previous = process.env.WECHAT_PAY_AMOUNT_DIVISOR;

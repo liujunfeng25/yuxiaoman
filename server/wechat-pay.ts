@@ -32,6 +32,27 @@ export type JsapiPrepayInput = {
   attach?: string;
 };
 
+export type DomesticRefundInput = {
+  /** Merchant out_trade_no from the original charge. Prefer with totalFen. */
+  outTradeNo?: string;
+  /** WeChat transaction_id from the original charge. */
+  transactionId?: string;
+  outRefundNo: string;
+  reason: string;
+  /** Amount to refund, in fen. */
+  refundFen: number;
+  /** Original WeChat order total, in fen (must match the charged total). */
+  totalFen: number;
+  notifyUrl?: string;
+};
+
+export type DomesticRefundResult = {
+  refundId: string;
+  outRefundNo: string;
+  status: string;
+  refundFen: number;
+};
+
 export type MiniProgramPayParams = {
   timeStamp: string;
   nonceStr: string;
@@ -272,6 +293,85 @@ export async function createJsapiPrepay(input: JsapiPrepayInput): Promise<{ prep
     throw error;
   }
   return { prepayId };
+}
+
+/**
+ * Create a domestic (CNY) refund against a successful JSAPI charge.
+ * Accepts SUCCESS / PROCESSING as completed enough for the caller to proceed.
+ */
+export async function createDomesticRefund(input: DomesticRefundInput): Promise<DomesticRefundResult> {
+  if (!Number.isInteger(input.refundFen) || input.refundFen <= 0) {
+    throw new Error("refundFen must be a positive integer");
+  }
+  if (!Number.isInteger(input.totalFen) || input.totalFen <= 0) {
+    throw new Error("totalFen must be a positive integer");
+  }
+  if (input.refundFen > input.totalFen) {
+    throw new Error("refundFen cannot exceed totalFen");
+  }
+  if (!input.outTradeNo && !input.transactionId) {
+    throw new Error("outTradeNo or transactionId is required");
+  }
+  const outRefundNo = input.outRefundNo.replace(/[^A-Za-z0-9]/g, "").slice(0, 64);
+  if (!outRefundNo) throw new Error("outRefundNo is required");
+  const config = loadConfig();
+  if (!config) throw new Error("WeChat Pay is not configured");
+  const payload: Record<string, unknown> = {
+    out_refund_no: outRefundNo,
+    reason: (input.reason || "订单退款").slice(0, 80),
+    amount: {
+      refund: input.refundFen,
+      total: input.totalFen,
+      currency: "CNY",
+    },
+  };
+  if (input.outTradeNo) payload.out_trade_no = input.outTradeNo;
+  if (input.transactionId) payload.transaction_id = input.transactionId;
+  if (input.notifyUrl) payload.notify_url = input.notifyUrl;
+  const result = await wechatApiRequest(config, "POST", "/v3/refund/domestic/refunds", payload);
+  const status = typeof result.json?.status === "string" ? result.json.status : "";
+  const refundId = typeof result.json?.refund_id === "string" ? result.json.refund_id : "";
+  const accepted = result.status < 300 && (status === "SUCCESS" || status === "PROCESSING");
+  // Idempotent replay: WeChat may return 400 RESOURCE_ALREADY_EXISTS with prior refund details.
+  const alreadyExists = result.status >= 400
+    && typeof result.json?.code === "string"
+    && /ALREADY|EXISTS|FREQUENCY/i.test(String(result.json.code));
+  if (!accepted && !alreadyExists) {
+    const code = typeof result.json?.code === "string" ? result.json.code : "WECHAT_REFUND_FAILED";
+    const message = typeof result.json?.message === "string"
+      ? result.json.message
+      : "微信退款失败";
+    const error = new Error(message) as Error & { code?: string; status?: number; detail?: unknown };
+    error.code = code;
+    error.status = result.status;
+    error.detail = result.json;
+    throw error;
+  }
+  return {
+    refundId: refundId || outRefundNo,
+    outRefundNo,
+    status: status || (alreadyExists ? "SUCCESS" : "PROCESSING"),
+    refundFen: input.refundFen,
+  };
+}
+
+/**
+ * Map a ledger refund onto the WeChat channel amount (handles ÷N test scaling).
+ * Returns 0 when there is nothing to refund on the channel.
+ */
+export function channelRefundFen(input: {
+  channelTotalFen: number;
+  ledgerPaidFen: number;
+  ledgerRefundFen: number;
+}): number {
+  const channelTotalFen = Math.max(0, Math.trunc(input.channelTotalFen));
+  const ledgerPaidFen = Math.max(0, Math.trunc(input.ledgerPaidFen));
+  const ledgerRefundFen = Math.max(0, Math.trunc(input.ledgerRefundFen));
+  if (channelTotalFen <= 0 || ledgerRefundFen <= 0) return 0;
+  if (ledgerPaidFen <= 0) return 0;
+  if (ledgerRefundFen >= ledgerPaidFen) return channelTotalFen;
+  const scaled = Math.round((channelTotalFen * ledgerRefundFen) / ledgerPaidFen);
+  return Math.min(channelTotalFen, Math.max(1, scaled));
 }
 
 export function decryptResourceAesGcm(
