@@ -8,6 +8,7 @@ import {
   Funnel,
   Gear,
   Money,
+  Printer,
   Receipt,
   Wallet,
   X,
@@ -103,6 +104,12 @@ type FinanceSettings = {
   valetCompany: null | { id: string; code: string; name: string; contactName: string | null; contactPhone: string | null };
 };
 
+type CounterpartyOption = {
+  type: string;
+  id: string;
+  name: string;
+};
+
 type TransactionDetail = {
   payment: Transaction;
   order: null | {
@@ -146,6 +153,12 @@ const businessLabels: Record<string, string> = {
   car_wash: "洗车",
   repair: "维修",
   valet: "代驾",
+};
+const counterpartyTypeLabels: Record<string, string> = {
+  inspection_station: "检测站",
+  wash_store: "洗车门店",
+  repair_shop: "维修门店",
+  valet_company: "代驾公司",
 };
 const componentLabels: Record<string, string> = {
   inspection_fee: "年检费用",
@@ -201,6 +214,79 @@ async function downloadStatement(base: string, statement: Statement) {
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function printStatementDetail(detail: StatementDetail) {
+  const typeLabel =
+    counterpartyTypeLabels[detail.counterpartyType] ?? detail.counterpartyType;
+  const rows = detail.items
+    .map(
+      (item) => `<tr>
+      <td>${escapeHtml(item.orderNumber)}<br/><small>${escapeHtml(
+        item.entryKind === "reversal"
+          ? "退款冲正"
+          : (componentLabels[item.componentType] ?? item.componentType),
+      )}</small></td>
+      <td>¥${money(item.grossAmountFen)}</td>
+      <td>¥${money(item.commissionAmountFen)}</td>
+      <td>¥${money(item.netAmountFen)}</td>
+    </tr>`,
+    )
+    .join("");
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(detail.statementNumber)}</title>
+  <style>
+    body { font-family: "PingFang SC", "Noto Sans SC", sans-serif; color: #18344d; margin: 28px; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .meta { color: #5f7386; font-size: 13px; margin-bottom: 18px; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+    .summary div { border: 1px solid #d7e2ec; border-radius: 8px; padding: 10px 12px; }
+    .summary small { display: block; color: #718697; font-size: 12px; margin-bottom: 4px; }
+    .summary strong { font-size: 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e4ebf1; padding: 10px 8px; text-align: left; font-size: 13px; vertical-align: top; }
+    th { color: #607687; font-size: 12px; }
+    small { color: #7a8d9d; }
+    .footer { margin-top: 22px; color: #7a8d9d; font-size: 12px; }
+    @media print { body { margin: 12mm; } }
+  </style>
+</head>
+<body>
+  <h1>日结算单 ${escapeHtml(detail.statementNumber)}</h1>
+  <div class="meta">
+    ${escapeHtml(detail.counterpartyName)}（${escapeHtml(typeLabel)}） ·
+    账单日期 ${escapeHtml(financeDate(detail.statementDate))} ·
+    状态 ${escapeHtml(statusLabels[detail.status] ?? detail.status)}
+  </div>
+  <div class="summary">
+    <div><small>服务金额</small><strong>¥${money(detail.grossAmountFen)}</strong></div>
+    <div><small>平台佣金</small><strong>¥${money(detail.commissionAmountFen)}</strong></div>
+    <div><small>本期应付</small><strong>¥${money(detail.payableAmountFen)}</strong></div>
+  </div>
+  <table>
+    <thead><tr><th>订单 / 费用</th><th>服务金额</th><th>佣金</th><th>净额</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">打印时间 ${escapeHtml(dateTime(new Date().toISOString()))}</div>
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`;
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  if (!popup) throw new Error("浏览器拦截了打印窗口，请允许弹窗后重试");
+  popup.document.open();
+  popup.document.write(html);
+  popup.document.close();
+}
+
 export function FinanceAdminPage({
   mode = "platform",
   onError,
@@ -215,6 +301,9 @@ export function FinanceAdminPage({
   const [overview, setOverview] = useState<Overview | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [statements, setStatements] = useState<Statement[]>([]);
+  const [counterparties, setCounterparties] = useState<CounterpartyOption[]>(
+    [],
+  );
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatement, setSelectedStatement] =
@@ -233,6 +322,13 @@ export function FinanceAdminPage({
     dateFrom: "",
     dateTo: "",
   });
+  const [statementFilters, setStatementFilters] = useState({
+    counterpartyKey: "",
+    counterpartyName: "",
+    status: "",
+    dateFrom: "",
+    dateTo: "",
+  });
   const [closeDate, setCloseDate] = useState(() =>
     new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
   );
@@ -240,9 +336,32 @@ export function FinanceAdminPage({
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const statementQuery = new URLSearchParams({ pageSize: "100" });
+      if (statementFilters.status)
+        statementQuery.set("status", statementFilters.status);
+      if (statementFilters.dateFrom)
+        statementQuery.set("dateFrom", statementFilters.dateFrom);
+      if (statementFilters.dateTo)
+        statementQuery.set("dateTo", statementFilters.dateTo);
+      if (statementFilters.counterpartyName.trim()) {
+        statementQuery.set(
+          "counterpartyName",
+          statementFilters.counterpartyName.trim(),
+        );
+      }
+      if (statementFilters.counterpartyKey) {
+        const [type, id] = statementFilters.counterpartyKey.split("::");
+        if (type && id) {
+          statementQuery.set("counterpartyType", type);
+          statementQuery.set("counterpartyId", id);
+        }
+      }
+
       const [overviewValue, statementValue] = await Promise.all([
         api<Overview>(`${base}/overview`),
-        api<{ items: Statement[] }>(`${base}/statements?pageSize=100`),
+        api<{ items: Statement[] }>(
+          `${base}/statements?${statementQuery.toString()}`,
+        ),
       ]);
       setOverview(overviewValue);
       setStatements(statementValue.items);
@@ -252,21 +371,24 @@ export function FinanceAdminPage({
             .filter(([, value]) => value)
             .map(([key, value]) => [key, value]),
         );
-        const [transactionValue, ruleValue] = await Promise.all([
-          api<{ items: Transaction[] }>(
-            `${base}/transactions?${query.toString()}`,
-          ),
-          api<Rule[]>(`${base}/rules`),
-        ]);
+        const [transactionValue, ruleValue, counterpartyValue] =
+          await Promise.all([
+            api<{ items: Transaction[] }>(
+              `${base}/transactions?${query.toString()}`,
+            ),
+            api<Rule[]>(`${base}/rules`),
+            api<CounterpartyOption[]>(`${base}/counterparties`),
+          ]);
         setTransactions(transactionValue.items);
         setRules(ruleValue);
+        setCounterparties(counterpartyValue);
       }
     } catch (error) {
       onError(error);
     } finally {
       setLoading(false);
     }
-  }, [base, filters, mode, onError]);
+  }, [base, filters, mode, onError, statementFilters]);
 
   useEffect(() => {
     void load();
@@ -299,6 +421,20 @@ export function FinanceAdminPage({
           `${base}/statements/${encodeURIComponent(statement.id)}`,
         ),
       );
+    } catch (error) {
+      onError(error);
+    }
+  }
+
+  async function printStatement(statement: Statement | StatementDetail) {
+    try {
+      const detail =
+        "items" in statement && Array.isArray(statement.items)
+          ? statement
+          : await api<StatementDetail>(
+              `${base}/statements/${encodeURIComponent(statement.id)}`,
+            );
+      printStatementDetail(detail);
     } catch (error) {
       onError(error);
     }
@@ -652,6 +788,98 @@ export function FinanceAdminPage({
               <span>系统每天凌晨 2 点自动生成结算单 · 封账后退款计入后续结算抵扣</span>
             )}
           </div>
+          {mode === "platform" ? (
+            <div className="finance-filter">
+              <Funnel />
+              <select
+                value={statementFilters.counterpartyKey}
+                onChange={(event) =>
+                  setStatementFilters({
+                    ...statementFilters,
+                    counterpartyKey: event.target.value,
+                  })
+                }
+                aria-label="按主体筛选"
+              >
+                <option value="">全部主体</option>
+                {counterparties.map((item) => (
+                  <option
+                    key={`${item.type}::${item.id}`}
+                    value={`${item.type}::${item.id}`}
+                  >
+                    {item.name}
+                    {counterpartyTypeLabels[item.type]
+                      ? ` · ${counterpartyTypeLabels[item.type]}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={statementFilters.counterpartyName}
+                onChange={(event) =>
+                  setStatementFilters({
+                    ...statementFilters,
+                    counterpartyName: event.target.value,
+                  })
+                }
+                placeholder="主体名称关键词"
+                aria-label="主体名称关键词"
+              />
+              <select
+                value={statementFilters.status}
+                onChange={(event) =>
+                  setStatementFilters({
+                    ...statementFilters,
+                    status: event.target.value,
+                  })
+                }
+                aria-label="账单状态"
+              >
+                <option value="">全部状态</option>
+                <option value="pending_payment">待付款</option>
+                <option value="paid">已付款</option>
+                <option value="carried_forward">余额结转</option>
+                <option value="void">已作废</option>
+              </select>
+              <input
+                type="date"
+                value={statementFilters.dateFrom}
+                onChange={(event) =>
+                  setStatementFilters({
+                    ...statementFilters,
+                    dateFrom: event.target.value,
+                  })
+                }
+                aria-label="账单起始日期"
+              />
+              <input
+                type="date"
+                value={statementFilters.dateTo}
+                onChange={(event) =>
+                  setStatementFilters({
+                    ...statementFilters,
+                    dateTo: event.target.value,
+                  })
+                }
+                aria-label="账单截止日期"
+              />
+              <button
+                type="button"
+                className="finance-filter-reset"
+                onClick={() =>
+                  setStatementFilters({
+                    counterpartyKey: "",
+                    counterpartyName: "",
+                    status: "",
+                    dateFrom: "",
+                    dateTo: "",
+                  })
+                }
+              >
+                清除筛选
+              </button>
+            </div>
+          ) : null}
           <div className="table-wrap">
             <table>
               <thead>
@@ -676,7 +904,10 @@ export function FinanceAdminPage({
                     {mode === "platform" ? (
                       <td>
                         <strong>{item.counterpartyName}</strong>
-                        <small>{item.counterpartyType}</small>
+                        <small>
+                          {counterpartyTypeLabels[item.counterpartyType] ??
+                            item.counterpartyType}
+                        </small>
                       </td>
                     ) : null}
                     <td>¥{money(item.grossAmountFen)}</td>
@@ -691,23 +922,38 @@ export function FinanceAdminPage({
                       </span>
                     </td>
                     <td>
-                      <button
-                        className="table-action"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void downloadStatement(base, item).catch(onError);
-                        }}
-                      >
-                        <DownloadSimple />
-                        XLSX
-                      </button>
+                      <div className="table-action-group">
+                        <button
+                          className="table-action"
+                          type="button"
+                          title="打印结算单"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void printStatement(item);
+                          }}
+                        >
+                          <Printer />
+                          打印
+                        </button>
+                        <button
+                          className="table-action"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void downloadStatement(base, item).catch(onError);
+                          }}
+                        >
+                          <DownloadSimple />
+                          XLSX
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {!statements.length && !loading ? (
-              <div className="empty-table">当前还没有日账单</div>
+              <div className="empty-table">当前没有符合条件的日账单</div>
             ) : null}
           </div>
           <div className="history-note">
@@ -738,9 +984,24 @@ export function FinanceAdminPage({
                   {financeDate(selectedStatement.statementDate)}
                 </p>
               </div>
-              <button onClick={() => setSelectedStatement(null)}>
-                <X />
-              </button>
+              <div className="finance-drawer-header-actions">
+                <button
+                  type="button"
+                  className="finance-drawer-print"
+                  title="打印结算单"
+                  onClick={() => void printStatement(selectedStatement)}
+                >
+                  <Printer />
+                  打印
+                </button>
+                <button
+                  type="button"
+                  aria-label="关闭"
+                  onClick={() => setSelectedStatement(null)}
+                >
+                  <X />
+                </button>
+              </div>
             </header>
             <div className="finance-drawer-body">
               <div className="statement-summary">

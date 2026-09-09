@@ -1002,6 +1002,7 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
     if (scope) { clauses.push("counterparty_type = ?", "counterparty_id = ?"); values.push(scope.type, scope.id); }
     if (!scope && request.query.counterpartyType) { clauses.push("counterparty_type = ?"); values.push(request.query.counterpartyType); }
     if (!scope && request.query.counterpartyId) { clauses.push("counterparty_id = ?"); values.push(request.query.counterpartyId); }
+    if (!scope && request.query.counterpartyName) { clauses.push("counterparty_name ILIKE ?"); values.push(`%${request.query.counterpartyName.trim()}%`); }
     if (request.query.status) { clauses.push("status = ?"); values.push(request.query.status); }
     if (request.query.dateFrom) { clauses.push("statement_date >= ?::date"); values.push(request.query.dateFrom); }
     if (request.query.dateTo) { clauses.push("statement_date <= ?::date"); values.push(request.query.dateTo); }
@@ -1019,6 +1020,25 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
   app.get("/api/admin/wash/finance/statements", listStatements);
   app.get("/api/operator/finance/statements", listStatements);
   app.get("/api/repair-operator/finance/statements", listStatements);
+
+  app.get("/api/admin/finance/counterparties", async (request) => {
+    const principal = backofficeForRequest(request);
+    assertFinanceCapability(principal, "finance.read");
+    if (principal.account.role !== "platform_admin") throw problem(403, "BACKOFFICE_FORBIDDEN", "仅平台管理员可以查看全部合作方");
+    const rows = await database.prepare<Row>(`
+      SELECT DISTINCT counterparty_type, counterparty_id, counterparty_name
+      FROM finance_daily_statements
+      WHERE status <> 'void'
+      ORDER BY counterparty_name, counterparty_type, counterparty_id
+    `).all();
+    return {
+      data: rows.map((row) => ({
+        type: String(row.counterparty_type),
+        id: String(row.counterparty_id),
+        name: String(row.counterparty_name),
+      })),
+    };
+  });
 
   const getStatement = async (request: FastifyRequest<{ Params: { id: string } }>) => {
     const principal = backofficeForRequest(request);
