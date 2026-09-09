@@ -2450,9 +2450,13 @@ td small { margin-top: 4px; color: #8a98a6; font-size: 9px; }
 .precheck-refund-failed button:disabled { opacity: .55; cursor: wait; }
 .precheck-refund-failed button svg { width: 15px; height: 15px; }
 @media (max-width: 720px) { .precheck-audit-panel dl { grid-template-columns: 1fr; }.precheck-audit-panel dl > div.wide { grid-column: auto; } }
-.finance-close { display: flex; align-items: center; gap: 8px; }
+.finance-close { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: 420px; }
+.finance-close-actions { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.finance-close-date { display: grid; gap: 4px; }
+.finance-close-date span { color: #718697; font-size: 11px; font-weight: 650; }
 .finance-close input, .finance-close button, .finance-setup input { min-height: 36px; border: 1px solid #d8e4f1; border-radius: 9px; padding: 0 10px; background: #fff; color: #294760; }
 .finance-close button, .finance-setup button, .finance-refund { border: 0; border-radius: 9px; padding: 10px 14px; color: #fff; background: #1768cf; font-weight: 750; cursor: pointer; }
+.finance-close-hint { margin: 0; color: #718697; font-size: 12px; line-height: 1.45; text-align: right; }
 .finance-setup { display: grid; grid-template-columns: minmax(210px, .8fr) minmax(520px, 2fr) auto; align-items: end; gap: 18px; margin-bottom: 18px; }
 .finance-setup h3, .finance-setup p { margin: 4px 0 0; }
 .finance-setup p { color: #6b8095; font-size: 12px; line-height: 1.6; }

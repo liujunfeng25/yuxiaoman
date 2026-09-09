@@ -613,16 +613,33 @@ export function FinanceAdminPage({
           <div className="finance-card-title">
             <div>
               <small>DAILY STATEMENTS</small>
-              <h3>按自然日与合作主体封账</h3>
+              <h3>按自然日汇总应付给合作方的结算单</h3>
             </div>
             {mode === "platform" ? (
               <div className="finance-close">
-                <input type="date" value={closeDate} onChange={(event) => setCloseDate(event.target.value)} />
-                <button type="button" onClick={() => void runSync()}>同步投影</button>
-                <button type="button" onClick={() => void runClose()}>补跑日结</button>
+                <div className="finance-close-actions">
+                  <label className="finance-close-date">
+                    <span>结算日期</span>
+                    <input
+                      type="date"
+                      value={closeDate}
+                      onChange={(event) => setCloseDate(event.target.value)}
+                      aria-label="生成结算单的日期"
+                    />
+                  </label>
+                  <button type="button" title="从订单系统拉取最新支付与待结算费用；可重复点击，不会重复记账" onClick={() => void runSync()}>
+                    刷新账单数据
+                  </button>
+                  <button type="button" title="把选定日期该付给各服务商的费用汇总成结算单；已生成过的不会重复开单" onClick={() => void runClose()}>
+                    生成结算单
+                  </button>
+                </div>
+                <p className="finance-close-hint">
+                  平时不用点：系统每天凌晨 2 点自动生成前一天的结算单。发现数据滞后先点「刷新账单数据」；仍缺结算单再选日期点「生成结算单」。重复点击不会产生重复账单。
+                </p>
               </div>
             ) : (
-              <span>次日 02:00 自动封账 · 封账后退款下期冲正</span>
+              <span>系统每天凌晨 2 点自动生成结算单 · 封账后退款计入后续结算抵扣</span>
             )}
           </div>
           <div className="table-wrap">

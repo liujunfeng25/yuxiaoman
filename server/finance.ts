@@ -1171,7 +1171,7 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
       action: "finance.sync",
       outcome: "success",
       resource: { type: "finance_settings", id: "1" },
-      presentation: { category: "finance", actionLabel: "同步财务投影", summary: result.enabled ? "已同步支付与应计" : "财务未启用，未写入投影" },
+      presentation: { category: "finance", actionLabel: "刷新账单数据", summary: result.enabled ? "已刷新支付与待结算费用" : "财务未启用，未写入数据" },
     });
     return { data: result };
   });
@@ -1180,10 +1180,10 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
     const principal = backofficeForRequest(request);
     assertFinanceCapability(principal, "finance.statements.manage");
     const parsed = z.object({ statementDate: z.string().date() }).safeParse(request.body);
-    if (!parsed.success) throw problem(400, "FINANCE_CLOSE_DATE_INVALID", "日结日期无效");
-    if (parsed.data.statementDate >= shanghaiDate(now())) throw problem(409, "FINANCE_CLOSE_DATE_NOT_FINISHED", "只能封账已结束的自然日");
+    if (!parsed.success) throw problem(400, "FINANCE_CLOSE_DATE_INVALID", "结算日期无效");
+    if (parsed.data.statementDate >= shanghaiDate(now())) throw problem(409, "FINANCE_CLOSE_DATE_NOT_FINISHED", "只能生成已结束自然日的结算单");
     const created = await runFinanceDailyClose(database, parsed.data.statementDate, now());
-    await auditBackofficeEvent(database, { request, action: "finance.daily_close", outcome: "success", resource: { type: "finance_statement_batch", id: parsed.data.statementDate }, presentation: { category: "finance", actionLabel: "补跑日结", summary: `${parsed.data.statementDate} · 新增 ${created} 张账单` } });
+    await auditBackofficeEvent(database, { request, action: "finance.daily_close", outcome: "success", resource: { type: "finance_statement_batch", id: parsed.data.statementDate }, presentation: { category: "finance", actionLabel: "生成结算单", summary: `${parsed.data.statementDate} · 新增 ${created} 张结算单` } });
     return { data: { statementDate: parsed.data.statementDate, created } };
   });
 
