@@ -76,7 +76,8 @@
         "pages/precheck-detail/precheck-detail",
         "pages/operator-detail/operator-detail",
         "pages/operator-station/operator-station",
-        "pages/workflow-tasks/workflow-tasks"
+        "pages/workflow-tasks/workflow-tasks",
+        "pages/finance/finance"
       ]
     },
     {
@@ -110,7 +111,8 @@
         "pages/shop-request-detail/shop-request-detail",
         "pages/shop-quote/shop-quote",
         "pages/shop-deal/shop-deal",
-        "pages/shop-workflow-tasks/shop-workflow-tasks"
+        "pages/shop-workflow-tasks/shop-workflow-tasks",
+        "pages/shop-finance/shop-finance"
       ]
     },
     {

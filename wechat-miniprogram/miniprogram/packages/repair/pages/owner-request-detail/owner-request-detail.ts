@@ -121,7 +121,7 @@ Page<Data>({
       allPhotoUrls,
       createdAtText: formatRepairDateTime(request.createdAt),
       updatedAtText: formatRepairDateTime(request.updatedAt),
-      paidShopName: request.order?.shop.name || selectedQuote?.shop.name || "",
+      paidShopName: request.order?.shop?.name || selectedQuote?.shop.name || "",
       paidPriceFen,
       paidPriceText: formatFenAmount(paidPriceFen),
     });

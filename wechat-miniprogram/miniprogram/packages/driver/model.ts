@@ -1,7 +1,7 @@
 import { mediaUrl } from "../../services/api";
 
 export type DriverEvidenceStage = "owner_pickup" | "station_arrival" | "inspection_complete" | "owner_return";
-export type DriverEvidencePhotoKind = "front_left" | "front_right" | "rear_left" | "rear_right" | "dashboard_started";
+export type DriverEvidencePhotoKind = "front_left" | "front_right" | "rear_left" | "rear_right" | "dashboard_started" | "vehicle_panorama";
 export type DriverEvidencePackageStatus = "pending" | "in_progress" | "completed";
 
 export type DriverTaskSession = {
@@ -9,6 +9,7 @@ export type DriverTaskSession = {
   expiresAt: string;
   taskId: string;
   bookingId: string;
+  serviceType: "annual_inspection" | "car_wash";
 };
 
 export type DriverEvidencePhoto = {
@@ -45,6 +46,8 @@ export type DriverTaskAddress = {
 };
 
 export type DriverTask = {
+  serviceType: "annual_inspection" | "car_wash";
+  requiredPhotoKinds: DriverEvidencePhotoKind[];
   taskId: string;
   bookingId: string;
   bookingNumber: string;
@@ -94,6 +97,14 @@ export const DRIVER_PHOTO_SLOTS: DriverPhotoSlot[] = [
   { kind: "dashboard_started", label: "启动后仪表盘", hint: "车辆启动后拍清里程与仪表状态" },
 ];
 
+const WASH_DRIVER_PHOTO_SLOTS: DriverPhotoSlot[] = [
+  { kind: "vehicle_panorama", label: "车辆全景", hint: "完整车身与现场环境同时入镜" },
+];
+
+export function driverPhotoSlots(task: DriverTask | null): DriverPhotoSlot[] {
+  return task?.serviceType === "car_wash" ? WASH_DRIVER_PHOTO_SLOTS : DRIVER_PHOTO_SLOTS;
+}
+
 export const DRIVER_STAGE_LABELS: Record<DriverEvidenceStage, string> = {
   owner_pickup: "司机取车留证",
   station_arrival: "检测站到车留证",
@@ -109,7 +120,7 @@ export const DRIVER_STAGE_ACTORS: Record<DriverEvidenceStage, string> = {
 };
 
 const STAGES: DriverEvidenceStage[] = ["owner_pickup", "station_arrival", "inspection_complete", "owner_return"];
-const PHOTO_KINDS: DriverEvidencePhotoKind[] = ["front_left", "front_right", "rear_left", "rear_right", "dashboard_started"];
+const PHOTO_KINDS: DriverEvidencePhotoKind[] = ["front_left", "front_right", "rear_left", "rear_right", "dashboard_started", "vehicle_panorama"];
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -192,7 +203,7 @@ export function normalizeDriverSession(value: unknown): DriverTaskSession | null
   const bookingId = stringValue(source.bookingId, booking.id);
   const taskId = stringValue(source.taskId, assignment.id, bookingId);
   if (!token || !expiresAt || !bookingId || !taskId || !Number.isFinite(Date.parse(expiresAt))) return null;
-  return { token, expiresAt, taskId, bookingId };
+  return { token, expiresAt, taskId, bookingId, serviceType: source.serviceType === "car_wash" ? "car_wash" : "annual_inspection" };
 }
 
 export function normalizeDriverTask(value: unknown): DriverTask {
@@ -206,11 +217,13 @@ export function normalizeDriverTask(value: unknown): DriverTask {
   const pickupAddress = normalizeAddress(source.pickupAddress || booking.pickupAddress);
   const stationSource = objectValue(source.station || booking.station);
   const stationAddress = normalizeAddress(stationSource);
+  const serviceType = source.serviceType === "car_wash" || booking.serviceType === "car_wash" ? "car_wash" as const : "annual_inspection" as const;
   const rawPackages = Array.isArray(source.evidencePackages)
     ? source.evidencePackages
     : Array.isArray(booking.evidencePackages) ? booking.evidencePackages : [];
   const normalizedPackages = rawPackages.map(normalizePackage).filter((item): item is DriverEvidencePackage => Boolean(item));
-  const packages = STAGES.map((stage) => normalizedPackages.find((item) => item.stage === stage) || ({
+  const applicableStages = serviceType === "car_wash" ? ["owner_pickup", "owner_return"] as DriverEvidenceStage[] : STAGES;
+  const packages = applicableStages.map((stage) => normalizedPackages.find((item) => item.stage === stage) || ({
     stage,
     status: "pending" as const,
     capturedAt: null,
@@ -226,6 +239,8 @@ export function normalizeDriverTask(value: unknown): DriverTask {
     stringValue(modelSource.name, vehicleSource.modelName),
   ].filter(Boolean).join(" ") || stringValue(vehicleSource.vehicleType) || "预约车辆";
   return {
+    serviceType,
+    requiredPhotoKinds: serviceType === "car_wash" ? ["vehicle_panorama"] : DRIVER_PHOTO_SLOTS.map((item) => item.kind),
     taskId: stringValue(source.taskId, assignmentSource.id, bookingId),
     bookingId,
     bookingNumber: stringValue(source.bookingNumber, booking.bookingNumber),
@@ -310,6 +325,7 @@ export function driverWritableStage(task: DriverTask | null): DriverEvidenceStag
 export function canStartReturn(task: DriverTask | null): boolean {
   if (!task) return false;
   const status = task.fulfillmentStatus || task.status;
+  if (task.serviceType === "car_wash") return status === "store_service_completed";
   return status === "result_received" && evidenceForStage(task, "inspection_complete").status === "completed";
 }
 

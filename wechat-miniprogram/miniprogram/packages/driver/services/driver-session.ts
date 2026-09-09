@@ -11,9 +11,10 @@ function validSession(value: unknown): DriverTaskSession | null {
   const expiresAt = typeof source.expiresAt === "string" ? source.expiresAt : "";
   const taskId = typeof source.taskId === "string" ? source.taskId.trim() : "";
   const bookingId = typeof source.bookingId === "string" ? source.bookingId.trim() : "";
+  const serviceType = source.serviceType === "car_wash" ? "car_wash" as const : "annual_inspection" as const;
   const expiry = Date.parse(expiresAt);
   if (!token || !taskId || !bookingId || !Number.isFinite(expiry) || expiry <= Date.now() + EXPIRY_SKEW_MS) return null;
-  return { token, expiresAt, taskId, bookingId };
+  return { token, expiresAt, taskId, bookingId, serviceType };
 }
 
 export function readDriverTaskSession(): DriverTaskSession | null {

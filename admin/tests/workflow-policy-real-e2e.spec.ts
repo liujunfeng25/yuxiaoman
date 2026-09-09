@@ -205,7 +205,7 @@ test("管理员通过真实页面发布年检督办策略新版本并留下发�
     .getByRole("button", { name: "发布记录", exact: true })
     .click();
   await expect(page).toHaveURL(/\/workflow\/releases$/u);
-  await expect(page.getByRole("heading", { name: "发布与审计记录" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "发布与审计记录", level: 2 })).toBeVisible();
   const releaseRow = page.locator(".workflow-release-list article").filter({ hasText: "督办策略" }).filter({ hasText: "第2版" }).first();
   await expect(releaseRow).toBeVisible();
   await expect(releaseRow).toContainText("已发布");

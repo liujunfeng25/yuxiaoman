@@ -172,6 +172,47 @@ export async function migrateRepairDatabase(database: AppDatabase): Promise<void
       UNIQUE (user_id, idempotency_key)
     );
 
+    -- Real WeChat payments are kept separate from historical demo-only mock
+    -- rows so a mock transaction can never become a production payable.
+    CREATE TABLE IF NOT EXISTS repair_order_payments (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES repair_orders(id) ON DELETE RESTRICT,
+      request_id TEXT NOT NULL REFERENCES repair_requests(id) ON DELETE RESTRICT,
+      quote_id TEXT NOT NULL REFERENCES repair_quotes(id) ON DELETE RESTRICT,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      provider TEXT NOT NULL CHECK (provider = 'wechat'),
+      kind TEXT NOT NULL CHECK (kind IN ('charge', 'refund')),
+      idempotency_key TEXT NOT NULL,
+      amount_fen INTEGER NOT NULL CHECK (amount_fen > 0),
+      channel_amount_fen INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed', 'failed')),
+      out_trade_no TEXT,
+      transaction_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL,
+      confirmed_at TIMESTAMPTZ,
+      UNIQUE (provider, idempotency_key)
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS repair_order_payments_out_trade_no_uidx
+      ON repair_order_payments(out_trade_no) WHERE out_trade_no IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS repair_order_payments_order_index
+      ON repair_order_payments(order_id, created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS repair_order_payments_one_live_charge
+      ON repair_order_payments(order_id)
+      WHERE kind = 'charge' AND status IN ('pending', 'confirmed');
+    CREATE UNIQUE INDEX IF NOT EXISTS repair_order_payments_one_live_refund
+      ON repair_order_payments(order_id)
+      WHERE kind = 'refund' AND status IN ('pending', 'confirmed');
+
+    ALTER TABLE repair_requests DROP CONSTRAINT IF EXISTS repair_requests_status_check;
+    ALTER TABLE repair_requests ADD CONSTRAINT repair_requests_status_check
+      CHECK (status IN ('open', 'pending_payment', 'paid', 'cancelled', 'refunded'));
+    ALTER TABLE repair_orders DROP CONSTRAINT IF EXISTS repair_orders_status_check;
+    ALTER TABLE repair_orders ALTER COLUMN paid_at DROP NOT NULL;
+    ALTER TABLE repair_orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ;
+    ALTER TABLE repair_orders ADD CONSTRAINT repair_orders_status_check
+      CHECK (status IN ('pending_payment', 'paid', 'refunded'));
+
     CREATE INDEX IF NOT EXISTS repair_requests_owner_index
       ON repair_requests(user_id, created_at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS repair_requests_lobby_index
@@ -205,13 +246,15 @@ export async function migrateRepairDatabase(database: AppDatabase): Promise<void
           (source_fault_id IS NULL AND precheck_reason_code IS NOT NULL AND precheck_reason_code IN ('body_damage', 'dashboard_warning')));
       END IF;
     END $$;
-    CREATE UNIQUE INDEX IF NOT EXISTS repair_precheck_active_request
-      ON repair_requests(source_booking_id) WHERE source_type = 'precheck' AND status IN ('open', 'paid');
+    DROP INDEX IF EXISTS repair_precheck_active_request;
+    CREATE UNIQUE INDEX repair_precheck_active_request
+      ON repair_requests(source_booking_id) WHERE source_type = 'precheck' AND status IN ('open', 'pending_payment', 'paid');
   `);
 }
 
 export async function clearRepairData(database: AppDatabase): Promise<void> {
   await database.execute(`
+    DELETE FROM repair_order_payments;
     DELETE FROM repair_mock_payments;
     DELETE FROM repair_orders;
     DELETE FROM repair_quotes;

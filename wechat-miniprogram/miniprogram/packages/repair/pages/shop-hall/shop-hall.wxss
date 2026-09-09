@@ -82,3 +82,4 @@
   .damage-summary { grid-template-columns: auto minmax(0, 1fr); }
   .damage-summary text:last-child { display: none; }
 }
+.finance-entry{display:flex;width:100%;align-items:center;gap:18rpx;margin:18rpx 0;padding:22rpx;border:1rpx solid #d9e8f2;border-radius:22rpx;color:#17466b;background:#fff;text-align:left}.finance-entry>image:first-child{width:42rpx;height:42rpx;padding:10rpx;border-radius:14rpx;background:#eaf5fd}.finance-entry>view{display:grid;flex:1;gap:6rpx}.finance-entry>view text:first-child{font-size:26rpx;font-weight:700}.finance-entry>view text:last-child{color:#758b9c;font-size:20rpx}.finance-entry>image:last-child{width:26rpx;height:26rpx}

@@ -86,7 +86,8 @@ Page<Data>({
       priceText: formatFenAmount(quote.totalPriceFen),
       statusText: quoteStatusLabel(quote.status),
       selected: quote.id === selectedQuoteId,
-      selectable: request.status === "open" && quote.status === "active",
+      selectable: (request.status === "open" && quote.status === "active")
+        || (request.status === "pending_payment" && quote.id === request.selectedQuoteId),
       isLowest: quote.status === "active" && lowestPriceFen !== null && quote.totalPriceFen === lowestPriceFen,
     }));
     const selected = quoteViews.find((quote) => quote.id === selectedQuoteId);
@@ -148,7 +149,7 @@ Page<Data>({
       this.viewReceipt();
       return;
     }
-    if (request.status !== "open") {
+    if (request.status !== "open" && request.status !== "pending_payment") {
       wx.showToast({ title: "该维修询价当前不能支付", icon: "none" });
       return;
     }
@@ -168,10 +169,10 @@ Page<Data>({
       this.paymentKey = idempotencyKey;
       const paid = await api.payRepairRequest(request.id, quote.id, idempotencyKey);
       this.applyRequest(paid);
-      wx.showToast({ title: "模拟支付成功", icon: "success" });
+      wx.showToast({ title: "支付成功", icon: "success" });
       wx.redirectTo({ url: `/packages/repair/pages/owner-receipt/owner-receipt?id=${encodeURIComponent(paid.id)}` });
     } catch (error) {
-      this.setData({ error: error instanceof Error ? error.message : "模拟支付失败，请重试" });
+      this.setData({ error: error instanceof Error ? error.message : "支付失败，请重试" });
     } finally {
       this.setData({ paying: false });
     }

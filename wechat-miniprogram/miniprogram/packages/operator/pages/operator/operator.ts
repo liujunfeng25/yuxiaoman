@@ -168,6 +168,9 @@ Page<Data>({
   openWorkflowTasks() {
     wx.navigateTo({ url: "/packages/operator/pages/workflow-tasks/workflow-tasks" });
   },
+  openFinance() {
+    wx.navigateTo({ url: "/packages/operator/pages/finance/finance" });
+  },
   async load() {
     this.setData({ loading: true, loadError: "" });
     try {

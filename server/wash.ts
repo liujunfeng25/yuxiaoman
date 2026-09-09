@@ -1304,6 +1304,7 @@ async function orderFromRow(database: AppDatabase, row: Row, includeEvents = tru
       ? Number(row.total_fee_fen)
       : Number(row.estimated_settlement_fen),
     status: String(row.status),
+    fulfillmentStatus: String(row.fulfillment_status ?? row.status),
     paymentStatus: String(row.payment_status),
     redemptionCode,
     verificationCode: redemptionCode,
@@ -1333,6 +1334,7 @@ async function orderFromRow(database: AppDatabase, row: Row, includeEvents = tru
     holdExpiresAt: String(row.hold_expires_at),
     paidAt: row.paid_at == null ? null : String(row.paid_at),
     redeemedAt: row.redeemed_at == null ? null : String(row.redeemed_at),
+    completedAt: row.completed_at == null ? null : String(row.completed_at),
     cancelledAt: row.cancelled_at == null ? null : String(row.cancelled_at),
     refundedAt: row.refunded_at == null ? null : String(row.refunded_at),
     expiredAt: row.expired_at == null ? null : String(row.expired_at),
@@ -1418,6 +1420,7 @@ async function washStoreOrderFromRow(database: AppDatabase, row: Row) {
     totalFeeFen: Number(row.total_fee_fen),
     serviceFeeFen: Number(row.total_fee_fen),
     status: String(row.status),
+    fulfillmentStatus: String(row.fulfillment_status ?? row.status),
     paymentStatus: String(row.payment_status),
     redeemedAt: row.redeemed_at == null ? null : String(row.redeemed_at),
     createdAt: String(row.created_at),
@@ -1561,7 +1564,7 @@ async function expirePendingOrders(database: AppDatabase): Promise<void> {
     for (const row of rows) {
       const id = String(row.id);
       await tx.prepare(`
-        UPDATE wash_orders SET status = 'expired', expired_at = ?, updated_at = ?
+        UPDATE wash_orders SET status = 'expired', fulfillment_status = 'expired', expired_at = ?, updated_at = ?
         WHERE id = ? AND status = 'pending_payment'
       `).run(now, now, id);
       await tx.prepare(`
@@ -1641,6 +1644,7 @@ export async function confirmWashWechatPaymentByOutTradeNo(
     );
     const updated = await tx.prepare(`
       UPDATE wash_orders SET status = 'awaiting_redemption', payment_status = 'paid',
+        fulfillment_status = CASE WHEN service_mode = 'valet' THEN 'awaiting_assignment' ELSE 'awaiting_store_service' END,
         redemption_code = ?, paid_at = ?, updated_at = ?
       WHERE id = ? AND status = 'pending_payment'
     `).run(code, now, now, String(order.id));
@@ -1788,11 +1792,11 @@ async function cancelOrRefundOrder(
   }
   await database.prepare(`
     UPDATE wash_orders SET
-      status = ?, payment_status = ?, updated_at = ?,
+      status = ?, payment_status = ?, fulfillment_status = ?, updated_at = ?,
       cancelled_at = CASE WHEN ? = 'cancelled' THEN ? ELSE cancelled_at END,
       refunded_at = CASE WHEN ? = 'refunded' THEN ? ELSE refunded_at END
     WHERE id = ?
-  `).run(next, paid ? "refunded" : "unpaid", now, next, now, next, now, String(row.id));
+  `).run(next, paid ? "refunded" : "unpaid", next, now, next, now, next, now, String(row.id));
   await database.prepare(`
     UPDATE wash_order_settlements SET
       status = 'void', operator = ?, reason = ?, settled_at = NULL, updated_at = ?
@@ -2571,6 +2575,7 @@ async function registerWashRoutesAsync(
       `).run(paymentId, request.params.id, body.idempotencyKey, Number(current.total_fee_fen), now, now);
       const updated = await tx.prepare(`
         UPDATE wash_orders SET status = 'awaiting_redemption', payment_status = 'paid',
+          fulfillment_status = CASE WHEN service_mode = 'valet' THEN 'awaiting_assignment' ELSE 'awaiting_store_service' END,
           redemption_code = ?, paid_at = ?, updated_at = ?
         WHERE id = ? AND status = 'pending_payment' AND hold_expires_at > ?
       `).run(code, now, now, request.params.id, now);
@@ -3944,11 +3949,21 @@ async function registerWashRoutesAsync(
         }
         throw problem(409, "WASH_REDEMPTION_CODE_INACTIVE", "核销码错误或已失效");
       }
+      if (String(row.service_mode) === "valet" && String(row.fulfillment_status) !== "picked_up") {
+        if (access.storeId) {
+          await recordRedemptionAttempt(tx, access.session.account.id, access.storeId, ipHash, false);
+          return { failure: { statusCode: 409, code: "WASH_VALET_NOT_AT_STORE", message: "代驾尚未完成取车，当前不能核销" } };
+        }
+        throw problem(409, "WASH_VALET_NOT_AT_STORE", "代驾尚未完成取车，当前不能核销");
+      }
       const now = new Date().toISOString();
       const updated = await tx.prepare(`
-        UPDATE wash_orders SET status = 'redeemed', redeemed_at = ?, updated_at = ?
+        UPDATE wash_orders SET status = 'redeemed',
+          fulfillment_status = CASE WHEN service_mode = 'valet' THEN 'store_service_completed' ELSE 'completed' END,
+          redeemed_at = ?, completed_at = CASE WHEN service_mode = 'self_drive' THEN ?::timestamptz ELSE completed_at END,
+          updated_at = ?
         WHERE id = ? AND status = 'awaiting_redemption'
-      `).run(now, now, String(row.id));
+      `).run(now, now, now, String(row.id));
       if (updated.changes !== 1) {
         if (access.storeId) {
           await recordRedemptionAttempt(tx, access.session.account.id, access.storeId, ipHash, false);

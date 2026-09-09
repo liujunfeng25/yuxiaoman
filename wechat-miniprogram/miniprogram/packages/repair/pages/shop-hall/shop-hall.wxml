@@ -33,6 +33,12 @@
     </view>
   </view>
 
+  <button class="finance-entry" bindtap="openFinance">
+    <image src="/assets/icons/receipt.png" mode="aspectFit" />
+    <view><text>账单明细</text><text>仅统计真实微信成交、佣金和退款冲正</text></view>
+    <image src="/assets/icons/caret-right.png" mode="aspectFit" />
+  </button>
+
   <view class="hall-heading">
     <view><text>接单大厅</text><text>按需求状态快速处理</text></view>
     <button bindtap="retry" disabled="{{loading}}"><image src="/assets/icons/recycle.png" mode="aspectFit" /><text>刷新</text></button>

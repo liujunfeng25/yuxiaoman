@@ -47,7 +47,12 @@ export type BackofficeCapability =
   | "repair.authorized_details.read"
   | "workflow.tasks.read"
   | "workflow.tasks.remind"
-  | "workflow.settings.manage";
+  | "workflow.settings.manage"
+  | "finance.read"
+  | "finance.export"
+  | "finance.rules.manage"
+  | "finance.statements.manage"
+  | "finance.payouts.manage";
 
 export type BackofficeSubject = {
   type: BackofficeSubjectType;
@@ -106,6 +111,11 @@ const PLATFORM_CAPABILITIES: BackofficeCapability[] = [
   "workflow.tasks.read",
   "workflow.tasks.remind",
   "workflow.settings.manage",
+  "finance.read",
+  "finance.export",
+  "finance.rules.manage",
+  "finance.statements.manage",
+  "finance.payouts.manage",
 ];
 
 export const WASH_STORE_CAPABILITIES: BackofficeCapability[] = [
@@ -119,6 +129,8 @@ export const WASH_STORE_CAPABILITIES: BackofficeCapability[] = [
   "wash.offers.read",
   "wash.offers.write",
   "wash.settlements.read",
+  "finance.read",
+  "finance.export",
   "audit.self.read",
 ];
 
@@ -130,6 +142,8 @@ export const INSPECTION_STATION_CAPABILITIES: BackofficeCapability[] = [
   "inspection.reports.read",
   "inspection.reports.write",
   "workflow.tasks.read",
+  "finance.read",
+  "finance.export",
   "audit.self.read",
 ];
 
@@ -139,6 +153,8 @@ export const REPAIR_SHOP_CAPABILITIES: BackofficeCapability[] = [
   "repair.quotes.write",
   "repair.authorized_details.read",
   "workflow.tasks.read",
+  "finance.read",
+  "finance.export",
   "audit.self.read",
 ];
 
@@ -892,7 +908,8 @@ export type BackofficeAuditCategory =
   | "car_rental"
   | "insurance"
   | "driving_school"
-  | "subsidy";
+  | "subsidy"
+  | "finance";
 
 export type BackofficeAuditDisplayChange = {
   field?: string;
@@ -1666,6 +1683,9 @@ function mayRepairShopAccessPath(path: string, method: string): boolean {
 }
 
 function repairOperatorCapability(path: string, method: string): BackofficeCapability {
+  if (path.startsWith("/api/repair-operator/finance/")) {
+    return path.endsWith("/export") ? "finance.export" : "finance.read";
+  }
   if (path.includes("/media/")) return "repair.authorized_details.read";
   if (method !== "GET" && method !== "HEAD") return "repair.quotes.write";
   if (path.includes("/quote")) return "repair.quotes.read";
@@ -1673,6 +1693,9 @@ function repairOperatorCapability(path: string, method: string): BackofficeCapab
 }
 
 function operatorCapability(path: string, method: string): BackofficeCapability {
+  if (path.startsWith("/api/operator/finance/")) {
+    return path.endsWith("/export") ? "finance.export" : "finance.read";
+  }
   if (path === "/api/operator/workflow/tasks" || path === "/api/operator/workflow/tasks/summary") {
     return "workflow.tasks.read";
   }
@@ -1712,6 +1735,9 @@ async function enforceInspectionStationOperatorScope(
     || path === "/api/operator/prechecks"
     || path === "/api/operator/workflow/tasks"
     || path === "/api/operator/workflow/tasks/summary"
+    || path === "/api/operator/finance/overview"
+    || path === "/api/operator/finance/statements"
+    || /^\/api\/operator\/finance\/statements\/[^/]+(?:\/export)?$/u.test(path)
   ) return;
 
   const precheckMatch = path.match(/^\/api\/operator\/prechecks\/([^/]+)(?:\/|$)/u);
@@ -1833,6 +1859,7 @@ const AUDIT_CATEGORY_LABELS: Record<BackofficeAuditCategory, string> = {
   insurance: "车险服务",
   driving_school: "驾校服务",
   subsidy: "补贴咨询",
+  finance: "财务结算",
 };
 
 const AUDIT_ACTION_DEFINITIONS: Record<string, { category: BackofficeAuditCategory; label: string }> = {

@@ -72,6 +72,7 @@ import {
   validWashLocationProof,
   washLocationSuggestionSchema,
 } from "./wash.js";
+import { registerWashValetRoutes } from "./wash-valet.js";
 import { assertAnnualBookingFinancialClosureReady } from "./annual-booking-finance.js";
 import {
   buildMiniProgramPayParams,
@@ -103,7 +104,8 @@ import {
   registerVehicleCheckupRoutes,
   vehicleCheckupReportDto,
 } from "./vehicle-checkup.js";
-import { registerRepairRoutes } from "./repair.js";
+import { confirmRepairWechatPaymentByOutTradeNo, registerRepairRoutes } from "./repair.js";
+import { registerFinanceRoutes } from "./finance.js";
 import { registerWorkflowRoutes, WorkflowDomainError } from "./workflow.js";
 import {
   enableAnnualWorkflowForBooking,
@@ -170,6 +172,7 @@ type BuildAppOptions = {
   now?: () => Date;
   slotNow?: () => Date;
   trustProxy?: false | string | string[];
+  disableFinanceDailyCloseScheduler?: boolean;
   carRentalCalculateDrivingRoute?: (
     origin: { latitude: number; longitude: number },
     destination: { latitude: number; longitude: number },
@@ -4025,6 +4028,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       return metric;
     },
   });
+  await registerWashValetRoutes(app, database, {
+    uploadDir,
+    now: currentTime,
+    problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+  });
   await registerUsedCarAssetRoutes(app);
   await registerDrivingSchoolAssetRoutes(app);
   await registerUsedCarRoutes(app, database, {
@@ -4080,6 +4088,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     uploadDir,
     now: currentTime,
     problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+  });
+  await registerFinanceRoutes(app, database, {
+    uploadDir,
+    now: currentTime,
+    problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+    disableDailyCloseScheduler: options.disableFinanceDailyCloseScheduler ?? process.env.NODE_ENV === "test",
   });
 
   app.get<{ Querystring: { query?: string } }>("/api/locations/suggestions", async (request) => {
@@ -5678,7 +5692,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
       });
       if (washResult === "not_found") {
-        throw new ApiProblem(404, "PAYMENT_NOT_FOUND", "未找到对应支付单");
+        const repairResult = await confirmRepairWechatPaymentByOutTradeNo(database, {
+          outTradeNo: notify.outTradeNo,
+          amountFen: notify.amountFen,
+          transactionId: notify.transactionId,
+          now,
+          problem: (statusCode, code, message, fields) => new ApiProblem(statusCode, code, message, fields),
+        });
+        if (repairResult === "not_found") {
+          throw new ApiProblem(404, "PAYMENT_NOT_FOUND", "未找到对应支付单");
+        }
       }
       return reply.status(200).send({ code: "SUCCESS", message: "成功" });
     } catch (error) {

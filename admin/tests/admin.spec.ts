@@ -17,7 +17,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "预约交易与履约中心" })).toBeVisible();
     await expect(page.getByRole("button", { name: "预约履约" })).toBeVisible();
-    await expect(page.getByText("已模拟支付", { exact: true })).toBeVisible();
+    await expect(page.getByText("已支付", { exact: true })).toBeVisible();
     await expect(page.getByText("模拟已收净额", { exact: true })).toBeVisible();
     await expect(page.locator(".metric-strip").getByText("¥1560.00", { exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: "上门往返取送" })).toBeAttached();

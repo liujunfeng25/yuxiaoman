@@ -34,6 +34,17 @@ type WashOrderStatus = "pending_payment" | "awaiting_redemption" | "redeemed" | 
 type SettlementStatus = "pending" | "unsettled" | "settled" | "adjusted" | "not_applicable" | "void";
 type RedeemSource = "wechat" | "phone" | "other";
 type WashServiceMode = "self_drive" | "valet";
+type WashFulfillmentStatus = "pending_payment" | "awaiting_assignment" | "driver_arranged" | "picked_up" | "awaiting_store_service" | "store_service_completed" | "returning" | "completed" | "cancelled" | "refunded" | "expired";
+
+type WashValetAssignment = {
+  id: string;
+  status: string;
+  dispatcherName: string;
+  dispatcherPhone: string;
+  driverPhone: string | null;
+  verificationCode: string | null;
+  expiresAt: string | null;
+};
 
 type WashPickupAddress = {
   poiId: string;
@@ -188,6 +199,7 @@ type WashOrder = {
   washFeeFen?: number;
   valetFeeFen?: number;
   serviceMode: WashServiceMode;
+  fulfillmentStatus?: WashFulfillmentStatus;
   tripType?: "round_trip_same_address" | null;
   pickupAddress?: WashPickupAddress | null;
   oneWayDistanceKm?: number | null;
@@ -268,6 +280,20 @@ const settlementStatusLabels: Record<string, string> = {
   adjusted: "已修正",
   not_applicable: "无需结算",
   void: "已作废",
+};
+
+const fulfillmentStatusLabels: Record<string, string> = {
+  pending_payment: "待支付",
+  awaiting_assignment: "待安排",
+  driver_arranged: "已派单",
+  picked_up: "已取车",
+  awaiting_store_service: "待门店服务",
+  store_service_completed: "门店服务完成",
+  returning: "返程中",
+  completed: "已送回",
+  cancelled: "已取消",
+  refunded: "已退款",
+  expired: "已过期",
 };
 
 const orderFilterStatuses: WashOrderStatus[] = ["pending_payment", "awaiting_redemption", "redeemed", "cancelled", "refunded", "expired"];
@@ -627,8 +653,29 @@ function WashOrderDrawer({ order, close, onUpdated, refresh, onError }: { order:
   const [correctionReason, setCorrectionReason] = useState("");
   const [saving, setSaving] = useState("");
   const [saved, setSaved] = useState("");
+  const [assignment, setAssignment] = useState<WashValetAssignment | null>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(order.serviceMode === "valet");
+  const [dispatcherName, setDispatcherName] = useState("");
+  const [dispatcherPhone, setDispatcherPhone] = useState("");
   const redeemed = orderWasRedeemed(order);
   const hasSettlement = ["settled", "adjusted"].includes(order.settlementStatus);
+
+  const loadAssignment = useCallback(async () => {
+    if (order.serviceMode !== "valet") return;
+    setAssignmentLoading(true);
+    try {
+      const next = await api<WashValetAssignment>(`/admin/wash/orders/${order.id}/driver-assignment`);
+      setAssignment(next);
+      setDispatcherName(next.dispatcherName);
+      setDispatcherPhone(next.dispatcherPhone);
+    } catch (error) {
+      if ((error as { status?: number }).status !== 404) onError((error as Error).message);
+    } finally {
+      setAssignmentLoading(false);
+    }
+  }, [onError, order.id, order.serviceMode]);
+
+  useEffect(() => { void loadAssignment(); }, [loadAssignment]);
 
   const complete = async (request: Promise<WashOrder | { order: WashOrder }>, message: string) => {
     try {
@@ -687,6 +734,26 @@ function WashOrderDrawer({ order, close, onUpdated, refresh, onError }: { order:
     }), hasSettlement ? "结算记录已修正" : "线下结算已登记");
   };
 
+  const assignDriver = async () => {
+    if (dispatcherName.trim().length < 2) return onError("请填写代驾公司调度联系人");
+    if (!/^1\d{10}$/u.test(dispatcherPhone.trim())) return onError("请填写有效的调度联系人手机号");
+    setSaving("assignment");
+    try {
+      const next = await api<WashValetAssignment>(`/admin/wash/orders/${order.id}/driver-assignment`, {
+        method: "POST",
+        body: JSON.stringify({ dispatcherName: dispatcherName.trim(), dispatcherPhone: dispatcherPhone.trim() }),
+      });
+      setAssignment(next);
+      setSaved(assignment ? "代驾验证码已重新生成" : "代驾任务已发布");
+      await refresh();
+      window.setTimeout(() => setSaved(""), 2200);
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setSaving("");
+    }
+  };
+
   return <div className="drawer-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}><aside className="detail-drawer wide-drawer wash-order-drawer">
     <header><div><small>洗车订单与人工履约</small><h2>{order.vehiclePlate || "待登记车辆"}</h2><p>{order.orderNumber}</p></div><button aria-label="关闭洗车订单详情" onClick={close}><X /></button></header>
     <div className="drawer-scroll">
@@ -694,6 +761,13 @@ function WashOrderDrawer({ order, close, onUpdated, refresh, onError }: { order:
       {saved ? <div className="wash-success"><CheckCircle weight="fill" />{saved}</div> : null}
       <section className="detail-section"><h3>订单概要</h3><dl><div><dt>套餐</dt><dd>{washPackageName(order)}</dd></div><div><dt>车辆</dt><dd>{order.vehiclePlate} · {vehicleTypeLabels[order.vehicleType]}</dd></div><div><dt>服务方式</dt><dd>{order.serviceMode === "valet" ? "上门代驾取送（往返）" : "车主自驾到店"}</dd></div><div><dt>联系人</dt><dd>{order.contactName || "—"}　{order.contactPhone || ""}</dd></div><div><dt>实付金额</dt><dd>¥{money(order.paidFen)}</dd></div><div><dt>预计门店结算</dt><dd>{order.estimatedSettlementFen == null ? "—" : `¥${money(order.estimatedSettlementFen)}`}</dd></div></dl></section>
       {order.serviceMode === "valet" ? <section className="detail-section wash-valet-detail"><h3>代驾取送快照 <em>返程已包含</em></h3><div className="wash-valet-address"><MapPin weight="duotone" /><span><strong>{order.pickupAddress?.title || "取送地址未回传"}</strong><small>{order.pickupAddress ? `${order.pickupAddress.address}${order.pickupAddress.detail ? ` · ${order.pickupAddress.detail}` : ""}` : "请核对原始订单快照"}</small>{order.pickupAddress?.note ? <em>{order.pickupAddress.note}</em> : null}</span></div><dl><div><dt>腾讯单程路线</dt><dd>{order.oneWayDistanceKm == null ? "—" : `${order.oneWayDistanceKm} 公里`}{order.driveMinutes ? ` · 约 ${order.driveMinutes} 分钟` : ""}</dd></div><div><dt>洗车套餐费</dt><dd>¥{money(order.breakdown?.washFeeFen ?? order.washFeeFen ?? 0)}</dd></div><div><dt>取送起步价</dt><dd>¥{money(order.breakdown?.valetBaseFeeFen ?? order.valetRule?.baseFeeFen ?? 0)}</dd></div><div><dt>超程距离费</dt><dd>¥{money(order.breakdown?.valetDistanceFeeFen ?? Math.max(0, (order.valetFeeFen ?? 0) - (order.valetRule?.baseFeeFen ?? 0)))}</dd></div><div><dt>往返代驾费</dt><dd>¥{money(order.breakdown?.valetFeeFen ?? order.valetFeeFen ?? 0)}</dd></div><div><dt>订单总价</dt><dd>¥{money(order.breakdown?.totalFeeFen ?? order.totalFeeFen ?? order.serviceFeeFen ?? order.paidFen)}</dd></div></dl><p><SteeringWheel weight="duotone" />同一地址取车并送回；只按取车点到门店的真实单程驾驶路线计价，返程不重复收费。</p></section> : null}
+      {order.serviceMode === "valet" ? <section className="detail-section wash-valet-assignment"><h3>代驾安排 <em>{fulfillmentStatusLabels[order.fulfillmentStatus ?? ""] ?? "履约状态待同步"}</em></h3>
+        {assignmentLoading ? <p className="wash-valet-assignment-loading"><CircleNotch className="spin" />正在读取代驾任务…</p> : assignment ? <div className="wash-valet-assignment-card">
+          <div><small>微信群抢单验证码</small><strong>{assignment.verificationCode ?? "任务已结束"}</strong><span>{assignment.expiresAt ? `有效至 ${washDateTime(assignment.expiresAt)}` : "验证码已失效"}</span></div>
+          <dl><div><dt>调度联系人</dt><dd>{assignment.dispatcherName} · {assignment.dispatcherPhone}</dd></div><div><dt>执行司机</dt><dd>{assignment.driverPhone || "等待个人微信账号认领"}</dd></div></dl>
+        </div> : <p className="wash-valet-assignment-empty">尚未发布到代驾微信群。启用财务中心并配置唯一合作代驾公司后可生成六位抢单验证码。</p>}
+        {["awaiting_assignment", "driver_arranged"].includes(order.fulfillmentStatus ?? "") ? <div className="wash-action-grid wash-valet-dispatch-form"><label><span>代驾公司调度联系人</span><input aria-label="代驾调度联系人" value={dispatcherName} onChange={(event) => setDispatcherName(event.target.value)} placeholder="例如：张调度" /></label><label><span>调度手机号</span><input aria-label="代驾调度手机号" inputMode="tel" maxLength={11} value={dispatcherPhone} onChange={(event) => setDispatcherPhone(event.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="用于线下协调" /></label><button disabled={Boolean(saving)} onClick={() => void assignDriver()}><SteeringWheel />{saving === "assignment" ? "发布中…" : assignment ? "重新生成验证码" : "发布代驾任务"}</button></div> : null}
+      </section> : null}
       <section className="detail-section"><h3>运营备注</h3><div className="wash-action-form"><label><span>仅后台可见</span><textarea aria-label="洗车运营备注" value={operationNote} onChange={(event) => setOperationNote(event.target.value)} placeholder="记录用户沟通、到店异常或处理结论" /></label><button disabled={Boolean(saving)} onClick={() => patchOrder({ internalNote: operationNote.trim() || null, operator: "admin" }, "运营备注已保存", "note")}><FloppyDisk />保存备注</button></div></section>
       {orderCanRedeem(order) ? <section className="detail-section wash-redeem-section"><h3>人工核销 <em>核销后不可重复操作</em></h3><div className="wash-code-panel"><span>{order.serviceMode === "valet" ? "车辆交接验证码" : "车主到店验证码"}</span><strong>{sixDigitCode(order)}</strong></div><div className="wash-action-grid"><label><span>核销来源</span><select aria-label="核销来源" value={source} onChange={(event) => setSource(event.target.value as RedeemSource)}>{Object.entries(redeemSourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="wide"><span>核销备注</span><textarea aria-label="核销备注" value={redeemNote} onChange={(event) => setRedeemNote(event.target.value)} placeholder={order.serviceMode === "valet" ? "请记录车辆交接或门店线下核销情况" : "电话核销或异常场景请说明"} /></label><button disabled={Boolean(saving)} onClick={redeem}><CheckCircle />{saving === "redeem" ? "核销中…" : "确认核销"}</button></div></section> : null}
       {redeemed ? <section className="detail-section"><h3>核销记录</h3><dl><div><dt>核销时间</dt><dd>{order.redeemedAt ? washDateTime(order.redeemedAt) : "已核销"}</dd></div><div><dt>来源</dt><dd>{order.redeemSource ? redeemSourceLabels[order.redeemSource] : "未记录"}</dd></div><div><dt>备注</dt><dd>{order.redeemNote || "—"}</dd></div></dl></section> : null}

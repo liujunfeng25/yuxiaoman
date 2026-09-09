@@ -81,8 +81,8 @@ Page<Data>({
     }
   },
 
-  applyPaymentCopy(order: WashOrder | null, channel = this.data.paymentChannel) {
-    this.setData(washPaymentCopy(channel, order?.serviceMode || "self_drive"));
+  applyPaymentCopy(order: WashOrder | null, channel?: PaymentChannel) {
+    this.setData(washPaymentCopy(channel || this.data.paymentChannel, order?.serviceMode || "self_drive"));
   },
 
   async load() {

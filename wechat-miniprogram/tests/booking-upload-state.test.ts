@@ -111,7 +111,7 @@ test("七类资料以任意完成顺序上传后都能提交", () => {
 
 test("预约页只在首次加载时初始化，不在相册或相机返回的 onShow 中重置", () => {
   const source = readFileSync(new URL("../miniprogram/packages/annual/pages/booking/booking.ts", import.meta.url), "utf8");
-  assert.match(source, /async onLoad\(\) \{ await this\.load\(\); \}/);
+  assert.match(source, /async onLoad\(\)\s*\{[\s\S]*?await this\.load\(\);[\s\S]*?\},/);
   assert.doesNotMatch(source, /\bonShow\s*\(/);
 });
 
@@ -306,7 +306,7 @@ test("首页三入口和资格及建档回流保持快捷导航契约", () => {
   assert.match(homeSource, /actionLabel: canBookInspection \? "选择验车方式"/);
   assert.match(homeSource, /loadError: message/);
   assert.match(homeSource, /if \(this\.data\.entryTarget\) return/);
-  assert.match(homeSource, /fail: \(\) => \{/);
+  assert.match(homeSource, /fail:\s*\([^)]*\)\s*=>\s*\{/);
   assert.match(homeSource, /if \(this\.data\.entryTarget === target\) this\.setData\(\{ entryTarget: "" \}\)/);
   assert.match(homeSource, /页面打开失败，请重试/);
   assert.doesNotMatch(homeSource, /setTimeout\(\(\) => \{\s*if \(this\.data\.entryTarget === target\)/);

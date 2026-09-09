@@ -229,6 +229,73 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
       updated_at TEXT NOT NULL
     );
 
+    ALTER TABLE wash_orders
+      ADD COLUMN IF NOT EXISTS fulfillment_status TEXT NOT NULL DEFAULT 'pending_payment',
+      ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+    ALTER TABLE wash_orders DROP CONSTRAINT IF EXISTS wash_orders_fulfillment_status_check;
+    ALTER TABLE wash_orders ADD CONSTRAINT wash_orders_fulfillment_status_check CHECK (
+      fulfillment_status IN (
+        'pending_payment', 'awaiting_store_service', 'awaiting_assignment',
+        'driver_arranged', 'picked_up', 'store_service_completed',
+        'returning', 'completed', 'cancelled', 'refunded', 'expired'
+      )
+    );
+    ALTER TABLE wash_order_events DROP CONSTRAINT IF EXISTS wash_order_events_actor_type_check;
+    ALTER TABLE wash_order_events ADD CONSTRAINT wash_order_events_actor_type_check
+      CHECK (actor_type IN ('owner', 'operator', 'driver', 'system'));
+
+    CREATE TABLE IF NOT EXISTS wash_valet_assignments (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL UNIQUE REFERENCES wash_orders(id) ON DELETE CASCADE,
+      valet_company_id TEXT NOT NULL,
+      dispatcher_name TEXT NOT NULL,
+      dispatcher_phone TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('assigned', 'bound', 'in_progress', 'completed', 'cancelled')),
+      verification_code_hmac TEXT UNIQUE,
+      verification_code_ciphertext TEXT,
+      verification_code_expires_at TIMESTAMPTZ,
+      bound_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      driver_phone TEXT,
+      assigned_by_account_id TEXT,
+      assigned_at TIMESTAMPTZ NOT NULL,
+      bound_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS wash_valet_sessions (
+      id TEXT PRIMARY KEY,
+      assignment_id TEXT NOT NULL REFERENCES wash_valet_assignments(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS wash_valet_evidence (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL REFERENCES wash_orders(id) ON DELETE CASCADE,
+      stage TEXT NOT NULL CHECK (stage IN ('owner_pickup', 'owner_return')),
+      storage_key TEXT NOT NULL UNIQUE,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+      width INTEGER NOT NULL CHECK (width > 0),
+      height INTEGER NOT NULL CHECK (height > 0),
+      sha256 TEXT NOT NULL,
+      uploader_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      completion_idempotency_key TEXT,
+      completed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL,
+      UNIQUE (order_id, stage),
+      UNIQUE (order_id, completion_idempotency_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS wash_valet_assignments_user_index
+      ON wash_valet_assignments(bound_user_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS wash_valet_sessions_active_index
+      ON wash_valet_sessions(token_hash, expires_at) WHERE revoked_at IS NULL;
+
     CREATE TABLE IF NOT EXISTS wash_store_valet_pricing_overrides (
       store_id TEXT PRIMARY KEY REFERENCES wash_stores(id) ON DELETE CASCADE,
       base_fee_fen INTEGER NOT NULL CHECK (base_fee_fen >= 0),
@@ -289,6 +356,16 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
     SET wash_fee_fen = total_fee_fen
     WHERE wash_fee_fen IS NULL;
     ALTER TABLE wash_orders ALTER COLUMN wash_fee_fen SET NOT NULL;
+
+    UPDATE wash_orders SET fulfillment_status = CASE
+      WHEN status = 'awaiting_redemption' AND service_mode = 'valet' THEN 'awaiting_assignment'
+      WHEN status = 'awaiting_redemption' THEN 'awaiting_store_service'
+      WHEN status = 'redeemed' THEN 'completed'
+      WHEN status = 'cancelled' THEN 'cancelled'
+      WHEN status = 'refunded' THEN 'refunded'
+      WHEN status = 'expired' THEN 'expired'
+      ELSE fulfillment_status END
+    WHERE fulfillment_status = 'pending_payment' AND status <> 'pending_payment';
 
     -- v2: split the legacy combined SUV/MPV price class. Historical quote/order
     -- rows intentionally keep their frozen category and monetary snapshots.
@@ -438,6 +515,9 @@ export async function migrateWashDatabase(database: AppDatabase): Promise<void> 
 
 export async function clearWashData(database: AppDatabase): Promise<void> {
   await database.execute(`
+    DELETE FROM wash_valet_evidence;
+    DELETE FROM wash_valet_sessions;
+    DELETE FROM wash_valet_assignments;
     DELETE FROM wash_order_settlements;
     DELETE FROM wash_order_payments;
     DELETE FROM wash_order_events;

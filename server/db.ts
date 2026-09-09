@@ -20,6 +20,7 @@ import { clearCarRentalData, migrateCarRentalDatabase, seedCarRentalDemoData } f
 import { migrateVehicleCheckupDatabase } from "./vehicle-checkup-db.js";
 import { migrateValetHandoffDatabase } from "./valet-handoff-db.js";
 import { migrateCustomerCenterDatabase } from "./customer-center.js";
+import { clearFinanceRuntimeData, migrateFinanceDatabase } from "./finance-db.js";
 import {
   clearDrivingSchoolData,
   migrateDrivingSchoolDatabase,
@@ -514,6 +515,7 @@ export async function migrateDatabase(database: AppDatabase): Promise<void> {
   await migrateCarRentalDatabase(database);
   await migrateDrivingSchoolDatabase(database);
   await migrateCustomerCenterDatabase(database);
+  await migrateFinanceDatabase(database);
   await database.prepare(`
     INSERT INTO app_metadata (key, value, updated_at)
     VALUES ('schema-version', 'postgres-v1', ?)
@@ -978,6 +980,7 @@ async function seedDemoDataInCurrentTransaction(database: AppDatabase, options: 
 
   if (options.force) {
     await assertForcedDemoSeedSafe(database);
+    await clearFinanceRuntimeData(database);
     await clearWorkflowRuntimeData(database);
     await clearRepairData(database);
     await clearDrivingSchoolData(database);

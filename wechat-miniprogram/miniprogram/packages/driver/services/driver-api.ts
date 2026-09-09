@@ -12,6 +12,7 @@ import {
 import {
   clearDriverTaskSession,
   driverAuthorizationHeaders,
+  readDriverTaskSession,
   storeDriverTaskSession,
 } from "./driver-session";
 
@@ -44,13 +45,13 @@ type DriverExchangePayload =
   | { taskCode: string; driverPhone?: string }
   | { verificationCode: string; driverPhone: string };
 
-function ownerExchange(data: DriverExchangePayload): Promise<unknown> {
+function ownerExchangeAt(path: string, data: DriverExchangePayload): Promise<unknown> {
   assertApiConfigured();
   return withOwnerAuthorization(
     { "content-type": "application/json" },
     (headers) => new Promise((resolve, reject) => {
       wx.request<Envelope<unknown>>({
-        url: `${apiBaseUrl}/driver/task-sessions/exchange`,
+        url: `${apiBaseUrl}${path}`,
         method: "POST",
         data,
         header: headers,
@@ -66,6 +67,21 @@ function ownerExchange(data: DriverExchangePayload): Promise<unknown> {
       });
     }),
   );
+}
+
+async function ownerExchange(data: DriverExchangePayload): Promise<unknown> {
+  if ("verificationCode" in data) {
+    try {
+      return await ownerExchangeAt("/wash-driver/task-sessions/exchange", data);
+    } catch (error) {
+      if (Number((error as DriverApiError).statusCode) !== 404) throw error;
+    }
+  }
+  return ownerExchangeAt("/driver/task-sessions/exchange", data);
+}
+
+function taskBasePath(): string {
+  return readDriverTaskSession()?.serviceType === "car_wash" ? "/wash-driver/tasks" : "/driver/tasks";
 }
 
 function driverRequest<T>(path: string, method = "GET", data?: unknown): Promise<T> {
@@ -207,11 +223,11 @@ export const driverApi = {
   },
 
   async task(bookingId: string): Promise<DriverTask> {
-    return localizeTaskEvidence(taskPayload(await driverRequest<unknown>(`/driver/tasks/${encodeURIComponent(bookingId)}`)));
+    return localizeTaskEvidence(taskPayload(await driverRequest<unknown>(`${taskBasePath()}/${encodeURIComponent(bookingId)}`)));
   },
 
   async taskSummary(bookingId: string): Promise<DriverTask> {
-    return taskPayload(await driverRequest<unknown>(`/driver/tasks/${encodeURIComponent(bookingId)}`));
+    return taskPayload(await driverRequest<unknown>(`${taskBasePath()}/${encodeURIComponent(bookingId)}`));
   },
 
   async uploadEvidencePhoto(
@@ -221,7 +237,7 @@ export const driverApi = {
     filePath: string,
   ): Promise<DriverEvidencePhoto> {
     return driverUpload<DriverEvidencePhoto>({
-      path: `/driver/tasks/${encodeURIComponent(bookingId)}/evidence/${stage}/media`,
+      path: `${taskBasePath()}/${encodeURIComponent(bookingId)}/evidence/${stage}/media`,
       filePath,
       formData: { kind },
     });
@@ -233,7 +249,7 @@ export const driverApi = {
     mediaId: string,
   ): Promise<void> {
     await driverRequest<unknown>(
-      `/driver/tasks/${encodeURIComponent(bookingId)}/evidence/${stage}/media/${encodeURIComponent(mediaId)}`,
+      `${taskBasePath()}/${encodeURIComponent(bookingId)}/evidence/${stage}/media/${encodeURIComponent(mediaId)}`,
       "DELETE",
     );
   },
@@ -244,7 +260,7 @@ export const driverApi = {
     idempotencyKey: string,
   ): Promise<DriverTask> {
     return localizeTaskEvidence(taskPayload(await driverRequest<unknown>(
-      `/driver/tasks/${encodeURIComponent(bookingId)}/evidence/${stage}/complete`,
+      `${taskBasePath()}/${encodeURIComponent(bookingId)}/evidence/${stage}/complete`,
       "POST",
       { idempotencyKey },
     )));
@@ -252,7 +268,7 @@ export const driverApi = {
 
   async startReturn(bookingId: string, idempotencyKey: string): Promise<DriverTask> {
     return localizeTaskEvidence(taskPayload(await driverRequest<unknown>(
-      `/driver/tasks/${encodeURIComponent(bookingId)}/start-return`,
+      `${taskBasePath()}/${encodeURIComponent(bookingId)}/start-return`,
       "POST",
       { idempotencyKey },
     )));

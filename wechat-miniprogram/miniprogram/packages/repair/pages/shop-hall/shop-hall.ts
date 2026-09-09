@@ -98,6 +98,9 @@ Page<Data>({
   openWorkflowTasks() {
     wx.navigateTo({ url: "/packages/repair/pages/shop-workflow-tasks/shop-workflow-tasks" });
   },
+  openFinance() {
+    wx.navigateTo({ url: "/packages/repair/pages/shop-finance/shop-finance" });
+  },
 
   async load() {
     const sequence = (this.loadSequence || 0) + 1;

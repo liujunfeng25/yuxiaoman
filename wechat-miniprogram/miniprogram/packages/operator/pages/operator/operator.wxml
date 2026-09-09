@@ -18,6 +18,12 @@
 
   <view class="workflow-summary-wrap"><workflow-task-summary title="履约督办" open-count="{{workflowSummary.openCount}}" due-soon-count="{{workflowSummary.dueSoonCount}}" overdue-count="{{workflowSummary.overdueCount}}" next-due-label="{{workflowNextDueLabel}}" loading="{{workflowLoading}}" bind:open="openWorkflowTasks" /></view>
 
+  <button class="precheck-entry" bindtap="openFinance">
+    <view class="precheck-entry-icon"><image src="/assets/icons/receipt.png"/></view>
+    <view class="precheck-entry-copy"><text>账单明细</text><text>年检金额、平台佣金、净应收与付款状态</text></view>
+    <image class="precheck-entry-caret" src="/assets/icons/caret-right.png"/>
+  </button>
+
   <view wx:if="{{loading}}" class="loading operator-loading">正在读取工作台…</view>
   <view wx:elif="{{loadError && !workbench}}" class="operator-load-error"><image src="/assets/icons/warning-circle.png"/><text>检测站工作台暂时无法加载</text><text>{{loadError}}</text><button bindtap="retryLoad" loading="{{loading}}" disabled="{{loading}}">重新加载</button></view>
   <block wx:else>

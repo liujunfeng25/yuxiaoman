@@ -8,6 +8,7 @@ import { requireCurrentUser } from "./auth.js";
 import {
   assertCapability,
   auditBackofficeEvent,
+  backofficeForRequest,
   requireRepairShopBearer,
   scopedRepairShopId,
   type BackofficeCapability,
@@ -20,6 +21,16 @@ import {
   enableRepairWorkflowForRequest,
   syncRepairWorkflowForRequest,
 } from "./workflow-integration.js";
+import {
+  buildMiniProgramPayParams,
+  createDomesticRefund,
+  createJsapiPrepay,
+  isMockPaymentAllowed,
+  isWechatPayConfigured,
+  loadConfig as loadWechatPayConfig,
+  scaleWechatChargeAmountFen,
+  wechatAmountDivisor,
+} from "./wechat-pay.js";
 
 type Row = Record<string, unknown>;
 function jsonArray(value: unknown): unknown[] {
@@ -50,8 +61,8 @@ const paymentSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(160),
 }).strict();
 
-const DEMO_NOTICE = "本功能中的维修门店、报价、联系方式与支付均为合成演示数据，不代表真实商户或真实资金交易。";
-const SERVICE_BOUNDARY = "平台仅撮合本次维修报价并记录模拟支付；后续维修范围与时间由车主和门店线下协商，平台不跟踪履约，也不提供退款、结算、聊天或预约。";
+const DEMO_NOTICE = "标有“演示”的维修门店、报价及历史模拟支付为合成数据，不进入真实结算。";
+const SERVICE_BOUNDARY = "平台记录本次报价与支付；后续维修范围、现场确认项目和时间由车主与中选门店协商。";
 
 function validationFields(error: z.ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -102,9 +113,21 @@ function isProductionEnvironment(): boolean {
 }
 
 function assertMockPaymentEnabled(problem: ProblemFactory): void {
-  if (isProductionEnvironment() && process.env.ALLOW_MOCK_PAYMENT !== "true") {
+  if (!isMockPaymentAllowed() || (isProductionEnvironment() && process.env.ALLOW_MOCK_PAYMENT !== "true")) {
     throw problem(503, "MOCK_PAYMENT_DISABLED", "当前环境未启用模拟支付");
   }
+}
+
+async function wechatOpenIdForRepairUser(database: AppDatabase, userId: string): Promise<string | null> {
+  const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
+  if (!appId) return null;
+  const row = await database.prepare<Row>(`
+    SELECT provider_subject FROM user_identities
+    WHERE user_id = ? AND provider = 'wechat' AND provider_app_id = ?
+    ORDER BY updated_at DESC LIMIT 1
+  `).get(userId, appId);
+  const openid = row?.provider_subject == null ? "" : String(row.provider_subject).trim();
+  return openid || null;
 }
 
 function requestNumber(now: Date): string {
@@ -374,11 +397,15 @@ async function requestRows(database: AppDatabase, requestId: string) {
     `).all(requestId),
     database.prepare<Row>(`
       SELECT o.*,
-        p.id AS payment_id, p.provider AS payment_provider,
-        p.status AS payment_status, p.amount_fen AS payment_amount_fen,
-        p.confirmed_at AS payment_confirmed_at
+        COALESCE(p.id, mp.id) AS payment_id,
+        COALESCE(p.provider, mp.provider) AS payment_provider,
+        COALESCE(p.status, mp.status) AS payment_status,
+        COALESCE(p.amount_fen, mp.amount_fen) AS payment_amount_fen,
+        COALESCE(p.channel_amount_fen, p.amount_fen, mp.amount_fen) AS payment_channel_amount_fen,
+        COALESCE(p.confirmed_at, mp.confirmed_at::timestamptz) AS payment_confirmed_at
       FROM repair_orders o
-      LEFT JOIN repair_mock_payments p ON p.order_id = o.id
+      LEFT JOIN repair_order_payments p ON p.order_id = o.id AND p.kind = 'charge' AND p.status <> 'failed'
+      LEFT JOIN repair_mock_payments mp ON mp.order_id = o.id
       WHERE o.request_id = ?
     `).get(requestId),
   ]);
@@ -433,15 +460,16 @@ async function ownerRequestDetail(database: AppDatabase, requestId: string, user
     order: order ? {
       id: String(order.id),
       orderNo: String(order.order_no),
-      status: "paid" as const,
+      status: String(order.status),
       totalPriceFen: Number(order.total_price_fen),
-      paidAt: String(order.paid_at),
-      shop: shopPrivateDto(jsonObject(order.shop_snapshot_json)),
+      paidAt: order.paid_at == null ? null : String(order.paid_at),
+      shop: String(order.status) === "paid" ? shopPrivateDto(jsonObject(order.shop_snapshot_json)) : null,
       payment: {
         provider: String(order.payment_provider ?? "mock"),
-        status: String(order.payment_status ?? "confirmed"),
+        status: String(order.payment_status ?? "pending"),
         amountFen: Number(order.payment_amount_fen ?? order.total_price_fen),
-        confirmedAt: String(order.payment_confirmed_at ?? order.paid_at),
+        channelAmountFen: Number(order.payment_channel_amount_fen ?? order.payment_amount_fen ?? 0),
+        confirmedAt: order.payment_confirmed_at == null ? null : String(order.payment_confirmed_at),
       },
     } : null,
   };
@@ -558,6 +586,73 @@ async function shopRequestDetail(
       updatedAt: String(ownQuote.updated_at),
     } : null,
   };
+}
+
+/** Complete a real repair payment from the signed WeChat callback. */
+export async function confirmRepairWechatPaymentByOutTradeNo(
+  database: AppDatabase,
+  input: {
+    outTradeNo: string;
+    amountFen: number;
+    transactionId?: string;
+    now?: string;
+    problem?: ProblemFactory;
+  },
+): Promise<"confirmed" | "already_confirmed" | "not_found"> {
+  const problem = input.problem ?? ((statusCode, code, message) => {
+    const error = new Error(message) as Error & { statusCode: number; code: string };
+    error.statusCode = statusCode;
+    error.code = code;
+    return error;
+  });
+  const paidAt = input.now ?? new Date().toISOString();
+  return database.transaction(async (tx) => {
+    const payment = await tx.prepare<Row>(`
+      SELECT * FROM repair_order_payments WHERE out_trade_no = ? FOR UPDATE
+    `).get(input.outTradeNo);
+    if (!payment) return "not_found";
+    if (String(payment.status) === "confirmed") return "already_confirmed";
+    if (String(payment.kind) !== "charge" || String(payment.status) !== "pending") {
+      throw problem(409, "REPAIR_PAYMENT_NOT_PENDING", "当前维修支付单不能确认");
+    }
+    if (input.amountFen > 0 && Number(payment.amount_fen) !== input.amountFen) {
+      throw problem(409, "WECHAT_AMOUNT_MISMATCH", "支付金额与维修订单不一致");
+    }
+    const order = await tx.prepare<Row>("SELECT * FROM repair_orders WHERE id = ? FOR UPDATE")
+      .get(String(payment.order_id));
+    if (!order) throw problem(404, "REPAIR_ORDER_NOT_FOUND", "未找到维修订单");
+    if (String(order.status) === "paid") {
+      await tx.prepare(`
+        UPDATE repair_order_payments SET status = 'confirmed', confirmed_at = ?::timestamptz,
+          transaction_id = COALESCE(?, transaction_id), channel_amount_fen = ?
+        WHERE id = ?
+      `).run(paidAt, input.transactionId ?? null, input.amountFen || Number(payment.amount_fen), String(payment.id));
+      return "already_confirmed";
+    }
+    if (String(order.status) !== "pending_payment") {
+      throw problem(409, "REPAIR_ORDER_NOT_PAYABLE", "当前维修订单不能确认支付");
+    }
+    await tx.prepare(`
+      UPDATE repair_order_payments SET status = 'confirmed', confirmed_at = ?::timestamptz,
+        transaction_id = COALESCE(?, transaction_id), channel_amount_fen = ?
+      WHERE id = ? AND status = 'pending'
+    `).run(paidAt, input.transactionId ?? null, input.amountFen || Number(payment.amount_fen), String(payment.id));
+    await tx.prepare("UPDATE repair_orders SET status = 'paid', paid_at = ?::timestamptz WHERE id = ?")
+      .run(paidAt, String(order.id));
+    await tx.prepare(`
+      UPDATE repair_quotes SET status = CASE WHEN id = ? THEN 'selected' ELSE 'lost' END,
+        selected_at = CASE WHEN id = ? THEN ?::timestamptz ELSE NULL END, updated_at = ?::timestamptz
+      WHERE request_id = ?
+    `).run(String(order.quote_id), String(order.quote_id), paidAt, paidAt, String(order.request_id));
+    await tx.prepare(`
+      UPDATE repair_requests SET status = 'paid', selected_quote_id = ?, paid_at = ?::timestamptz,
+        updated_at = ?::timestamptz WHERE id = ?
+    `).run(String(order.quote_id), paidAt, paidAt, String(order.request_id));
+    await syncRepairWorkflowForRequest(tx, String(order.request_id), {
+      now: new Date(paidAt), actorType: "owner", actorId: String(order.user_id),
+    });
+    return "confirmed";
+  });
 }
 
 export async function registerRepairRoutes(
@@ -840,6 +935,171 @@ export async function registerRepairRoutes(
     return { data: await ownerRequestDetail(database, request.params.id, userId, options.problem) };
   });
 
+  app.post<{ Params: { id: string } }>("/api/repair/requests/:id/payments", async (request, reply) => {
+    const userId = await requireCurrentUser(request, database);
+    const body = parseBody(paymentSchema, request.body, options.problem);
+    if (!isWechatPayConfigured()) throw options.problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
+    const appId = process.env.WECHAT_MINIPROGRAM_APP_ID?.trim() ?? "";
+    if (!appId) throw options.problem(503, "WECHAT_APP_ID_MISSING", "未配置小程序 AppID");
+    const openid = await wechatOpenIdForRepairUser(database, userId);
+    if (!openid) throw options.problem(409, "WECHAT_OPENID_REQUIRED", "请先完成微信登录后再支付");
+    const payConfig = loadWechatPayConfig();
+    if (!payConfig) throw options.problem(503, "WECHAT_PAY_NOT_CONFIGURED", "微信支付尚未配置完成");
+    const prepared = await database.transaction(async (tx) => {
+      await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")
+        .get(`repair-wechat:${userId}:${body.idempotencyKey}`);
+      const existingPayment = await tx.prepare<Row>(`
+        SELECT p.*, o.request_id AS paid_request_id, o.quote_id AS paid_quote_id
+        FROM repair_order_payments p JOIN repair_orders o ON o.id = p.order_id
+        WHERE p.provider = 'wechat' AND p.idempotency_key = ?
+      `).get(body.idempotencyKey);
+      if (existingPayment) {
+        if (String(existingPayment.user_id) !== userId
+          || String(existingPayment.paid_request_id) !== request.params.id
+          || String(existingPayment.paid_quote_id) !== body.quoteId) {
+          throw options.problem(409, "REPAIR_PAYMENT_IDEMPOTENCY_CONFLICT", "该幂等键已用于其他维修报价");
+        }
+        if (String(existingPayment.status) === "failed") {
+          throw options.problem(409, "REPAIR_PAYMENT_RETRY_KEY_REQUIRED", "本次支付已失败，请重新发起支付");
+        }
+        return { payment: existingPayment, created: false };
+      }
+      const repairRequest = await tx.prepare<Row>(`
+        SELECT * FROM repair_requests WHERE id = ? AND user_id = ? FOR UPDATE
+      `).get(request.params.id, userId);
+      if (!repairRequest) throw options.problem(404, "REPAIR_REQUEST_NOT_FOUND", "未找到该维修询价");
+      if (["cancelled", "refunded"].includes(String(repairRequest.status))) {
+        throw options.problem(409, "REPAIR_REQUEST_NOT_PAYABLE", "当前维修询价状态不能支付");
+      }
+      const quote = await tx.prepare<Row>(`
+        SELECT q.*, s.name AS shop_name, s.district AS shop_district, s.address AS shop_address,
+          s.distance_km AS shop_distance_km, s.rating AS shop_rating,
+          s.contact_name AS shop_contact_name, s.contact_phone AS shop_contact_phone,
+          s.open_hours AS shop_open_hours, s.is_demo AS shop_is_demo
+        FROM repair_quotes q JOIN repair_shops s ON s.id = q.shop_id AND s.is_active = 1
+        WHERE q.id = ? AND q.request_id = ? FOR UPDATE OF q, s
+      `).get(body.quoteId, request.params.id);
+      if (!quote) throw options.problem(404, "REPAIR_QUOTE_NOT_FOUND", "未找到该维修报价");
+      if (String(repairRequest.status) === "open" && String(quote.status) !== "active") {
+        throw options.problem(409, "REPAIR_QUOTE_NOT_ACTIVE", "该维修报价已撤回或失效，请选择其他报价");
+      }
+      let order = await tx.prepare<Row>("SELECT * FROM repair_orders WHERE request_id = ? FOR UPDATE")
+        .get(request.params.id);
+      const createdAt = now().toISOString();
+      if (order) {
+        if (String(order.quote_id) !== body.quoteId) {
+          throw options.problem(409, "REPAIR_REQUEST_PAYMENT_LOCKED", "已有另一份维修报价正在支付");
+        }
+        if (String(order.status) === "paid") {
+          const confirmed = await tx.prepare<Row>(`
+            SELECT * FROM repair_order_payments WHERE order_id = ? AND kind = 'charge' AND status = 'confirmed'
+          `).get(String(order.id));
+          if (!confirmed) throw options.problem(409, "REPAIR_PAYMENT_STATE_INVALID", "维修订单支付状态异常");
+          return { payment: confirmed, created: false };
+        }
+        const pendingPayment = await tx.prepare<Row>(`
+          SELECT * FROM repair_order_payments
+          WHERE order_id = ? AND kind = 'charge' AND status = 'pending'
+          ORDER BY created_at DESC LIMIT 1
+        `).get(String(order.id));
+        if (pendingPayment) return { payment: pendingPayment, created: false };
+      } else {
+        if (String(repairRequest.status) !== "open") {
+          throw options.problem(409, "REPAIR_REQUEST_NOT_PAYABLE", "当前维修询价状态不能支付");
+        }
+        const [faults, media] = await Promise.all([
+          tx.prepare<Row>("SELECT * FROM repair_request_faults WHERE request_id = ? ORDER BY sequence_no, id").all(request.params.id),
+          tx.prepare<Row>("SELECT * FROM repair_request_media WHERE request_id = ? ORDER BY kind, sequence_no NULLS FIRST, id").all(request.params.id),
+        ]);
+        const orderId = randomUUID();
+        const requestSnapshot = {
+          id: request.params.id, requestNo: String(repairRequest.request_no),
+          vehicle: jsonObject(repairRequest.vehicle_snapshot_json), report: jsonObject(repairRequest.report_snapshot_json),
+          faults: faults.map((fault) => ({
+            id: String(fault.id), sourceFaultId: String(fault.source_fault_id ?? fault.precheck_reason_code ?? ""),
+            sequence: Number(fault.sequence_no), viewId: String(fault.view_id), regionCode: String(fault.region_code),
+            faultType: String(fault.fault_type), severity: String(fault.severity),
+            description: fault.description == null ? null : String(fault.description),
+          })),
+          media: media.map((item) => ({
+            id: String(item.id), sourceMediaId: String(item.source_media_id ?? item.precheck_media_id ?? ""),
+            faultId: item.fault_id == null ? null : String(item.fault_id), kind: String(item.kind),
+            sequence: item.sequence_no == null ? null : Number(item.sequence_no), mimeType: String(item.mime_type),
+            sizeBytes: Number(item.size_bytes), width: Number(item.width), height: Number(item.height), sha256: String(item.sha256),
+          })),
+        };
+        const quoteSnapshot = {
+          id: String(quote.id), shopId: String(quote.shop_id), totalPriceFen: Number(quote.total_price_fen),
+          note: String(quote.note), revision: Number(quote.revision), updatedAt: String(quote.updated_at),
+        };
+        await tx.prepare(`
+          INSERT INTO repair_orders (
+            id, order_no, request_id, quote_id, user_id, shop_id, status, total_price_fen,
+            request_snapshot_json, quote_snapshot_json, shop_snapshot_json,
+            owner_contact_snapshot_json, created_at, paid_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?::timestamptz, NULL)
+        `).run(
+          orderId, orderNumber(new Date(createdAt)), request.params.id, body.quoteId, userId,
+          String(quote.shop_id), Number(quote.total_price_fen), JSON.stringify(requestSnapshot),
+          JSON.stringify(quoteSnapshot), JSON.stringify(shopPrivateDto(quote)),
+          JSON.stringify(jsonObject(repairRequest.synthetic_owner_contact_json)), createdAt,
+        );
+        await tx.prepare(`
+          UPDATE repair_requests SET status = 'pending_payment', selected_quote_id = ?, updated_at = ?::timestamptz
+          WHERE id = ?
+        `).run(body.quoteId, createdAt, request.params.id);
+        order = await tx.prepare<Row>("SELECT * FROM repair_orders WHERE id = ?").get(orderId);
+      }
+      const paymentId = randomUUID();
+      const listedFen = Number(order!.total_price_fen);
+      const channelFen = scaleWechatChargeAmountFen(listedFen);
+      await tx.prepare(`
+        INSERT INTO repair_order_payments (
+          id, order_id, request_id, quote_id, user_id, provider, kind, idempotency_key,
+          amount_fen, channel_amount_fen, status, out_trade_no, transaction_id, created_at, confirmed_at
+        ) VALUES (?, ?, ?, ?, ?, 'wechat', 'charge', ?, ?, NULL, 'pending', ?, NULL, ?::timestamptz, NULL)
+      `).run(
+        paymentId, String(order!.id), request.params.id, body.quoteId, userId,
+        body.idempotencyKey, channelFen, paymentId.replaceAll("-", ""), createdAt,
+      );
+      const payment = await tx.prepare<Row>("SELECT * FROM repair_order_payments WHERE id = ?").get(paymentId);
+      return { payment: payment!, created: true };
+    });
+    if (String(prepared.payment.status) === "confirmed") {
+      return { data: { request: await ownerRequestDetail(database, request.params.id, userId, options.problem), payment: {
+        id: String(prepared.payment.id), provider: "wechat", status: "confirmed",
+        amountFen: Number(prepared.payment.amount_fen),
+      } }, meta: { idempotent: true } };
+    }
+    let prepayId: string;
+    try {
+      const prepay = await createJsapiPrepay({
+        appId, openid, outTradeNo: String(prepared.payment.out_trade_no),
+        description: "驭小满维修服务", amountFen: Number(prepared.payment.amount_fen),
+        notifyUrl: payConfig.notifyUrl, attach: `repair:${request.params.id}`,
+      });
+      prepayId = prepay.prepayId;
+    } catch (error) {
+      if (prepared.created) {
+        await database.prepare("UPDATE repair_order_payments SET status = 'failed' WHERE id = ? AND status = 'pending'")
+          .run(String(prepared.payment.id));
+      }
+      throw options.problem(502, "WECHAT_PREPAY_FAILED", error instanceof Error ? error.message : "微信统一下单失败");
+    }
+    return reply.status(prepared.created ? 201 : 200).send({
+      data: {
+        request: await ownerRequestDetail(database, request.params.id, userId, options.problem),
+        payment: {
+          id: String(prepared.payment.id), provider: "wechat", status: String(prepared.payment.status),
+          amountFen: Number(prepared.payment.amount_fen),
+          listedAmountFen: Number((await database.prepare<Row>("SELECT total_price_fen FROM repair_orders WHERE id = ?").get(String(prepared.payment.order_id)))?.total_price_fen ?? 0),
+          testingAmountDivisor: wechatAmountDivisor(),
+        },
+        wechatPay: buildMiniProgramPayParams(prepayId, appId),
+      },
+    });
+  });
+
   app.post<{ Params: { id: string } }>("/api/repair/requests/:id/mock-pay", async (request) => {
     assertMockPaymentEnabled(options.problem);
     const userId = await requireCurrentUser(request, database);
@@ -988,6 +1248,123 @@ export async function registerRepairRoutes(
       data: await ownerRequestDetail(database, request.params.id, userId, options.problem),
       meta: { idempotent, paymentProvider: "mock", realMoneyMovement: false },
     };
+  });
+
+  app.post<{ Params: { id: string } }>("/api/admin/finance/repair-orders/:id/refund", async (request) => {
+    const principal = assertCapability(backofficeForRequest(request), "finance.statements.manage");
+    if (principal.account.role !== "platform_admin") {
+      throw options.problem(403, "BACKOFFICE_FORBIDDEN", "仅平台管理员可以发起维修退款");
+    }
+    const body = parseBody(z.object({
+      idempotencyKey: z.string().trim().min(8).max(160),
+      reason: z.string().trim().min(2).max(300),
+    }).strict(), request.body, options.problem);
+    const prepared = await database.transaction(async (tx) => {
+      await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")
+        .get(`repair-refund:${request.params.id}`);
+      const existing = await tx.prepare<Row>(`
+        SELECT * FROM repair_order_payments WHERE provider = 'wechat' AND idempotency_key = ?
+      `).get(body.idempotencyKey);
+      if (existing) {
+        if (String(existing.order_id) !== request.params.id || String(existing.kind) !== "refund") {
+          throw options.problem(409, "REPAIR_REFUND_IDEMPOTENCY_CONFLICT", "退款幂等键已用于其他订单");
+        }
+        if (String(existing.status) === "confirmed") {
+          const completedOrder = await tx.prepare<Row>("SELECT * FROM repair_orders WHERE id = ?").get(request.params.id);
+          return { alreadyConfirmed: true, refundId: String(existing.id), order: completedOrder!, channelFen: Number(existing.channel_amount_fen ?? existing.amount_fen), charge: null };
+        }
+        if (String(existing.status) === "pending") {
+          // Recover safely after a process interruption. The WeChat refund
+          // request uses a deterministic out_refund_no, so replay is idempotent.
+          const pendingOrder = await tx.prepare<Row>(`
+            SELECT o.*, p.id AS charge_id, p.amount_fen AS charge_amount_fen,
+              p.channel_amount_fen, p.out_trade_no, p.transaction_id
+            FROM repair_orders o JOIN repair_order_payments p
+              ON p.order_id = o.id AND p.kind = 'charge' AND p.status = 'confirmed'
+            WHERE o.id = ?
+          `).get(request.params.id);
+          if (!pendingOrder) throw options.problem(409, "REPAIR_REFUND_STATE_INVALID", "退款关联的支付记录异常");
+          return {
+            alreadyConfirmed: false,
+            refundId: String(existing.id),
+            order: pendingOrder,
+            channelFen: Number(existing.channel_amount_fen ?? existing.amount_fen),
+            charge: pendingOrder,
+          };
+        }
+        throw options.problem(409, "REPAIR_REFUND_RETRY_KEY_REQUIRED", "上次退款未完成，请使用新的幂等键重试");
+      }
+      const order = await tx.prepare<Row>(`
+        SELECT o.*, p.id AS charge_id, p.amount_fen AS charge_amount_fen,
+          p.channel_amount_fen, p.out_trade_no, p.transaction_id
+        FROM repair_orders o JOIN repair_order_payments p
+          ON p.order_id = o.id AND p.kind = 'charge' AND p.status = 'confirmed'
+        WHERE o.id = ? FOR UPDATE OF o, p
+      `).get(request.params.id);
+      if (!order) throw options.problem(404, "REPAIR_ORDER_NOT_FOUND", "未找到真实支付的维修订单");
+      if (String(order.status) !== "paid") throw options.problem(409, "REPAIR_ORDER_NOT_REFUNDABLE", "当前维修订单不能退款");
+      const liveRefund = await tx.prepare<Row>(`
+        SELECT id FROM repair_order_payments WHERE order_id = ? AND kind = 'refund' AND status IN ('pending', 'confirmed')
+      `).get(request.params.id);
+      if (liveRefund) throw options.problem(409, "REPAIR_REFUND_ALREADY_EXISTS", "该维修订单已有退款记录");
+      const channelFen = Number(order.channel_amount_fen ?? order.charge_amount_fen);
+      if (channelFen <= 0) throw options.problem(409, "REPAIR_REFUND_AMOUNT_INVALID", "支付渠道金额异常，不能退款");
+      const refundId = randomUUID();
+      await tx.prepare(`
+        INSERT INTO repair_order_payments (
+          id, order_id, request_id, quote_id, user_id, provider, kind, idempotency_key,
+          amount_fen, channel_amount_fen, status, out_trade_no, transaction_id, created_at, confirmed_at
+        ) VALUES (?, ?, ?, ?, ?, 'wechat', 'refund', ?, ?, ?, 'pending', NULL, NULL, ?::timestamptz, NULL)
+      `).run(
+        refundId, request.params.id, String(order.request_id), String(order.quote_id),
+        String(order.user_id), body.idempotencyKey, Number(order.total_price_fen), channelFen,
+        now().toISOString(),
+      );
+      return { alreadyConfirmed: false, refundId, order, channelFen, charge: order };
+    });
+    if (prepared.alreadyConfirmed) {
+      return { data: await ownerRequestDetail(database, String(prepared.order.request_id), String(prepared.order.user_id), options.problem), meta: { idempotent: true } };
+    }
+    try {
+      await createDomesticRefund({
+        outTradeNo: prepared.charge!.out_trade_no == null ? undefined : String(prepared.charge!.out_trade_no),
+        transactionId: prepared.charge!.transaction_id == null ? undefined : String(prepared.charge!.transaction_id),
+        outRefundNo: `rr${String(prepared.charge!.charge_id).replaceAll("-", "")}`.slice(0, 64),
+        reason: body.reason,
+        refundFen: prepared.channelFen,
+        totalFen: prepared.channelFen,
+      });
+    } catch (error) {
+      await database.prepare("UPDATE repair_order_payments SET status = 'failed' WHERE id = ? AND status = 'pending'")
+        .run(prepared.refundId);
+      throw options.problem(502, "WECHAT_REFUND_FAILED", error instanceof Error ? error.message : "微信退款失败");
+    }
+    const refundedAt = now().toISOString();
+    await database.transaction(async (tx) => {
+      await tx.prepare("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))")
+        .get(`repair-refund:${request.params.id}`);
+      const locked = await tx.prepare<Row>("SELECT * FROM repair_orders WHERE id = ? FOR UPDATE").get(request.params.id);
+      if (!locked) throw options.problem(404, "REPAIR_ORDER_NOT_FOUND", "未找到维修订单");
+      const refund = await tx.prepare<Row>("SELECT * FROM repair_order_payments WHERE id = ? FOR UPDATE").get(prepared.refundId);
+      if (!refund) throw options.problem(409, "REPAIR_REFUND_STATE_INVALID", "退款记录状态异常");
+      if (String(refund.status) === "confirmed") return;
+      if (String(refund.status) !== "pending") throw options.problem(409, "REPAIR_REFUND_STATE_INVALID", "退款记录状态异常");
+      await tx.prepare("UPDATE repair_order_payments SET status = 'confirmed', confirmed_at = ?::timestamptz WHERE id = ?")
+        .run(refundedAt, prepared.refundId);
+      await tx.prepare("UPDATE repair_orders SET status = 'refunded', refunded_at = ?::timestamptz WHERE id = ?")
+        .run(refundedAt, request.params.id);
+      await tx.prepare("UPDATE repair_requests SET status = 'refunded', updated_at = ?::timestamptz WHERE id = ?")
+        .run(refundedAt, String(locked.request_id));
+      await syncRepairWorkflowForRequest(tx, String(locked.request_id), {
+        now: new Date(refundedAt), actorType: "platform", actorId: principal.account.id,
+      });
+      await auditBackofficeEvent(tx, {
+        request, action: "repair.payment.refund", outcome: "success",
+        resource: { type: "repair_order", id: request.params.id },
+        presentation: { category: "finance", actionLabel: "维修订单全额退款", summary: `${locked.order_no} · ${body.reason}` },
+      });
+    });
+    return { data: await ownerRequestDetail(database, String(prepared.order.request_id), String(prepared.order.user_id), options.problem), meta: { idempotent: false } };
   });
 
   app.get<{ Params: { id: string; mediaId: string } }>(

@@ -61,6 +61,7 @@ test("任务码只兑换独立 driver session 所需的最小凭证", () => {
     expiresAt: "2026-08-25T12:00:00.000Z",
     taskId: "assignment-1",
     bookingId: "booking-1",
+    serviceType: "annual_inspection",
   });
 });
 
@@ -173,7 +174,7 @@ test("司机端使用独立 Bearer、私有图片本地化与失败可重试幂�
   assert.match(api, /driverAuthorizationHeaders\(\)/);
   assert.match(api, /wx\.downloadFile\([\s\S]*header:\s*headers/);
   assert.match(api, /localizeTaskEvidence/);
-  assert.match(page, /sourceType:\s*\["camera",\s*"album"\]/);
+  assert.match(page, /sourceType:\s*\["camera"\]/);
   assert.match(page, /const existing = String\(wx\.getStorageSync/);
   assert.match(page, /clearRequestKey\(action, task\.bookingId\)/);
   assert.match(page, /completeEvidence\(\)[\s\S]*void this\.performCompleteEvidence\(stage\);/);
@@ -194,10 +195,10 @@ test("司机端使用独立 Bearer、私有图片本地化与失败可重试幂�
   }
 });
 
-test("代驾取车与检测站接车留证均允许相机或相册", () => {
+test("代驾取送强制现场相机，检测站接车仍允许相机或相册", () => {
   const driverPage = readFileSync(new URL("../miniprogram/packages/driver/pages/task/task.ts", import.meta.url), "utf8");
   const operatorPage = readFileSync(new URL("../miniprogram/packages/operator/pages/operator-detail/operator-detail.ts", import.meta.url), "utf8");
-  assert.match(driverPage, /choosePhoto[\s\S]*sourceType:\s*\["camera",\s*"album"\]/u);
+  assert.match(driverPage, /choosePhoto[\s\S]*sourceType:\s*\["camera"\]/u);
   assert.match(operatorPage, /chooseArrivalEvidence[\s\S]*sourceType:\s*\["camera",\s*"album"\]/u);
 });
 

@@ -1,0 +1,14 @@
+<view class="finance-page">
+  <view class="finance-hero">
+    <text>SETTLEMENT DETAIL</text><text>账单明细</text>
+    <text>仅展示本检测站应收、佣金与付款状态；数据只读，不含车主联系方式、取送地址或微信交易号。</text>
+  </view>
+  <view class="metrics"><view><text>待入账</text><text>{{pendingText}}</text></view><view><text>待付款</text><text>{{payableText}}</text></view><view><text>累计已付</text><text>{{paidText}}</text></view></view>
+  <view wx:if="{{!enabled}}" class="notice">统一财务尚未启用，启用后仅统计切换时间之后的新订单。</view>
+  <view wx:if="{{error}}" class="error"><text>{{error}}</text><button bindtap="retry">重新加载</button></view>
+  <view class="section-title"><text>日账单</text><text>按上海自然日归集</text></view>
+  <view wx:if="{{loading}}" class="empty">正在读取账单…</view>
+  <view wx:elif="{{!statements.length}}" class="empty">当前还没有已封账记录</view>
+  <view wx:else class="statement-list"><view wx:for="{{statements}}" wx:key="id" class="statement" data-id="{{item.id}}" bindtap="openDetail"><view class="statement-head"><view><text>{{item.statementDate}}</text><text>{{item.statementNumber}}</text></view><text class="status status-{{item.status}}">{{item.statusText}}</text></view><view class="amount-grid"><view><text>年检金额</text><text>{{item.grossText}}</text></view><view><text>平台佣金</text><text>{{item.commissionText}}</text></view><view><text>净应收</text><text>{{item.netText}}</text></view></view><view class="statement-foot"><text>{{item.itemCount}} 笔明细 · 本期付款 {{item.payableText}}</text><button data-id="{{item.id}}" catchtap="download" loading="{{downloading}}">下载 XLSX</button></view></view></view>
+  <view wx:if="{{detail}}" class="drawer" catchtouchmove="noop"><view class="mask" bindtap="closeDetail"></view><view class="panel" catchtap="noop"><view class="panel-head"><view><text>账单明细</text><text>{{detail.statementNumber}}</text></view><button bindtap="closeDetail">关闭</button></view><view class="panel-summary"><text>服务 {{detail.grossText}}</text><text>佣金 {{detail.commissionText}}</text><text>应付 {{detail.payableText}}</text></view><scroll-view scroll-y class="items"><view wx:for="{{detail.items}}" wx:key="id" class="item"><view><text>{{item.orderNumber}}</text><text>{{item.componentText}}</text></view><view><text>{{item.grossText}}</text><text>佣金 {{item.commissionText}}</text><text class="{{item.netAmountFen < 0 ? 'negative' : ''}}">净额 {{item.netText}}</text></view></view></scroll-view></view></view>
+</view>

@@ -7,7 +7,7 @@ export type OwnerQuoteLike = {
   createdAt?: string;
 };
 
-export type OwnerRepairRequestStatus = "open" | "paid" | "cancelled";
+export type OwnerRepairRequestStatus = "open" | "pending_payment" | "paid" | "cancelled" | "refunded";
 
 export type OwnerRepairStatusView = {
   title: string;
@@ -132,6 +132,16 @@ export function lowestActivePriceFen<T extends OwnerQuoteLike>(quotes: readonly 
 }
 
 export function ownerRepairStatusView(status: OwnerRepairRequestStatus, quoteCount: number): OwnerRepairStatusView {
+  if (status === "pending_payment") {
+    return {
+      title: "等待完成微信支付",
+      description: "维修报价已经冻结；支付成功后才会开放中选门店的联系方式，并进入真实结算。",
+      tone: "quoted",
+      iconPath: "/assets/icons/receipt.png",
+      canCancel: false,
+      canChooseQuote: true,
+    };
+  }
   if (status === "paid") {
     return {
       title: "已支付 · 已成交",
@@ -146,6 +156,16 @@ export function ownerRepairStatusView(status: OwnerRepairRequestStatus, quoteCou
     return {
       title: "维修询价已取消",
       description: "该需求已停止接收新报价，历史资料仅作为本次询价记录保留。",
+      tone: "cancelled",
+      iconPath: "/assets/icons/warning-circle.png",
+      canCancel: false,
+      canChooseQuote: false,
+    };
+  }
+  if (status === "refunded") {
+    return {
+      title: "维修订单已退款",
+      description: "全额退款已经登记；相关门店应收会在结算前抵消，或在下一账期按原快照冲正。",
       tone: "cancelled",
       iconPath: "/assets/icons/warning-circle.png",
       canCancel: false,

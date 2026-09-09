@@ -1,9 +1,9 @@
 import {
-  DRIVER_PHOTO_SLOTS,
   DRIVER_STAGE_LABELS,
   canStartReturn,
   driverTaskTerminal,
   driverWritableStage,
+  driverPhotoSlots,
   evidenceForStage,
   type DriverEvidencePackage,
   type DriverEvidencePhoto,
@@ -67,6 +67,7 @@ type Data = {
   activeStageLabel: string;
   photoSlots: PhotoSlotView[];
   photoCompleteCount: number;
+  photoRequiredCount: number;
   canCompleteEvidence: boolean;
   showStartReturn: boolean;
   canStartReturn: boolean;
@@ -84,6 +85,9 @@ type Data = {
   workflowSummary: WorkflowTaskSummary;
   workflowNextDueLabel: string;
   workflowLoading: boolean;
+  showWorkflow: boolean;
+  progressSecondLabel: string;
+  progressThirdLabel: string;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -93,11 +97,20 @@ const STATUS_LABELS: Record<string, string> = {
   checked_in: "车辆已到检测站",
   inspecting: "车辆检测中",
   result_received: "检测结果已回传",
+  store_service_completed: "门店服务完成，待返程",
   returning: "车辆送回中",
   completed: "车辆已送达",
   on_hold: "任务已暂缓",
   cancelled: "任务已取消",
   no_show: "任务已终止",
+};
+
+const WASH_STATUS_LABELS: Record<string, string> = {
+  driver_arranged: "待上门取车",
+  picked_up: "已取车，前往洗车门店",
+  store_service_completed: "门店服务完成，待返程",
+  returning: "车辆送回中",
+  completed: "车辆已送达",
 };
 
 function decodeValue(value: string): string {
@@ -127,6 +140,13 @@ function taskStatus(task: DriverTask): string {
 
 function currentCopy(task: DriverTask): { title: string; hint: string; step: number } {
   const status = taskStatus(task);
+  if (task.serviceType === "car_wash") {
+    if (status === "driver_arranged") return { title: "到达取车点，拍摄车辆全景", hint: "现场拍摄一张完整车辆全景后提交取车留证。", step: 1 };
+    if (status === "picked_up") return { title: "已取车，前往洗车门店", hint: "到店后由门店完成服务并使用订单核销码核销。", step: 2 };
+    if (status === "store_service_completed") return { title: "门店已核销，可以开始返程", hint: "确认车辆交接后点击开始送回车辆。", step: 3 };
+    if (status === "returning") return { title: "车辆送回中", hint: "送达后现场拍摄一张车辆全景，提交即完成订单。", step: 4 };
+    if (status === "completed") return { title: "洗车代驾任务已完成", hint: "取车与送回全景留证已封存。", step: 4 };
+  }
   if (status === "driver_arranged") return { title: "到达取车点，拍摄车辆现状", hint: "完成 5 张现场照片后，系统自动记录已取车。无需等待车主线上确认。", step: 1 };
   if (status === "picked_up") return { title: "已完成取车留证", hint: "请将车辆送至预约检测站，到站后由检测站完成入站留证。", step: 2 };
   if (status === "checked_in") return { title: "车辆已安全到站", hint: "检测站已完成到站核验，当前等待检测任务推进。", step: 2 };
@@ -147,7 +167,7 @@ function taskView(task: DriverTask): TaskView {
   return {
     ...task,
     events: task.events.map((event) => ({ ...event, createdAt: formatShanghaiDateTime(event.createdAt) })),
-    statusLabel: STATUS_LABELS[status] || status || "状态待同步",
+    statusLabel: (task.serviceType === "car_wash" ? WASH_STATUS_LABELS[status] : undefined) || STATUS_LABELS[status] || status || "状态待同步",
     statusTone: ["completed"].includes(status) ? "success" : ["cancelled", "no_show", "on_hold"].includes(status) ? "warning" : "active",
     scheduleLabel: scheduleLabel(task),
     ownerPhoneDisplay: task.owner.contactPhone || task.owner.contactPhoneMasked || "联系电话待同步",
@@ -169,14 +189,14 @@ function evidenceViews(task: DriverTask): EvidencePackageView[] {
     label: DRIVER_STAGE_LABELS[item.stage],
     statusLabel: item.status === "completed" ? "留证已完成" : item.photos.length ? "留证拍摄中" : "等待留证",
     statusTone: item.status === "completed" ? "complete" : item.photos.length ? "progress" : "pending",
-    photoCountText: `${item.photos.length}/5 张`,
+    photoCountText: `${item.photos.length}/${task.requiredPhotoKinds.length} 张`,
     capturedTimeLabel: localTime(item.capturedAt),
   }));
 }
 
 function photoSlotViews(task: DriverTask, stage: DriverEvidenceStage | "", uploadingKinds: string[] = []): PhotoSlotView[] {
   const evidence = stage ? evidenceForStage(task, stage) : null;
-  return DRIVER_PHOTO_SLOTS.map((slot) => {
+  return driverPhotoSlots(task).map((slot) => {
     const media = evidence?.photos.find((photo) => photo.kind === slot.kind) || null;
     const uploading = uploadingKinds.includes(slot.kind);
     return {
@@ -246,6 +266,7 @@ Page<Data>({
     activeStageLabel: "",
     photoSlots: [],
     photoCompleteCount: 0,
+    photoRequiredCount: 5,
     canCompleteEvidence: false,
     showStartReturn: false,
     canStartReturn: false,
@@ -263,6 +284,9 @@ Page<Data>({
     workflowSummary: { openCount: 0, dueSoonCount: 0, overdueCount: 0, nextDueAt: null },
     workflowNextDueLabel: "",
     workflowLoading: false,
+    showWorkflow: true,
+    progressSecondLabel: "到站",
+    progressThirdLabel: "检测",
   },
 
   async onLoad(query) {
@@ -296,7 +320,8 @@ Page<Data>({
       }
       if (queryBookingId && queryBookingId !== session.bookingId) throw new Error("任务入口与预约信息不一致");
       this.setData({ bookingId: session.bookingId, initialized: true, exchanging: false });
-      await Promise.all([this.loadTask(false), this.loadWorkflowSummary()]);
+      await this.loadTask(false);
+      if (session.serviceType !== "car_wash") await this.loadWorkflowSummary();
     } catch (error) {
       this.setData({
         initialized: true,
@@ -358,6 +383,7 @@ Page<Data>({
     const activeStage = driverWritableStage(task) || "";
     const slots = photoSlotViews(task, activeStage, uploadingKinds);
     const photoCompleteCount = slots.filter((slot) => Boolean(slot.media)).length;
+    const photoRequiredCount = driverPhotoSlots(task).length;
     const status = taskStatus(task);
     const showHandoff = canShowHandoff(task);
     this.setData({
@@ -367,10 +393,14 @@ Page<Data>({
       activeStageLabel: activeStage ? DRIVER_STAGE_LABELS[activeStage] : "",
       photoSlots: slots,
       photoCompleteCount,
-      canCompleteEvidence: Boolean(activeStage) && photoCompleteCount === DRIVER_PHOTO_SLOTS.length && !uploadingKinds.length,
-      showStartReturn: status === "result_received",
+      photoRequiredCount,
+      canCompleteEvidence: Boolean(activeStage) && photoCompleteCount === photoRequiredCount && !uploadingKinds.length,
+      showStartReturn: status === "result_received" || status === "store_service_completed",
       canStartReturn: canStartReturn(task),
       showHandoff,
+      showWorkflow: task.serviceType !== "car_wash",
+      progressSecondLabel: task.serviceType === "car_wash" ? "到店" : "到站",
+      progressThirdLabel: task.serviceType === "car_wash" ? "洗车" : "检测",
       handoffVerificationCode: showHandoff ? this.data.handoffVerificationCode : "",
       error: "",
     });
@@ -385,7 +415,7 @@ Page<Data>({
     wx.chooseMedia({
       count: 1,
       mediaType: ["image"],
-      sourceType: ["camera", "album"],
+      sourceType: ["camera"],
       success: ({ tempFiles }) => {
         const filePath = tempFiles[0]?.tempFilePath;
         if (filePath) void this.uploadPhoto(stage, kind, filePath);
@@ -572,7 +602,7 @@ Page<Data>({
     if (!evidence) return;
     const items = evidence.photos.filter((photo) => photo.url).map((photo) => ({
       url: photo.url,
-      label: `${DRIVER_STAGE_LABELS[stage]} · ${DRIVER_PHOTO_SLOTS.find((slot) => slot.kind === photo.kind)?.label || "现场照片"}`,
+      label: `${DRIVER_STAGE_LABELS[stage]} · ${driverPhotoSlots(this.data.task).find((slot) => slot.kind === photo.kind)?.label || "现场照片"}`,
     }));
     this.openViewer(items, current);
   },

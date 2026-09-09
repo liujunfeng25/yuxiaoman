@@ -54,15 +54,15 @@ Page<Data>({
     this.setData({
       request,
       ready,
-      shopName: order?.shop.name || selectedQuote?.shop.name || "修理店信息待确认",
+      shopName: order?.shop?.name || selectedQuote?.shop.name || "修理店信息待确认",
       quoteNote: selectedQuote?.note || "门店未填写补充维修说明",
       amountFen,
       amountText: formatFenAmount(amountFen),
       paidAtText: formatRepairDateTime(order?.paidAt || request.paidAt),
-      contactName: order?.shop.contactName || "门店服务人员",
-      contactPhone: order?.shop.contactPhone || "",
-      addressText: order?.shop.address || "门店地址待确认",
-      openHoursText: order?.shop.openHours || "营业时间请电话确认",
+      contactName: order?.shop?.contactName || "门店服务人员",
+      contactPhone: order?.shop?.contactPhone || "",
+      addressText: order?.shop?.address || "门店地址待确认",
+      openHoursText: order?.shop?.openHours || "营业时间请电话确认",
     });
   },
 

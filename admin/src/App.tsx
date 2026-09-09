@@ -54,6 +54,7 @@ import { ProviderWashCatalogPage, ProviderWashOrdersPage, ProviderWashSlotsPage,
 import { VehicleCheckupReportPanel, type VehicleCatalogIdentity, type VehicleCheckupReport } from "./VehicleCheckupReportPanel";
 import { CustomerDetailPage, CustomersPage } from "./CustomerAdmin";
 import { WorkflowAdminPage } from "./WorkflowAdmin";
+import { FinanceAdminPage } from "./FinanceAdmin";
 
 type Page =
   | "bookings"
@@ -76,6 +77,8 @@ type Page =
   | "workflow_releases"
   | "service_accounts"
   | "audit_events"
+  | "finance"
+  | "finance_statements"
   | "wash_dashboard"
   | "wash_slots"
   | "wash_store_profile"
@@ -1143,6 +1146,8 @@ const pagePaths: Record<Page, string> = {
   workflow_releases: "/workflow/releases",
   service_accounts: "/service-accounts",
   audit_events: "/audit",
+  finance: "/finance",
+  finance_statements: "/wash/finance",
   wash_dashboard: "/wash/dashboard",
   wash_slots: "/wash/slots",
   wash_store_profile: "/wash/store",
@@ -1197,6 +1202,7 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     ["driving_schools", "驾校服务", Student],
     ["subsidy_consultation", "补贴咨询", ChatCenteredText],
     ["workflow_tasks", "履约督办", Gauge],
+    ["finance", "财务中心", CreditCard],
     ["workflow_settings", "督办策略", SlidersHorizontal],
     ["workflow_templates", "通知模板", ChatCenteredText],
     ["workflow_recipients", "通知联系人", Users],
@@ -1210,7 +1216,8 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     ["wash_slots", "预约时段", CalendarCheck],
     ["wash_catalog", "套餐与价格", CurrencyCny],
     ["wash_store_profile", "门店资料", Buildings],
-    ["wash_settlements", "对账记录", ListChecks],
+    ["finance_statements", "账单明细", CreditCard],
+    ["wash_settlements", "历史单笔对账", ListChecks],
     ["audit_self", "我的操作记录", ShieldCheck],
   ];
   const stationNavigation: Array<[Page, string, typeof ClipboardText]> = [
@@ -1240,17 +1247,19 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
     workflow_releases: "发布与审计记录",
     service_accounts: "服务商账号与主体绑定",
     audit_events: "操作记录",
+    finance: "统一财务中心",
+    finance_statements: "本店日账单明细",
     wash_dashboard: "洗车门店经营工作台",
     wash_slots: "本店预约时段与容量",
     wash_store_profile: "本店主体与展示资料",
-    wash_settlements: "本店只读对账记录",
+    wash_settlements: "历史单笔对账记录",
     audit_self: "我的操作记录",
     forbidden: "无权访问",
   };
   const platformOnlyPages: Page[] = ["bookings", "customers", "customer_detail", "stations", "price_plans", "valet", "wash_stores", "car_rental", "insurance_leads", "driving_schools", "subsidy_consultation", "workflow_templates", "workflow_recipients", "workflow_releases", "service_accounts", "audit_events"];
   const providerCapabilities: Partial<Record<Page, string>> = {
     wash_dashboard: "wash.dashboard.read", wash_orders: "wash.orders.read", wash_slots: "wash.slots.read", wash_catalog: "wash.offers.read",
-    wash_store_profile: "wash.store.read", wash_settlements: "wash.settlements.read", audit_self: "audit.self.read",
+    wash_store_profile: "wash.store.read", finance_statements: "finance.read", wash_settlements: "wash.settlements.read", audit_self: "audit.self.read",
     workflow_tasks: "workflow.tasks.read", workflow_settings: "workflow.tasks.read",
   };
   const allowed = page !== "forbidden" && (!scopedMode || (!platformOnlyPages.includes(page) && Boolean(providerCapabilities[page] && session.capabilities.includes(providerCapabilities[page]!))));
@@ -1292,6 +1301,8 @@ function OperationsApp({ session, logout }: { session: BackofficeSession; logout
       {allowed && page === "workflow_releases" ? <WorkflowAdminPage section="releases" onNavigate={navigate} onError={showError} canManage={session.capabilities.includes("workflow.settings.manage")} canRemind={session.capabilities.includes("workflow.tasks.remind")} viewerRole={session.account.role} /> : null}
       {allowed && page === "service_accounts" ? <ServiceAccountsPage onError={showError} /> : null}
       {allowed && page === "audit_events" ? <AuditEventsPage onError={showError} /> : null}
+      {allowed && page === "finance" ? <FinanceAdminPage mode="platform" onError={showError} /> : null}
+      {allowed && page === "finance_statements" ? <FinanceAdminPage mode="wash" onError={showError} /> : null}
       {allowed && page === "wash_dashboard" ? <WashProviderDashboard onNavigate={navigate} onError={showError} /> : null}
       {allowed && page === "wash_slots" ? <ProviderWashSlotsPage subjectId={session.subject?.id || ""} onError={showError} /> : null}
       {allowed && page === "wash_store_profile" ? <ProviderWashStorePage subjectId={session.subject?.id || ""} onError={showError} /> : null}

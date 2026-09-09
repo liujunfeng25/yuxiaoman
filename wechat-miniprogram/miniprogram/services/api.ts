@@ -311,12 +311,12 @@ function normalizeRepairRequest(raw: RepairRequest): RepairRequest {
     order: raw.order ? {
       ...raw.order,
       totalPriceFen: Number(raw.order.totalPriceFen || 0),
-      shop: {
+      shop: raw.order.shop ? {
         ...raw.order.shop,
-        distanceKm: Number(raw.order.shop?.distanceKm || 0),
-        rating: Number(raw.order.shop?.rating || 0),
-        isDemo: raw.order.shop?.isDemo !== false,
-      },
+        distanceKm: Number(raw.order.shop.distanceKm || 0),
+        rating: Number(raw.order.shop.rating || 0),
+        isDemo: raw.order.shop.isDemo !== false,
+      } : null,
       payment: {
         ...raw.order.payment,
         amountFen: Number(raw.order.payment?.amountFen || raw.order.totalPriceFen || 0),
@@ -1672,7 +1672,38 @@ export const api = {
   repairRequests: async () => (await request<RepairRequestSummary[]>("/repair/requests")).map(normalizeRepairRequestSummary),
   repairRequest: async (id: string) => localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>(`/repair/requests/${encodeURIComponent(id)}`)),
   cancelRepairRequest: async (id: string) => localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>(`/repair/requests/${encodeURIComponent(id)}/cancel`, "POST", {})),
-  payRepairRequest: async (id: string, quoteId: string, idempotencyKey: string) => localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>(`/repair/requests/${encodeURIComponent(id)}/mock-pay`, "POST", { quoteId, idempotencyKey })),
+  payRepairRequest: async (id: string, quoteId: string, idempotencyKey: string) => {
+    const providerInfo = await api.paymentProvider().catch(() => ({
+      provider: "mock" as const, wechatConfigured: false, mockAllowed: false,
+    }));
+    if (!providerInfo.wechatConfigured) {
+      if (!providerInfo.mockAllowed) throw new Error("微信支付未配置，当前环境不允许模拟支付");
+      return localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>(
+        `/repair/requests/${encodeURIComponent(id)}/mock-pay`, "POST", { quoteId, idempotencyKey },
+      ));
+    }
+    const payload = await request<{
+      request: RepairRequest;
+      payment: { id: string; provider: "wechat"; status: string; amountFen: number };
+      wechatPay?: { timeStamp: string; nonceStr: string; package: string; signType: "RSA"; paySign: string };
+    }>(`/repair/requests/${encodeURIComponent(id)}/payments`, "POST", { quoteId, idempotencyKey });
+    if (payload.wechatPay) {
+      await new Promise<void>((resolve, reject) => {
+        wx.requestPayment({
+          ...payload.wechatPay!,
+          success: () => resolve(),
+          fail: (error) => reject(new Error(error.errMsg || "微信支付未完成")),
+        });
+      });
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const current = await request<RepairRequest>(`/repair/requests/${encodeURIComponent(id)}`);
+        if (current.status === "paid") return localizeOwnerRepairRequestPrivateMedia(current);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      return localizeOwnerRepairRequestPrivateMedia(await request<RepairRequest>(`/repair/requests/${encodeURIComponent(id)}`));
+    }
+    return localizeOwnerRepairRequestPrivateMedia(payload.request);
+  },
   createBooking: async (data: Record<string, unknown>) => localizeOwnerBookingPrivateMedia(
     normalizeBooking(await request<Booking>("/bookings", "POST", data)),
   ),

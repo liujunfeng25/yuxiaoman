@@ -75,6 +75,13 @@ declare const wx: {
     success(result: { statusCode: number; tempFilePath: string; filePath?: string }): void;
     fail(error: { errMsg?: string }): void;
   }): void;
+  openDocument(options: {
+    filePath: string;
+    fileType?: "xlsx" | "xls" | "doc" | "docx" | "pdf" | "ppt" | "pptx";
+    showMenu?: boolean;
+    success?(): void;
+    fail?(error: { errMsg?: string }): void;
+  }): void;
   saveFile(options: {
     tempFilePath: string;
     success(result: { savedFilePath: string }): void;

@@ -1,6 +1,6 @@
 import { PLATE_CATEGORIES } from "../../wechat-miniprogram/miniprogram/utils/plate-categories.js";
 import assert from "node:assert/strict";
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7808,6 +7808,73 @@ test("洗车代驾按腾讯单程路线生成往返取送快照并支持门店�
     assert.equal(payment.statusCode, 201, payment.body);
     assert.equal(payment.json<Json>().data.payment.amountFen, 16300);
     assert.equal(payment.json<Json>().data.order.serviceMode, "valet");
+    const redemptionCode = payment.json<Json>().data.order.verificationCode;
+    assert.match(redemptionCode, /^\d{6}$/u);
+
+    const valetCompanyId = randomUUID();
+    await database.prepare(`INSERT INTO valet_companies (id, code, name, contact_name, contact_phone, is_active, created_at, updated_at)
+      VALUES (?, 'VALET-TEST', '测试合作代驾公司', '赵调度', '13900139000', TRUE, now(), now())`).run(valetCompanyId);
+    await database.prepare("UPDATE finance_settings SET enabled = TRUE, cutover_at = now(), default_valet_company_id = ? WHERE id = 1").run(valetCompanyId);
+    const assignmentResponse = await app.inject({
+      method: "POST",
+      url: `/api/admin/wash/orders/${order.id}/driver-assignment`,
+      payload: { dispatcherName: "赵调度", dispatcherPhone: "13900139000" },
+    });
+    assert.equal(assignmentResponse.statusCode, 201, assignmentResponse.body);
+    const verificationCode = assignmentResponse.json<Json>().data.verificationCode;
+    assert.match(verificationCode, /^\d{6}$/u);
+    const exchangeResponse = await app.inject({
+      method: "POST",
+      url: "/api/wash-driver/task-sessions/exchange",
+      payload: { verificationCode, driverPhone: "13900139001" },
+    });
+    assert.equal(exchangeResponse.statusCode, 201, exchangeResponse.body);
+    const driverToken = exchangeResponse.json<Json>().data.token;
+    const pickupPhoto = await requestValetEvidenceMedia(
+      app,
+      `/api/wash-driver/tasks/${order.id}/evidence/owner_pickup/media`,
+      "vehicle_panorama",
+      { token: driverToken },
+    );
+    assert.equal(pickupPhoto.statusCode, 201, pickupPhoto.body);
+    const pickupComplete = await app.inject({
+      method: "POST",
+      url: `/api/wash-driver/tasks/${order.id}/evidence/owner_pickup/complete`,
+      headers: { authorization: `Bearer ${driverToken}` },
+      payload: { idempotencyKey: "wash-valet-pickup-complete-001" },
+    });
+    assert.equal(pickupComplete.statusCode, 200, pickupComplete.body);
+    assert.equal(pickupComplete.json<Json>().data.fulfillmentStatus, "picked_up");
+    const redeemResponse = await washAdminInject(app, {
+      method: "POST",
+      url: "/api/admin/wash/orders/redeem",
+      payload: { code: redemptionCode, source: "wechat", operator: "admin" },
+    });
+    assert.equal(redeemResponse.statusCode, 200, redeemResponse.body);
+    assert.equal(redeemResponse.json<Json>().data.fulfillmentStatus, "store_service_completed");
+    const startReturn = await app.inject({
+      method: "POST",
+      url: `/api/wash-driver/tasks/${order.id}/start-return`,
+      headers: { authorization: `Bearer ${driverToken}` },
+      payload: { idempotencyKey: "wash-valet-return-start-001" },
+    });
+    assert.equal(startReturn.statusCode, 200, startReturn.body);
+    assert.equal(startReturn.json<Json>().data.fulfillmentStatus, "returning");
+    const returnPhoto = await requestValetEvidenceMedia(
+      app,
+      `/api/wash-driver/tasks/${order.id}/evidence/owner_return/media`,
+      "vehicle_panorama",
+      { token: driverToken },
+    );
+    assert.equal(returnPhoto.statusCode, 201, returnPhoto.body);
+    const returnComplete = await app.inject({
+      method: "POST",
+      url: `/api/wash-driver/tasks/${order.id}/evidence/owner_return/complete`,
+      headers: { authorization: `Bearer ${driverToken}` },
+      payload: { idempotencyKey: "wash-valet-return-complete-001" },
+    });
+    assert.equal(returnComplete.statusCode, 200, returnComplete.body);
+    assert.equal(returnComplete.json<Json>().data.fulfillmentStatus, "completed");
 
     const valetOrders = await washAdminInject(app, {
       method: "GET",

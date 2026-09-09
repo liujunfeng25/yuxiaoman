@@ -672,7 +672,7 @@ export type VehicleCheckupReportListQuery = {
   cursor?: string;
 };
 
-export type RepairRequestStatus = "open" | "paid" | "cancelled";
+export type RepairRequestStatus = "open" | "pending_payment" | "paid" | "cancelled" | "refunded";
 export type RepairQuoteStatus = "active" | "withdrawn" | "selected" | "lost";
 
 export type RepairVehicleSnapshot = {
@@ -754,15 +754,16 @@ export type RepairRequestQuote = {
 export type RepairOrder = {
   id: string;
   orderNo: string;
-  status: "paid";
+  status: "pending_payment" | "paid" | "refunded";
   totalPriceFen: number;
-  paidAt: string;
-  shop: RepairShopContact;
+  paidAt: string | null;
+  shop: RepairShopContact | null;
   payment: {
-    provider: "mock";
-    status: "confirmed";
+    provider: "mock" | "wechat";
+    status: "pending" | "confirmed" | "failed";
     amountFen: number;
-    confirmedAt: string;
+    channelAmountFen?: number;
+    confirmedAt: string | null;
   };
 };
 
