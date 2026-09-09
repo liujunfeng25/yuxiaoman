@@ -128,10 +128,11 @@ function isoTimestamp(value: unknown): string {
 }
 
 function isoDate(value: unknown): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  // node-pg returns DATE as a JS Date at local midnight; slicing UTC would shift back one day in China.
+  if (value instanceof Date) return shanghaiDate(value);
   const raw = String(value ?? "");
   const match = raw.match(/^\d{4}-\d{2}-\d{2}/u);
-  return match?.[0] ?? safeDate(value, new Date(0)).toISOString().slice(0, 10);
+  return match?.[0] ?? shanghaiDate(safeDate(value, new Date(0)));
 }
 
 async function financeSettings(database: AppDatabase): Promise<Row> {
