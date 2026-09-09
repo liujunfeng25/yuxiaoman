@@ -1035,16 +1035,32 @@ function RulesPanel({
   }
   return (
     <>
-    <section className="finance-card finance-setup">
-      <div><small>GO-LIVE GATE</small><h3>统一财务启用闸门</h3><p>{settings?.enabled ? `已于 ${dateTime(settings.cutoverAt)} 启用；历史订单不回填。` : "发布四套规则并配置唯一合作代驾公司后方可启用。"}</p></div>
-      <form key={settings?.valetCompany?.id || "new-company"} onSubmit={saveCompany}>
-        <label>公司编码<input name="code" required defaultValue={settings?.valetCompany?.code || ""} /></label>
-        <label>合作代驾公司<input name="name" required defaultValue={settings?.valetCompany?.name || ""} /></label>
+    <section className="finance-card finance-partner-card">
+      <header className="finance-partner-header">
+        <div>
+          <small>PARTNER</small>
+          <h3>合作代驾公司</h3>
+          <p>代驾费结算会付给这里配置的公司。修改后点「保存」即可，不影响已出结算单。</p>
+        </div>
+        <div className={`finance-enable-badge ${settings?.enabled ? "is-on" : "is-off"}`}>
+          {settings?.enabled
+            ? `财务已启用 · 自 ${dateTime(settings.cutoverAt)} 起的新订单`
+            : "财务尚未启用"}
+        </div>
+      </header>
+      <form key={settings?.valetCompany?.id || "new-company"} className="finance-partner-form" onSubmit={saveCompany}>
+        <label>公司编码<input name="code" required defaultValue={settings?.valetCompany?.code || ""} placeholder="如 YXM-VALET-01" /></label>
+        <label>公司名称<input name="name" required defaultValue={settings?.valetCompany?.name || ""} placeholder="合作代驾公司全称" /></label>
         <label>调度联系人<input name="contactName" defaultValue={settings?.valetCompany?.contactName || ""} /></label>
         <label>联系电话<input name="contactPhone" defaultValue={settings?.valetCompany?.contactPhone || ""} /></label>
-        <button type="submit">保存公司</button>
+        <button type="submit">保存代驾公司</button>
       </form>
-      <button className="finance-enable" disabled={Boolean(settings?.enabled)} onClick={() => void enableFinance()}>{settings?.enabled ? "统一财务已启用" : "确认切换并启用"}</button>
+      {!settings?.enabled ? (
+        <div className="finance-enable-row">
+          <p>启用前请确认：年检 / 洗车 / 维修 / 代驾四套结算规则均已发布，且上方代驾公司已保存。</p>
+          <button type="button" className="finance-enable" onClick={() => void enableFinance()}>启用统一财务</button>
+        </div>
+      ) : null}
     </section>
     <section className="rules-layout">
       <form className="finance-card rule-create" onSubmit={createRule}>
