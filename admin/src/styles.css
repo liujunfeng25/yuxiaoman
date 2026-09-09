@@ -206,6 +206,9 @@ td small { margin-top: 4px; color: #8a98a6; font-size: 9px; }
 .table-action svg { width: 13px; }
 .table-action-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .finance-filter-reset { height: 36px; margin-left: auto; padding: 0 12px; border: 0; color: #2b75b4; background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
+.finance-print-all { display: inline-flex; height: 36px; align-items: center; gap: 6px; padding: 0 14px; border: 0; border-radius: 9px; color: #fff; background: #1768cf; font-size: 10px; font-weight: 800; cursor: pointer; }
+.finance-print-all:disabled { opacity: .55; cursor: not-allowed; }
+.finance-print-all svg { width: 15px; height: 15px; }
 .finance-drawer-header-actions { display: flex; align-items: center; gap: 8px; }
 .finance-drawer-print { display: inline-flex !important; width: auto !important; height: 36px !important; align-items: center; gap: 6px; padding: 0 12px !important; border-radius: 999px !important; color: #fff; background: rgba(255,255,255,.16) !important; font-size: 10px; font-weight: 800; }
 .finance-drawer-print svg { width: 15px; height: 15px; }

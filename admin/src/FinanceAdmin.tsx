@@ -222,7 +222,7 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;");
 }
 
-function printStatementDetail(detail: StatementDetail) {
+function renderStatementPrintBlock(detail: StatementDetail) {
   const typeLabel =
     counterpartyTypeLabels[detail.counterpartyType] ?? detail.counterpartyType;
   const rows = detail.items
@@ -239,29 +239,8 @@ function printStatementDetail(detail: StatementDetail) {
     </tr>`,
     )
     .join("");
-  const html = `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(detail.statementNumber)}</title>
-  <style>
-    body { font-family: "PingFang SC", "Noto Sans SC", sans-serif; color: #18344d; margin: 28px; }
-    h1 { margin: 0 0 6px; font-size: 22px; }
-    .meta { color: #5f7386; font-size: 13px; margin-bottom: 18px; }
-    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
-    .summary div { border: 1px solid #d7e2ec; border-radius: 8px; padding: 10px 12px; }
-    .summary small { display: block; color: #718697; font-size: 12px; margin-bottom: 4px; }
-    .summary strong { font-size: 18px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #e4ebf1; padding: 10px 8px; text-align: left; font-size: 13px; vertical-align: top; }
-    th { color: #607687; font-size: 12px; }
-    small { color: #7a8d9d; }
-    .footer { margin-top: 22px; color: #7a8d9d; font-size: 12px; }
-    @media print { body { margin: 12mm; } }
-  </style>
-</head>
-<body>
-  <h1>日结算单 ${escapeHtml(detail.statementNumber)}</h1>
+  return `<section class="statement-block">
+  <h2>日结算单 ${escapeHtml(detail.statementNumber)}</h2>
   <div class="meta">
     ${escapeHtml(detail.counterpartyName)}（${escapeHtml(typeLabel)}） ·
     账单日期 ${escapeHtml(financeDate(detail.statementDate))} ·
@@ -274,13 +253,79 @@ function printStatementDetail(detail: StatementDetail) {
   </div>
   <table>
     <thead><tr><th>订单 / 费用</th><th>服务金额</th><th>佣金</th><th>净额</th></tr></thead>
-    <tbody>${rows}</tbody>
+    <tbody>${rows || `<tr><td colspan="4">暂无明细</td></tr>`}</tbody>
   </table>
-  <div class="footer">打印时间 ${escapeHtml(dateTime(new Date().toISOString()))}</div>
+</section>`;
+}
+
+function printStatementBatch(details: StatementDetail[]) {
+  if (!details.length) throw new Error("当前没有可打印的日账单");
+  const summaryRows = details
+    .map(
+      (detail) => `<tr>
+      <td>${escapeHtml(financeDate(detail.statementDate))}<br/><small>${escapeHtml(detail.statementNumber)}</small></td>
+      <td>${escapeHtml(detail.counterpartyName)}<br/><small>${escapeHtml(
+        counterpartyTypeLabels[detail.counterpartyType] ?? detail.counterpartyType,
+      )}</small></td>
+      <td>¥${money(detail.grossAmountFen)}</td>
+      <td>¥${money(detail.commissionAmountFen)}</td>
+      <td>¥${money(detail.payableAmountFen)}</td>
+      <td>${escapeHtml(statusLabels[detail.status] ?? detail.status)}</td>
+    </tr>`,
+    )
+    .join("");
+  const totalPayable = details.reduce((sum, item) => sum + item.payableAmountFen, 0);
+  const blocks = details.map(renderStatementPrintBlock).join("\n");
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>日账单批量打印（${details.length} 条）</title>
+  <style>
+    body { font-family: "PingFang SC", "Noto Sans SC", sans-serif; color: #18344d; margin: 28px; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    h2 { margin: 0 0 6px; font-size: 18px; }
+    .meta { color: #5f7386; font-size: 13px; margin-bottom: 14px; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+    .summary div { border: 1px solid #d7e2ec; border-radius: 8px; padding: 10px 12px; }
+    .summary small { display: block; color: #718697; font-size: 12px; margin-bottom: 4px; }
+    .summary strong { font-size: 18px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    th, td { border-bottom: 1px solid #e4ebf1; padding: 10px 8px; text-align: left; font-size: 13px; vertical-align: top; }
+    th { color: #607687; font-size: 12px; }
+    small { color: #7a8d9d; }
+    .cover { margin-bottom: 28px; }
+    .statement-block { page-break-before: always; padding-top: 4px; }
+    .footer { margin-top: 18px; color: #7a8d9d; font-size: 12px; }
+    @media print {
+      body { margin: 10mm; }
+      .statement-block { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h1>日账单汇总（当前列表 ${details.length} 条）</h1>
+    <div class="meta">应付合计 ¥${money(totalPayable)} · 打印时间 ${escapeHtml(dateTime(new Date().toISOString()))}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>账单日期 / 编号</th>
+          <th>合作方</th>
+          <th>服务金额</th>
+          <th>平台佣金</th>
+          <th>付款金额</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>${summaryRows}</tbody>
+    </table>
+  </section>
+  ${blocks}
   <script>window.onload = () => { window.print(); };</script>
 </body>
 </html>`;
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=900,height=700");
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
   if (!popup) throw new Error("浏览器拦截了打印窗口，请允许弹窗后重试");
   popup.document.open();
   popup.document.write(html);
@@ -332,6 +377,7 @@ export function FinanceAdminPage({
   const [closeDate, setCloseDate] = useState(() =>
     new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
   );
+  const [printing, setPrinting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -426,17 +472,25 @@ export function FinanceAdminPage({
     }
   }
 
-  async function printStatement(statement: Statement | StatementDetail) {
+  async function printCurrentStatements() {
+    if (!statements.length) {
+      onError(new Error("当前没有可打印的日账单，请先筛选或生成账单"));
+      return;
+    }
+    setPrinting(true);
     try {
-      const detail =
-        "items" in statement && Array.isArray(statement.items)
-          ? statement
-          : await api<StatementDetail>(
-              `${base}/statements/${encodeURIComponent(statement.id)}`,
-            );
-      printStatementDetail(detail);
+      const details = await Promise.all(
+        statements.map((item) =>
+          api<StatementDetail>(
+            `${base}/statements/${encodeURIComponent(item.id)}`,
+          ),
+        ),
+      );
+      printStatementBatch(details);
     } catch (error) {
       onError(error);
+    } finally {
+      setPrinting(false);
     }
   }
 
@@ -878,8 +932,35 @@ export function FinanceAdminPage({
               >
                 清除筛选
               </button>
+              <button
+                type="button"
+                className="finance-print-all"
+                disabled={printing || !statements.length}
+                title="打印当前筛选结果中的全部日账单"
+                onClick={() => void printCurrentStatements()}
+              >
+                <Printer />
+                {printing
+                  ? "准备打印…"
+                  : `一键打印（${statements.length}）`}
+              </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="finance-filter">
+              <button
+                type="button"
+                className="finance-print-all"
+                disabled={printing || !statements.length}
+                title="打印当前页全部日账单"
+                onClick={() => void printCurrentStatements()}
+              >
+                <Printer />
+                {printing
+                  ? "准备打印…"
+                  : `一键打印（${statements.length}）`}
+              </button>
+            </div>
+          )}
           <div className="table-wrap">
             <table>
               <thead>
@@ -922,31 +1003,17 @@ export function FinanceAdminPage({
                       </span>
                     </td>
                     <td>
-                      <div className="table-action-group">
-                        <button
-                          className="table-action"
-                          type="button"
-                          title="打印结算单"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void printStatement(item);
-                          }}
-                        >
-                          <Printer />
-                          打印
-                        </button>
-                        <button
-                          className="table-action"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void downloadStatement(base, item).catch(onError);
-                          }}
-                        >
-                          <DownloadSimple />
-                          XLSX
-                        </button>
-                      </div>
+                      <button
+                        className="table-action"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void downloadStatement(base, item).catch(onError);
+                        }}
+                      >
+                        <DownloadSimple />
+                        XLSX
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -985,15 +1052,6 @@ export function FinanceAdminPage({
                 </p>
               </div>
               <div className="finance-drawer-header-actions">
-                <button
-                  type="button"
-                  className="finance-drawer-print"
-                  title="打印结算单"
-                  onClick={() => void printStatement(selectedStatement)}
-                >
-                  <Printer />
-                  打印
-                </button>
                 <button
                   type="button"
                   aria-label="关闭"
