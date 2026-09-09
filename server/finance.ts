@@ -191,10 +191,8 @@ async function insertPaymentProjection(database: AppDatabase, cutoverAt: string)
     SELECT 'annual-charge-' || p.id, 'booking_payment', p.id, 'annual_inspection', b.id,
       b.booking_number, 'charge', p.provider, p.amount_fen,
       COALESCE(p.channel_amount_fen, p.amount_fen), p.transaction_id, p.out_trade_no,
-      CASE WHEN p.status = 'confirmed' AND p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = p.amount_fen THEN 'confirmed'
-        WHEN p.status = 'confirmed' AND p.provider = 'wechat' THEN 'anomaly'
-        WHEN p.status = 'confirmed' THEN 'confirmed' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
-      p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = p.amount_fen,
+      CASE WHEN p.status = 'confirmed' THEN 'confirmed' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
+      p.provider = 'wechat' AND p.status = 'confirmed',
       COALESCE(p.confirmed_at, p.created_at)::timestamptz, now()
     FROM booking_payments p JOIN bookings b ON b.id = p.booking_id
     WHERE b.created_at::timestamptz >= ?::timestamptz
@@ -233,10 +231,8 @@ async function insertPaymentProjection(database: AppDatabase, cutoverAt: string)
       o.order_number, p.kind, p.provider,
       CASE WHEN p.kind = 'charge' THEN o.total_fee_fen ELSE p.amount_fen END,
       COALESCE(p.channel_amount_fen, p.amount_fen), p.transaction_id, p.out_trade_no,
-      CASE WHEN p.status = 'confirmed' AND p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = CASE WHEN p.kind = 'charge' THEN o.total_fee_fen ELSE p.amount_fen END THEN 'confirmed'
-        WHEN p.status = 'confirmed' AND p.provider = 'wechat' THEN 'anomaly'
-        WHEN p.status = 'confirmed' THEN 'confirmed' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
-      p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = CASE WHEN p.kind = 'charge' THEN o.total_fee_fen ELSE p.amount_fen END,
+      CASE WHEN p.status = 'confirmed' THEN 'confirmed' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
+      p.provider = 'wechat' AND p.status = 'confirmed',
       COALESCE(p.confirmed_at, p.created_at)::timestamptz, now()
     FROM wash_order_payments p JOIN wash_orders o ON o.id = p.order_id
     WHERE o.created_at::timestamptz >= ?::timestamptz
@@ -255,9 +251,8 @@ async function insertPaymentProjection(database: AppDatabase, cutoverAt: string)
       o.order_no, p.kind, p.provider,
       CASE WHEN p.kind = 'charge' THEN o.total_price_fen ELSE p.amount_fen END,
       COALESCE(p.channel_amount_fen, p.amount_fen), p.transaction_id, p.out_trade_no,
-      CASE WHEN p.status = 'confirmed' AND p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = CASE WHEN p.kind = 'charge' THEN o.total_price_fen ELSE p.amount_fen END THEN 'confirmed'
-        WHEN p.status = 'confirmed' THEN 'anomaly' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
-      p.provider = 'wechat' AND COALESCE(p.channel_amount_fen, p.amount_fen) = CASE WHEN p.kind = 'charge' THEN o.total_price_fen ELSE p.amount_fen END,
+      CASE WHEN p.status = 'confirmed' THEN 'confirmed' WHEN p.status = 'failed' THEN 'failed' ELSE 'pending' END,
+      p.provider = 'wechat' AND p.status = 'confirmed',
       COALESCE(p.confirmed_at, p.created_at), now()
     FROM repair_order_payments p JOIN repair_orders o ON o.id = p.order_id
     WHERE o.created_at::timestamptz >= ?::timestamptz
@@ -312,7 +307,7 @@ async function syncAnnualAccruals(database: AppDatabase, settings: Row, now: Dat
   const cutoverAt = isoTimestamp(settings.cutover_at);
   const rows = await database.prepare<Row>(`
     SELECT b.*, s.name AS station_name, s.data_kind AS station_data_kind,
-      COALESCE((SELECT SUM(COALESCE(p.channel_amount_fen, p.amount_fen)) FROM booking_payments p
+      COALESCE((SELECT SUM(p.amount_fen) FROM booking_payments p
         WHERE p.booking_id = b.id AND p.provider = 'wechat' AND p.status = 'confirmed'), 0) AS real_paid_fen
     FROM bookings b JOIN stations s ON s.id = b.station_id
     WHERE b.created_at::timestamptz >= ?::timestamptz
@@ -376,7 +371,7 @@ async function syncAnnualAccruals(database: AppDatabase, settings: Row, now: Dat
 async function syncWashAccruals(database: AppDatabase, settings: Row, now: Date): Promise<void> {
   const rows = await database.prepare<Row>(`
     SELECT o.*, s.name AS store_name, s.data_kind AS store_data_kind,
-      COALESCE((SELECT SUM(COALESCE(p.channel_amount_fen, p.amount_fen)) FROM wash_order_payments p
+      COALESCE((SELECT SUM(p.amount_fen) FROM wash_order_payments p
         WHERE p.order_id = o.id AND p.provider = 'wechat' AND p.kind = 'charge' AND p.status = 'confirmed'), 0) AS real_paid_fen
     FROM wash_orders o JOIN wash_stores s ON s.id = o.store_id
     WHERE o.created_at::timestamptz >= ?::timestamptz
@@ -441,7 +436,7 @@ async function syncWashAccruals(database: AppDatabase, settings: Row, now: Date)
 async function syncRepairAccruals(database: AppDatabase, settings: Row, now: Date): Promise<void> {
   const rows = await database.prepare<Row>(`
     SELECT o.*, s.name AS shop_name, s.is_demo,
-      COALESCE((SELECT SUM(COALESCE(p.channel_amount_fen, p.amount_fen)) FROM repair_order_payments p
+      COALESCE((SELECT SUM(p.amount_fen) FROM repair_order_payments p
         WHERE p.order_id = o.id AND p.provider = 'wechat' AND p.kind = 'charge' AND p.status = 'confirmed'), 0) AS real_paid_fen
     FROM repair_orders o JOIN repair_shops s ON s.id = o.shop_id
     WHERE o.created_at::timestamptz >= ?::timestamptz AND o.status = 'paid'
