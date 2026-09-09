@@ -670,7 +670,11 @@ function ruleDto(row: Row) {
 
 function statementDto(row: Row) {
   return {
-    id: String(row.id), statementNumber: String(row.statement_number), statementDate: isoDate(row.statement_date),
+    id: String(row.id), statementNumber: String(row.statement_number),
+    // Prefer Postgres date text when present to avoid JS Date timezone shifts.
+    statementDate: typeof row.statement_date_text === "string"
+      ? String(row.statement_date_text).slice(0, 10)
+      : isoDate(row.statement_date),
     counterpartyType: String(row.counterparty_type), counterpartyId: String(row.counterparty_id),
     counterpartyName: String(row.counterparty_name), openingBalanceFen: numberValue(row.opening_balance_fen),
     grossAmountFen: numberValue(row.gross_amount_fen), commissionAmountFen: numberValue(row.commission_amount_fen),
@@ -719,7 +723,7 @@ async function statementDetail(database: AppDatabase, statementId: string, scope
   const values: Array<string> = [statementId];
   const scopeSql = scope ? " AND counterparty_type = ? AND counterparty_id = ?" : "";
   if (scope) values.push(scope.type, scope.id);
-  const row = await database.prepare<Row>(`SELECT * FROM finance_daily_statements WHERE id = ?${scopeSql}`).get(...values);
+  const row = await database.prepare<Row>(`SELECT *, statement_date::text AS statement_date_text FROM finance_daily_statements WHERE id = ?${scopeSql}`).get(...values);
   if (!row) return null;
   const [items, payout] = await Promise.all([
     database.prepare<Row>(`SELECT * FROM finance_statement_items WHERE statement_id = ? ORDER BY sequence_no`).all(statementId),
@@ -1006,7 +1010,7 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     const total = numberValue((await database.prepare<Row>(`SELECT COUNT(*)::text AS count FROM finance_daily_statements ${where}`).get(...values))?.count);
     const rows = await database.prepare<Row>(`
-      SELECT * FROM finance_daily_statements ${where}
+      SELECT *, statement_date::text AS statement_date_text FROM finance_daily_statements ${where}
       ORDER BY statement_date DESC, generated_at DESC LIMIT ? OFFSET ?
     `).all(...values, pageSize, (page - 1) * pageSize);
     return { data: { items: rows.map(statementDto), total, page, pageSize } };
@@ -1284,6 +1288,22 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
     let closeRunning = false;
     const scheduleNextClose = () => {
       const delayMs = msUntilNextShanghaiDailyClose(now(), closeHour);
+      const fireAt = new Date(now().getTime() + delayMs);
+      app.log.info({
+        closeHourShanghai: closeHour,
+        delayMs,
+        fireAtShanghai: new Intl.DateTimeFormat("zh-CN", {
+          timeZone: "Asia/Shanghai",
+          hour12: false,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).format(fireAt),
+        statementDate: previousShanghaiDate(fireAt),
+      }, "finance daily close scheduled (Asia/Shanghai)");
       closeTimer = setTimeout(() => {
         void (async () => {
           if (closeRunning) {
@@ -1293,7 +1313,21 @@ export async function registerFinanceRoutes(app: FastifyInstance, database: AppD
           closeRunning = true;
           try {
             const tick = now();
-            await runFinanceDailyClose(database, previousShanghaiDate(tick), tick);
+            const statementDate = previousShanghaiDate(tick);
+            app.log.info({
+              tickShanghai: new Intl.DateTimeFormat("zh-CN", {
+                timeZone: "Asia/Shanghai",
+                hour12: false,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              }).format(tick),
+              statementDate,
+            }, "finance daily close starting (Asia/Shanghai)");
+            await runFinanceDailyClose(database, statementDate, tick);
           } catch (error) {
             app.log.error({ err: error }, "finance daily close failed");
           } finally {

@@ -23,6 +23,10 @@ test("统一结算按分四舍五入、固定佣金封顶并按单程距离进�
 
 test("日结闹钟按上海时区计算到下一个 02:00", () => {
   assert.equal(previousShanghaiDate(new Date("2026-09-09T03:00:00+08:00")), "2026-09-08");
+  // 跨日边界：中国 0 点刚过，昨天仍是 8 号
+  assert.equal(previousShanghaiDate(new Date("2026-09-09T00:30:00+08:00")), "2026-09-08");
+  // UTC 仍是 8 号晚上时，中国已是 9 号上午
+  assert.equal(previousShanghaiDate(new Date("2026-09-09T04:00:00Z")), "2026-09-08");
   // 01:30 → 今天 02:00
   assert.equal(
     msUntilNextShanghaiDailyClose(new Date("2026-09-09T01:30:00+08:00"), 2),
@@ -35,6 +39,11 @@ test("日结闹钟按上海时区计算到下一个 02:00", () => {
   );
   // 正好 02:00:00 → 立刻可跑
   assert.equal(msUntilNextShanghaiDailyClose(new Date("2026-09-09T02:00:00+08:00"), 2), 0);
+  // 北京晚上 20:00 → 明天 02:00
+  assert.equal(
+    msUntilNextShanghaiDailyClose(new Date("2026-09-09T20:00:00+08:00"), 2),
+    Date.parse("2026-09-10T02:00:00+08:00") - Date.parse("2026-09-09T20:00:00+08:00"),
+  );
 });
 
 async function insertRule(database: Database): Promise<string> {

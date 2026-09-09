@@ -173,8 +173,18 @@ const paymentStatusLabels: Record<string, string> = {
 
 function dateTime(value: string | null | undefined) {
   return value
-    ? new Date(value).toLocaleString("zh-CN", { hour12: false })
+    ? new Date(value).toLocaleString("zh-CN", {
+        hour12: false,
+        timeZone: "Asia/Shanghai",
+      })
     : "—";
+}
+
+function financeDate(value: string | null | undefined) {
+  if (!value) return "—";
+  const match = String(value).match(/^\d{4}-\d{2}-\d{2}/u);
+  if (match) return match[0];
+  return new Date(value).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
 
 async function downloadStatement(base: string, statement: Statement) {
@@ -660,7 +670,7 @@ export function FinanceAdminPage({
                 {statements.map((item) => (
                   <tr key={item.id} onClick={() => void openStatement(item)}>
                     <td>
-                      <strong>{item.statementDate}</strong>
+                      <strong>{financeDate(item.statementDate)}</strong>
                       <small>{item.statementNumber}</small>
                     </td>
                     {mode === "platform" ? (
@@ -725,7 +735,7 @@ export function FinanceAdminPage({
                 <h2>{selectedStatement.statementNumber}</h2>
                 <p>
                   {selectedStatement.counterpartyName} ·{" "}
-                  {selectedStatement.statementDate}
+                  {financeDate(selectedStatement.statementDate)}
                 </p>
               </div>
               <button onClick={() => setSelectedStatement(null)}>
