@@ -1,6 +1,7 @@
 import type { AppDatabase } from "./database.js";
 
-export const CAR_RENTAL_SEED_MARKER = "car-rental-seed-v1";
+export const CAR_RENTAL_SEED_MARKER = "car-rental-seed-v2";
+const CAR_RENTAL_SEED_MARKER_LEGACY = "car-rental-seed-v1";
 
 export async function migrateCarRentalDatabase(database: AppDatabase): Promise<void> {
   await database.execute(`
@@ -260,12 +261,6 @@ const STORE_SEED = [
   { id: "rental-store-hedong", name: "驭小满天津河东店（演示）", district: "河东区", address: "天津市河东区津滨大道附近（演示）", latitude: 39.1171, longitude: 117.2631, openHours: "08:00-21:00", phone: "400-000-2026" },
 ] as const;
 
-const RENTAL_MODEL_IDS = [
-  "model-byd-qin-plus", "model-volkswagen-magotan", "model-tesla-model-3", "model-li-l7",
-  "model-honda-odyssey", "model-li-l9", "model-toyota-camry", "model-toyota-highlander",
-  "model-tesla-model-y", "model-bmw-3-series", "model-volkswagen-tiguan-l", "model-byd-song-plus",
-] as const;
-
 const DAILY_RATES: Record<string, number> = {
   "model-byd-qin-plus": 15_800,
   "model-volkswagen-magotan": 21_800,
@@ -287,13 +282,30 @@ function normalizedEnergy(value: string): string {
   return value;
 }
 
+function allocateRentalVehicleId(taken: Set<string>, sequence: { value: number }, preferred?: string): string {
+  if (preferred && !taken.has(preferred)) {
+    taken.add(preferred);
+    return preferred;
+  }
+  while (true) {
+    const id = `rental-vehicle-${String(sequence.value).padStart(3, "0")}`;
+    sequence.value += 1;
+    if (!taken.has(id)) {
+      taken.add(id);
+      return id;
+    }
+  }
+}
+
 export async function seedCarRentalDemoData(
   database: AppDatabase,
   options: { force?: boolean; now?: string } = {},
 ): Promise<void> {
   const applied = await database.prepare("SELECT 1 FROM app_metadata WHERE key = ?").get(CAR_RENTAL_SEED_MARKER);
   if (applied && !options.force) return;
-  if (options.force) await clearCarRentalData(database);
+  const legacy = await database.prepare("SELECT 1 FROM app_metadata WHERE key = ?").get(CAR_RENTAL_SEED_MARKER_LEGACY);
+  if (options.force || legacy || applied) await clearCarRentalData(database);
+  if (legacy) await database.prepare("DELETE FROM app_metadata WHERE key = ?").run(CAR_RENTAL_SEED_MARKER_LEGACY);
   const now = options.now ?? "2026-08-22T00:00:00.000Z";
 
   const sourceBrands = await database.prepare<Record<string, unknown>>(`
@@ -344,23 +356,44 @@ export async function seedCarRentalDemoData(
   }
 
   const colors = ["珍珠白", "曜石黑", "星空灰", "冰川蓝", "银色", "深海蓝"];
-  for (let index = 0; index < 36; index += 1) {
-    const status = index < 30 ? "active" : index < 33 ? "maintenance" : index < 35 ? "offline" : "retired";
-    const modelId = RENTAL_MODEL_IDS[index % RENTAL_MODEL_IDS.length];
-    const storeId = STORE_SEED[index % STORE_SEED.length].id;
-    const sequence = String(index + 1).padStart(3, "0");
+  const takenIds = new Set<string>();
+  const sequence = { value: 1 };
+  let fleetIndex = 0;
+  const insertVehicle = async (id: string, modelId: string, storeId: string, status: string, plateBase: number) => {
     await database.prepare(`
       INSERT INTO car_rental_vehicles (id,stock_no,model_id,store_id,plate_number,color,model_year,mileage_km,status,is_synthetic,created_at,updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,1,?,?)
       ON CONFLICT (id) DO UPDATE SET model_id=excluded.model_id,store_id=excluded.store_id,status=excluded.status,updated_at=excluded.updated_at
-    `).run(`rental-vehicle-${sequence}`, `YXM-R-${sequence}`, modelId, storeId, `津A${String(20000 + index)}`, colors[index % colors.length],
-      2024 + (index % 2), 3200 + index * 731, status, now, now);
+    `).run(id, `YXM-R-${id.slice(-3)}`, modelId, storeId, `津A${String(plateBase)}`, colors[fleetIndex % colors.length],
+      2024 + (fleetIndex % 2), 3200 + fleetIndex * 731, status, now, now);
+    fleetIndex += 1;
+  };
+
+  // Keep rental-vehicle-004 as the active Ideal L7 unit at the airport store for capacity/assignment tests.
+  const fixtureVehicleId = "rental-vehicle-004";
+  await insertVehicle(fixtureVehicleId, "model-li-l7", "rental-store-hexi", "active", 20004);
+  takenIds.add(fixtureVehicleId);
+
+  for (const row of sourceModels) {
+    const modelId = String(row.id);
+    for (const store of STORE_SEED) {
+      if (modelId === "model-li-l7" && store.id === "rental-store-hexi") continue;
+      const id = allocateRentalVehicleId(takenIds, sequence);
+      await insertVehicle(id, modelId, store.id, "active", 20000 + fleetIndex);
+    }
+  }
+
+  const extraStatuses = ["maintenance", "maintenance", "maintenance", "offline", "offline", "retired"] as const;
+  for (const [index, status] of extraStatuses.entries()) {
+    const id = allocateRentalVehicleId(takenIds, sequence);
+    const modelId = String(sourceModels[index % sourceModels.length].id);
+    const storeId = STORE_SEED[index % STORE_SEED.length].id;
+    await insertVehicle(id, modelId, storeId, status, 30000 + index);
   }
 
   for (const [index, row] of sourceModels.entries()) {
     const modelId = String(row.id);
     const weekday = DAILY_RATES[modelId] ?? Math.min(69_800, 18_800 + index * 900);
-    const bodyType = String(row.body_type);
     const deposit = weekday >= 45_000 ? 800_000 : weekday >= 28_000 ? 500_000 : 300_000;
     await database.prepare(`
       INSERT INTO car_rental_rate_plans (id,model_id,store_id,weekday_rate_fen,weekend_rate_fen,

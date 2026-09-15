@@ -64,19 +64,25 @@ async function multipartImage(app: FastifyInstance, url: string, image: Buffer, 
   return app.inject({ method: "POST", url, headers: { "content-type": `multipart/form-data; boundary=${boundary}` }, payload: Buffer.concat(chunks) });
 }
 
-test("汽车租赁迁移与种子幂等生成 15 品牌、46 车型、3 门店和精确 36 辆车状态", async () => {
+test("汽车租赁迁移与种子幂等生成 15 品牌、46 车型、3 门店，且每车型每门店均有可租车辆", async () => {
   const { database, close } = await fixture("rental_seed");
   try {
     assert.equal(await count(database, "car_rental_brands"), 15);
     assert.equal(await count(database, "car_rental_models"), 46);
     assert.equal(await count(database, "car_rental_model_images"), 46);
     assert.equal(await count(database, "car_rental_stores"), 3);
-    assert.equal(await count(database, "car_rental_vehicles"), 36);
+    assert.equal(await count(database, "car_rental_vehicles"), 144);
     const states = await database.prepare<Json>("SELECT status,COUNT(*) AS count FROM car_rental_vehicles GROUP BY status").all();
-    assert.deepEqual(Object.fromEntries(states.map((row) => [row.status, Number(row.count)])), { active: 30, maintenance: 3, offline: 2, retired: 1 });
-    assert.equal(Number((await database.prepare<Json>("SELECT COUNT(*) AS count FROM car_rental_vehicles WHERE store_id='rental-store-hexi' AND model_id='model-li-l7' AND status='active'").get())?.count), 3);
+    assert.deepEqual(Object.fromEntries(states.map((row) => [row.status, Number(row.count)])), { active: 138, maintenance: 3, offline: 2, retired: 1 });
+    const activePerModel = await database.prepare<Json>(`
+      SELECT model_id, COUNT(*) AS count FROM car_rental_vehicles WHERE status='active' GROUP BY model_id
+    `).all();
+    assert.equal(activePerModel.length, 46);
+    assert.ok(activePerModel.every((row) => Number(row.count) === 3), "每个车型在 3 家门店各 1 台可租车");
+    assert.equal(Number((await database.prepare<Json>("SELECT COUNT(*) AS count FROM car_rental_vehicles WHERE store_id='rental-store-hexi' AND model_id='model-li-l7' AND status='active'").get())?.count), 1);
+    assert.equal(Number((await database.prepare<Json>("SELECT COUNT(*) AS count FROM car_rental_vehicles WHERE id='rental-vehicle-004' AND model_id='model-li-l7' AND store_id='rental-store-hexi' AND status='active'").get())?.count), 1);
     await seedCarRentalDemoData(database);
-    assert.equal(await count(database, "car_rental_vehicles"), 36);
+    assert.equal(await count(database, "car_rental_vehicles"), 144);
     assert.equal(await count(database, "used_car_listings"), 30, "保留旧二手车域，不转换或删除");
   } finally { await close(); }
 });
@@ -92,6 +98,7 @@ test("目录、门店和指定车型报价返回稳定 DTO，押金不计入应�
     assert.equal(brands.length, 15);
     assert.equal(models.length, 46);
     assert.ok(brands.every((brand: Json) => brand.logoUrl && /^[A-Z#]$/.test(brand.initial)));
+    assert.ok(models.every((model: Json) => Number(model.availableCount) >= 1), "目录中每个车型都应有可租库存");
     assert.equal(models.find((model: Json) => model.id === "model-li-l7").availableCount, 3);
 
     const stores = await app.inject({ method: "GET", url: "/api/car-rental/stores" });
@@ -103,6 +110,7 @@ test("目录、门店和指定车型报价返回稳定 DTO，押金不计入应�
     assert.equal(offers.statusCode, 200, offers.body);
     const page = offers.json<Json>().data;
     assert.equal(page.billableDays, 3);
+    assert.equal(page.items.length, 46, "单门店搜索应返回全部 46 款有库存车型");
     const l7 = page.items.find((item: Json) => item.model.id === "model-li-l7");
     assert.ok(l7);
     assert.equal(l7.dailyRateFen, 49_800);
