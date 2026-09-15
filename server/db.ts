@@ -582,6 +582,21 @@ async function insertRows(
 
 const OPERATOR_DEMO_DATE_MARKER = "operator-demo-business-date-v1";
 const OPERATOR_DEMO_FINANCIALS_MARKER = "operator-demo-financials-v1";
+const STATION_SLOTS_HOURLY_SEED_MARKER = "station-slots-hourly-8to17-cap10-v1";
+
+/** Public inspection booking windows: 08:00-17:00 as nine 1-hour slots, 10 vehicles each. */
+export const STATION_SLOT_CAPACITY = 10;
+export const STATION_SLOT_WINDOWS = [
+  ["08:00", "09:00"],
+  ["09:00", "10:00"],
+  ["10:00", "11:00"],
+  ["11:00", "12:00"],
+  ["12:00", "13:00"],
+  ["13:00", "14:00"],
+  ["14:00", "15:00"],
+  ["15:00", "16:00"],
+  ["16:00", "17:00"],
+] as const;
 
 /** 运营演示单 booking-op-*：仅测试默认开启；线上/演示库默认关闭，避免后台列表被污染。 */
 function operatorDemoBookingsEnabled(): boolean {
@@ -590,12 +605,7 @@ function operatorDemoBookingsEnabled(): boolean {
   return process.env.NODE_ENV === "test";
 }
 
-const OPERATOR_SLOT_TIMES = [
-  ["08:30", "09:30"],
-  ["10:00", "11:00"],
-  ["13:30", "14:30"],
-  ["15:00", "16:00"],
-] as const;
+const OPERATOR_SLOT_TIMES = STATION_SLOT_WINDOWS;
 const OPERATOR_BOOKING_SPECS = [
   ["booking-op-1", "operator-user-1", "vehicle-op-1", "awaiting_arrival", 0, "王女士", "13800001001", null],
   ["booking-op-2", "operator-user-2", "vehicle-op-2", "checked_in", 1, "赵先生", "13800001002", null],
@@ -657,7 +667,7 @@ async function seedOperatorDemoBookings(
       await transaction.prepare(`
         INSERT INTO station_slots (
           id, station_id, date, start_time, end_time, capacity, booked_count, created_at
-        ) VALUES (?, ?, ?, ?, ?, 4, 0, ?)
+        ) VALUES (?, ?, ?, ?, ?, ${STATION_SLOT_CAPACITY}, 0, ?)
         ON CONFLICT (id) DO NOTHING
       `).run(targetSlotIds[index], DEMO_STATION_ID, date, start, end, now);
     }
@@ -827,6 +837,61 @@ async function seedOperatorDemoBookings(
     `).run(OPERATOR_DEMO_FINANCIALS_MARKER, now);
     await writeOperatorDemoDate(transaction, date, now);
   });
+}
+
+
+async function upgradeStationSlotsToHourlyWindowsIfNeeded(
+  database: AppDatabase,
+  today: string,
+  now: string,
+): Promise<void> {
+  if (await database.prepare("SELECT 1 FROM app_metadata WHERE key = ?").get(STATION_SLOTS_HOURLY_SEED_MARKER)) return;
+
+  const stations = await database.prepare<{ id: string }>("SELECT id FROM stations ORDER BY id").all();
+  if (!stations.length) return;
+
+  await database.prepare(`
+    DELETE FROM station_slots AS slot
+    WHERE NOT EXISTS (SELECT 1 FROM bookings WHERE slot_id = slot.id)
+      AND slot.date >= ?
+  `).run(today);
+
+  const slots: Array<Record<string, DatabaseValue>> = [];
+  for (const station of stations) {
+    for (let offset = 0; offset <= 16; offset += 1) {
+      const date = dateFromBusinessDay(offset);
+      for (const [start, end] of STATION_SLOT_WINDOWS) {
+        slots.push({
+          id: "slot-" + station.id + "-" + date + "-" + start.replace(":", ""),
+          station_id: station.id,
+          date,
+          start_time: start,
+          end_time: end,
+          capacity: STATION_SLOT_CAPACITY,
+          booked_count: 0,
+          created_at: now,
+        });
+      }
+    }
+  }
+  await insertRows(database, "station_slots", slots);
+
+  // Restore booked_count for any surviving historical slots that still have bookings.
+  await database.execute(`
+    UPDATE station_slots AS slot
+    SET booked_count = (
+      SELECT COUNT(*)::INTEGER
+      FROM bookings AS booking
+      WHERE booking.slot_id = slot.id
+        AND booking.status NOT IN ('cancelled', 'no_show')
+    )
+  `);
+
+  await database.prepare(`
+    INSERT INTO app_metadata (key, value, updated_at)
+    VALUES (?, 'applied', ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(STATION_SLOTS_HOURLY_SEED_MARKER, now);
 }
 
 async function upgradeOperatorDemoFinancialsIfNeeded(database: AppDatabase, now: string): Promise<void> {
@@ -1044,25 +1109,19 @@ async function seedDemoDataInCurrentTransaction(database: AppDatabase, options: 
       await insertRows(database, table, BASELINE_CONFIGURATION[table] ?? []);
     }
 
-    const slotTimes = [
-      ["08:30", "09:30"],
-      ["10:00", "11:00"],
-      ["13:30", "14:30"],
-      ["15:00", "16:00"],
-    ];
     const stationIds = BASELINE_CONFIGURATION.stations.map((station) => String(station.id));
     const slots: Array<Record<string, DatabaseValue>> = [];
     for (const stationId of stationIds) {
       for (let offset = 0; offset <= 16; offset += 1) {
         const date = dateFromBusinessDay(offset);
-        for (const [start, end] of slotTimes) {
+        for (const [start, end] of STATION_SLOT_WINDOWS) {
           slots.push({
             id: "slot-" + stationId + "-" + date + "-" + start.replace(":", ""),
             station_id: stationId,
             date,
             start_time: start,
             end_time: end,
-            capacity: 4,
+            capacity: STATION_SLOT_CAPACITY,
             booked_count: 0,
             created_at: now,
           });
@@ -1070,6 +1129,11 @@ async function seedDemoDataInCurrentTransaction(database: AppDatabase, options: 
       }
     }
     await insertRows(database, "station_slots", slots);
+    await database.prepare(`
+      INSERT INTO app_metadata (key, value, updated_at)
+      VALUES (?, 'applied', ?)
+      ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run(STATION_SLOTS_HOURLY_SEED_MARKER, now);
 
     await seedOperatorDemoBookings(database, today, now, false);
     await insertRows(database, "reminder_preferences", [{
@@ -1091,6 +1155,7 @@ async function seedDemoDataInCurrentTransaction(database: AppDatabase, options: 
   }
 
   await upgradeOperatorDemoFinancialsIfNeeded(database, now);
+  await upgradeStationSlotsToHourlyWindowsIfNeeded(database, today, now);
 
   await seedWashDemoData(database, { force: options.force, businessDate: today, now });
   await seedInsurancePartner(database, now);

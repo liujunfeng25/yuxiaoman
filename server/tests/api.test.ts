@@ -403,7 +403,7 @@ test("年检号源过滤上海当天已开始窗口且创建预约与改期均�
     });
     assert.equal(currentDayResponse.statusCode, 200, currentDayResponse.body);
     const currentDaySlots = currentDayResponse.json<Json>().data;
-    assert.deepEqual(currentDaySlots.map((slot: Json) => slot.startTime), ["13:30", "15:00"]);
+    assert.deepEqual(currentDaySlots.map((slot: Json) => slot.startTime), ["11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]);
 
     const futureDayResponse = await app.inject({
       method: "GET",
@@ -411,7 +411,8 @@ test("年检号源过滤上海当天已开始窗口且创建预约与改期均�
     });
     assert.equal(futureDayResponse.statusCode, 200, futureDayResponse.body);
     const futureDaySlots = futureDayResponse.json<Json>().data;
-    assert.deepEqual(futureDaySlots.map((slot: Json) => slot.startTime), ["08:30", "10:00", "13:30", "15:00"]);
+    assert.deepEqual(futureDaySlots.map((slot: Json) => slot.startTime), ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"]);
+    assert.ok(futureDaySlots.every((slot: Json) => slot.capacity === 10 && slot.remaining === 10));
 
     const vehicle = (await app.inject({ method: "GET", url: "/api/vehicles" })).json<Json>().data[0];
     const startedSlot = await database.prepare<Json>(`
